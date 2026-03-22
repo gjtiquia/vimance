@@ -1,7 +1,11 @@
 package main
 
-import "fmt"
+import (
+	"context"
+	"os"
+)
 
 func main() {
-	fmt.Println("hello world")
+	component := hello("John")
+	component.Render(context.Background(), os.Stdout)
 }

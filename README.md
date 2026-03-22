@@ -30,11 +30,16 @@ htmx - cuz why not
 
 ### prerequisites
 
-- go
+- [go](https://go.dev/doc/install)
+- [templ](https://templ.guide/quick-start/installation)
 
 ### commands
 
 ```bash
+
+# generate templ components
+templ generate
+
 # start server
 go run .
 ```
