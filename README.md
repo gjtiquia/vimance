@@ -25,3 +25,16 @@ most financial transactions occur away from the keyboard, while most financial a
 go - cuz why not, and also im currently learning it, and also want to leave the option open for TUI-client
 
 htmx - cuz why not
+
+## development
+
+### prerequisites
+
+- go
+
+### commands
+
+```bash
+# start server
+go run .
+```
