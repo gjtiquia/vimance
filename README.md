@@ -32,10 +32,14 @@ htmx - cuz why not
 
 - [go](https://go.dev/doc/install)
 - [templ](https://templ.guide/quick-start/installation)
+- [air](https://github.com/air-verse/air?tab=readme-ov-file#installation)
 
 ### commands
 
 ```bash
+
+# start dev server
+air
 
 # generate templ components
 templ generate
