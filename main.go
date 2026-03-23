@@ -23,6 +23,6 @@ import (
 func main() {
 	http.Handle("/", templ.Handler(components.HomePage()))
 
-	fmt.Println("Listening on :3000")
+	fmt.Println("listening on :3000")
 	http.ListenAndServe(":3000", nil)
 }

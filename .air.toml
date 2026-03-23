@@ -10,6 +10,7 @@ tmp_dir = "tmp"
   bin = "./tmp/main"
   pre_cmd = [
     "templ generate",
+    "echo 'proxy running at :3500'"
   ]
   cmd = "go build -o ./tmp/main ."
   delay = 1000
@@ -52,10 +53,11 @@ tmp_dir = "tmp"
   clean_on_exit = true
 
 [proxy]
-  app_port = 0
+  # enable live reloading on browser
+  enabled = true
+  proxy_port = 3500
+  app_port = 3000 # assumes server is running at port 3000
   app_start_timeout = 0
-  enabled = false
-  proxy_port = 0
 
 [screen]
   clear_on_rebuild = false
