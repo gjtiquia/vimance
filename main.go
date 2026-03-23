@@ -9,8 +9,6 @@ import (
 )
 
 // TODO :
-// - setup air
-// - setup hot reload
 // - setup tailwind
 // - setup layout_base.templ and page_home.templ
 // - setup spreadsheet visual
