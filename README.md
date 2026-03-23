@@ -33,17 +33,11 @@ htmx - cuz why not
 - [go](https://go.dev/doc/install)
 - [templ](https://templ.guide/quick-start/installation)
 - [air](https://github.com/air-verse/air?tab=readme-ov-file#installation)
+- [bun](https://bun.sh/)
 
 ### commands
 
 ```bash
-
-# start dev server
+# start dev server with hot reloading
 air
-
-# generate templ components
-templ generate
-
-# start server
-go run .
 ```
