@@ -1,0 +1,20 @@
+package components
+
+templ baseLayout(version string) {
+	<html>
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width"/>
+			<link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
+			<title>vimance</title>
+			<!-- <script src="/public/packages/htmx/htmx.min.js"></script> -->
+			<!-- <script src="/public/packages/htmx/htmx-ext-ws.min.js"></script> -->
+			<!-- <script type="module" src="/public/index.js?={{.}}"></script> -->
+			<link href={ "/public/styles.css?v=" + version } rel="stylesheet"/>
+			<title>vimance</title>
+		</head>
+		<body>
+			{ children... }
+		</body>
+	</html>
+}
