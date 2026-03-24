@@ -10,7 +10,10 @@ tmp_dir = "tmp"
   bin = "./tmp/main"
   pre_cmd = [
     "templ generate",
-    "bunx @tailwindcss/cli -i ./web/src/input.css -o ./web/public/styles.css",
+    # uses npx cuz bunx for some reason does not use cache and always downloads from the internet
+    "npx @tailwindcss/cli -i ./web/src/input.css -o ./web/public/styles.css",
+    # can comment tinygo build if no frequent changes to wasm and want rapid iteration of web frontend
+    "GOOS=js GOARCH=wasm tinygo build -o ./web/public/main.wasm ./web/wasm",
     "echo 'proxy running at :3500'"
   ]
   cmd = "go build -o ./tmp/main ."

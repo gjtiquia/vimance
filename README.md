@@ -31,6 +31,7 @@ htmx - cuz why not
 ### prerequisites
 
 - [go](https://go.dev/doc/install)
+- [tinygo](https://tinygo.org/getting-started/install/)
 - [templ](https://templ.guide/quick-start/installation)
 - [air](https://github.com/air-verse/air?tab=readme-ov-file#installation)
 - [bun](https://bun.sh/)
@@ -38,6 +39,9 @@ htmx - cuz why not
 ### commands
 
 ```bash
+# install dependencies
+bun install
+
 # start dev server with hot reloading
 air
 ```
