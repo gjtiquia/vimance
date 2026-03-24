@@ -9,6 +9,8 @@ tmp_dir = "tmp"
   args_bin = []
   bin = "./tmp/main"
   pre_cmd = [
+    "bunx tsc --noEmit",
+    "bun build ./web/src/index.ts --outdir=./web/public",
     "templ generate",
     # uses npx cuz bunx for some reason does not use cache and always downloads from the internet
     "npx @tailwindcss/cli -i ./web/src/input.css -o ./web/public/styles.css",
