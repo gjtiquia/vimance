@@ -11,7 +11,8 @@ import (
 )
 
 // TODO :
-// - setup layout_base.templ and page_home.templ
+// - client-agnostic engine
+// - embed wasm
 // - setup spreadsheet visual
 // - setup vim keybinds (keep in mind mouse and mobile controls as well)
 // - keep in mind modality, undo tree, keybinding config, command palette
@@ -20,7 +21,7 @@ import (
 // - special columns handling (dates, tags, auto-complete behavior)
 
 func main() {
-	version := getCurrentVersion();
+	version := getCurrentVersion()
 
 	http.Handle("/", templ.Handler(components.HomePage(version)))
 
