@@ -12,8 +12,7 @@ const (
 	ModeVisual
 )
 
-// RuneEsc is the rune value for the Escape key.
-const RuneEsc rune = '\x1b'
+const KeyEsc string = "esc"
 
 func New() Engine {
 	return Engine{
@@ -25,25 +24,28 @@ func (eng *Engine) Mode() Mode {
 	return eng.mode
 }
 
-// TODO : consider special keys and likely need to change to something else other than runes
-// TODO : perhaps just strings for simplicity
-func (eng *Engine) KeyPress(key rune) {
+func (eng *Engine) KeyPress(key string) {
 	switch eng.mode {
 
 	case ModeNormal:
-		if key == 'i' {
+		switch key {
+		case "i":
 			eng.mode = ModeInsert
-		} else if key == 'v' {
+			// TODO : handle cursor position
+		case "a":
+			eng.mode = ModeInsert
+			// TODO : handle cursor position
+		case "v":
 			eng.mode = ModeVisual
 		}
 
 	case ModeInsert:
-		if key == RuneEsc { // Escape key
+		if key == KeyEsc {
 			eng.mode = ModeNormal
 		}
 
 	case ModeVisual:
-		if key == RuneEsc { // Escape key
+		if key == KeyEsc {
 			eng.mode = ModeNormal
 		}
 	}
