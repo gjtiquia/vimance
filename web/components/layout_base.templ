@@ -9,7 +9,8 @@ templ baseLayout(version string) {
 			<title>vimance</title>
 			<!-- <script src="/public/packages/htmx/htmx.min.js"></script> -->
 			<!-- <script src="/public/packages/htmx/htmx-ext-ws.min.js"></script> -->
-			<!-- <script type="module" src="/public/index.js?={{.}}"></script> -->
+			<script type="module" src={ "/public/wasm_exec.js?v=" + version }></script>
+			<script type="module" src={ "/public/index.js?v=" + version }></script>
 			<link href={ "/public/styles.css?v=" + version } rel="stylesheet"/>
 			<title>vimance</title>
 		</head>

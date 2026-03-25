@@ -1,0 +1,1 @@
+export { initAsync } from "./wasm";
