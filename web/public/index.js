@@ -1,3 +1,14 @@
+// web/src/test-button.ts
+function init() {
+  document.body.addEventListener("click", async (event) => {
+    const button = event.target;
+    if (!button.matches("[data-test-button]"))
+      return;
+    console.log("button pressed");
+  });
+}
+init();
+
 // web/src/wasm/exports.ts
 var textDecoder = new TextDecoder;
 function createExports() {
