@@ -6,6 +6,10 @@ export function init() {
         console.log("button pressed");
 
         // TODO : test sending a json rpc to go wasm, which calls back a json rpc on response
+
+        (globalThis as any).goWasmJsonRpc?.call(
+            JSON.stringify({ message: "Hello from the button!" }),
+        );
     });
 }
 

@@ -5,6 +5,7 @@ function init() {
     if (!button.matches("[data-test-button]"))
       return;
     console.log("button pressed");
+    globalThis.goWasmJsonRpc?.call(JSON.stringify({ message: "Hello from the button!" }));
   });
 }
 init();
