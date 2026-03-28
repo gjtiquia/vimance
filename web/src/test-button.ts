@@ -7,7 +7,9 @@ export function init() {
 
         // TODO : test sending a json rpc to go wasm, which calls back a json rpc on response
 
-        const response: string = await (globalThis as any).goWasmJsonRpcAsync?.call(
+        const response: string = await (
+            globalThis as any
+        ).goWasmJsonRpcAsync?.call(
             JSON.stringify({ message: "Hello from the button!" }),
         );
 

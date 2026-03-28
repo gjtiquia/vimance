@@ -12,22 +12,12 @@ function init() {
 init();
 
 // web/src/wasm/exports.ts
-var textDecoder = new TextDecoder;
 function createExports() {
-  return {
-    notify: function(eventId) {
-      if (!wasm)
-        return;
-      const slicePtr = wasm.exports.getCanvasCellsPtr();
-      const sliceHeader = new Uint32Array(wasm.exports.memory.buffer, slicePtr, 3);
-      const ptr = sliceHeader[0];
-      const len = sliceHeader[1];
-      const cap = sliceHeader[2];
-    }
-  };
+  return {};
 }
 
 // web/src/wasm/wasm.ts
+var WASM_URL = "/public/main.wasm";
 var wasm = undefined;
 async function initAsync() {
   const go = new Go;
@@ -39,7 +29,7 @@ async function initAsync() {
     };
   }
   try {
-    const result = await WebAssembly.instantiateStreaming(fetch("/public/main.wasm"), go.importObject);
+    const result = await WebAssembly.instantiateStreaming(fetch(WASM_URL), go.importObject);
     wasm = result.instance;
     console.log("running main.wasm...");
     const exitCode = await go.run(wasm);

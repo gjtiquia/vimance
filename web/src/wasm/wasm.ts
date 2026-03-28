@@ -1,6 +1,8 @@
 import { createExports } from "./exports";
 import { type Imports } from "./imports";
 
+const WASM_URL = "/public/main.wasm";
+
 // Go WASM runtime from wasm_exec.js (loaded as script before this module).
 declare const Go: new () => {
     importObject: WebAssembly.Imports;
@@ -33,15 +35,18 @@ export async function initAsync() {
     // fetch wasm and run main.wasm
     try {
         const result = await WebAssembly.instantiateStreaming(
-            fetch("/public/main.wasm"),
+            fetch(WASM_URL),
             go.importObject,
         );
 
         wasm = result.instance as Wasm;
 
         console.log("running main.wasm...");
+
         const exitCode = await go.run(wasm); // runs main()
+
         console.log("main.wasm exit code:", exitCode);
+
     } catch (err) {
         console.error("wasm.initAsync: error");
         console.error(err);
