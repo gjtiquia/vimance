@@ -10,17 +10,16 @@ import (
 func main() {
 	fmt.Println("main.go: running...")
 
+	waitCh := make(chan struct{})
+
 	js.Global().Set("goWasmJsonRpc", js.FuncOf(goWasmJsonRpc))
 
 	// Keep the program running
-	select {}
+	<-waitCh
 }
 
 func goWasmJsonRpc(this js.Value, args []js.Value) interface{} {
-	// fmt.Println("go wasm says hello world from rpc call")
-	// return js.ValueOf("dummy return")
-
-	fmt.Printf("goWasmJsonRpc: this: %s\n", this.String())
+	fmt.Printf("goWasmJsonRpc: %s\n", this.String())
 
 	return js.ValueOf("") // dummy return value
 }
