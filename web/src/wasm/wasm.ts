@@ -1,26 +1,21 @@
-import { createExports } from "./exports";
-import { type Imports } from "./imports";
-
 // Go WASM runtime from wasm_exec.js (loaded as script before this module).
 declare const Go: new () => {
     importObject: WebAssembly.Imports;
     run(instance: WebAssembly.Instance): Promise<number>; // returns exit code
 };
 
-// Exports from our TinyGo WASM module (main.wasm).
-interface WasmExports extends WebAssembly.Exports, Imports {
-    memory: WebAssembly.Memory;
-}
+type Wasm = WebAssembly.Instance;
 
-type Wasm = WebAssembly.Instance & { exports: WasmExports };
+type JsonRpcNotification = {
+    jsonrpc: "2.0";
+    method: string;
+    params?: unknown;
+};
 
 export let wasm: Wasm | undefined = undefined;
 
 export async function initAsync() {
     const go = new Go();
-
-    // import functions for main.wasm to use
-    go.importObject.env = createExports();
 
     // polyfill if browsers do not support WebAssembly.instantiateStreaming
     if (!WebAssembly.instantiateStreaming) {

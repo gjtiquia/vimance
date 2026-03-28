@@ -1,11 +1,24 @@
+import {
+    registerJsonRpcHandler,
+    sendJsonRpcNotification,
+} from "./wasm/rpc";
+
+registerJsonRpcHandler("bridge.testButtonResult", (params) => {
+    console.log("bridge.testButtonResult", params);
+});
+
 export function init() {
     document.body.addEventListener("click", async (event) => {
-        const button = event.target as HTMLElement;
+        if (!(event.target instanceof HTMLElement)) return;
+
+        const button = event.target;
         if (!button.matches("[data-test-button]")) return;
 
         console.log("button pressed");
 
-        // TODO : test sending a json rpc to go wasm, which calls back a json rpc on response
+        sendJsonRpcNotification("bridge.testButtonPressed", {
+            source: "test-button",
+        });
     });
 }
 

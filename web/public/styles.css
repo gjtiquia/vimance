@@ -163,4 +163,7 @@
   .start {
     inset-inline-start: var(--spacing);
   }
+  .grow {
+    flex-grow: 1;
+  }
 }
