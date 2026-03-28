@@ -5,8 +5,7 @@ export function init() {
 
         console.log("button pressed");
 
-        // TODO : test sending a json rpc to go wasm, which calls back a json rpc on response
-
+        // TODO : refactor this
         const response: string = await (
             globalThis as any
         ).goWasmJsonRpcAsync?.call(
@@ -14,6 +13,8 @@ export function init() {
         );
 
         console.log("response from go wasm:", response);
+
+        // TODO : go wasm side should also send a delayed message back
     });
 }
 
