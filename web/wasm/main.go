@@ -1,14 +1,19 @@
+//go:build js && wasm
+
 package main
 
 import (
 	"fmt"
-	// fix LSP to be conditional on this file, not all project files need to set env
-	// "syscall/js"
+	"syscall/js"
 )
 
 func main() {
 	fmt.Println("hello world from wasm")
+	js.Global().Set("goWasmJsonRpc", js.FuncOf(goWasmJsonRpc))
+}
 
-	// js.Global()
-	// TODO : use syscall/js and json rpc for quick iteration first without worrying about optimization
+func goWasmJsonRpc(this js.Value, args []js.Value) interface{} {
+	fmt.Println("go wasm says hello world from rpc call")
+	// return js.ValueOf("dummy return")
+	return js.ValueOf("") // dummy return value
 }
