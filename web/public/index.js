@@ -5,7 +5,8 @@ function init() {
     if (!button.matches("[data-test-button]"))
       return;
     console.log("button pressed");
-    globalThis.goWasmJsonRpc?.call(JSON.stringify({ message: "Hello from the button!" }));
+    const response = await globalThis.goWasmJsonRpcAsync?.call(JSON.stringify({ message: "Hello from the button!" }));
+    console.log("response from go wasm:", response);
   });
 }
 init();
