@@ -143,6 +143,17 @@ function init2() {
 }
 init2();
 
+// web/src/engine/mode.ts
+var clientMode = "n";
+function setClientMode(mode) {
+  if (mode === "n" || mode === "i" || mode === "v") {
+    clientMode = mode;
+  }
+}
+function getClientMode() {
+  return clientMode;
+}
+
 // web/src/table.ts
 init3();
 function init3() {
@@ -181,6 +192,7 @@ function getCellDisplayValue(cell) {
 }
 function handleOnModeChanged(table, params) {
   console.log("js: table: handleOnModeChanged:", params);
+  setClientMode(params.mode);
   const mode = params.mode;
   if (mode === "i") {
     const normalCell = table.querySelector("[data-cell-variant='normal']");
@@ -262,8 +274,24 @@ function replaceCell(table, oldCell, variant, value) {
 }
 
 // web/src/engine/input.ts
+function shouldPreventDefaultForVim(key) {
+  const mode = getClientMode();
+  if (mode === "n") {
+    return ["i", "a", "v", "h", "j", "k", "l"].includes(key);
+  }
+  if (mode === "i" && key === "Escape") {
+    return true;
+  }
+  if (mode === "v" && key === "Escape") {
+    return true;
+  }
+  return false;
+}
 function subscribeToKeyDownEvent() {
   document.addEventListener("keydown", (e) => {
+    if (shouldPreventDefaultForVim(e.key)) {
+      e.preventDefault();
+    }
     sendRpcAsync("keydown", {
       key: e.key
     });
