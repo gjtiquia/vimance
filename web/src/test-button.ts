@@ -24,16 +24,31 @@ export function init() {
 
 init();
 
+// ===== send RPC =====
+
 async function sendRpcAsync(obj: object): Promise<string> {
-    return (globalThis as GoGlobal).goWasmJsonRpcAsync.call(
+    return (globalThis as GoGlobal).jsToGoJsonRpcAsync.call(
         JSON.stringify(obj),
     );
 }
 
 type GoGlobal = typeof globalThis & {
-    goWasmJsonRpcAsync: GoFunc;
+    jsToGoJsonRpcAsync: GoFunc;
 };
 
 type GoFunc = {
     call: (message: string) => Promise<string>;
 };
+
+// ===== receive RPC =====
+
+function onReceiveJsonRpc(message: string) {
+    console.log("received json rpc from go wasm:", message);
+}
+
+Object.defineProperty(globalThis, "goToJsJsonRpcAsync", {
+    value: onReceiveJsonRpc,
+    writable: false,
+    configurable: false,
+    enumerable: false,
+});

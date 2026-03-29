@@ -13,8 +13,17 @@ function init() {
 }
 init();
 async function sendRpcAsync(obj) {
-  return globalThis.goWasmJsonRpcAsync.call(JSON.stringify(obj));
+  return globalThis.jsToGoJsonRpcAsync.call(JSON.stringify(obj));
 }
+function onReceiveJsonRpc(message) {
+  console.log("received json rpc from go wasm:", message);
+}
+Object.defineProperty(globalThis, "goToJsJsonRpcAsync", {
+  value: onReceiveJsonRpc,
+  writable: false,
+  configurable: false,
+  enumerable: false
+});
 
 // web/src/wasm/exports.ts
 function createExports() {
