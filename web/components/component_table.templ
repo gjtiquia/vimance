@@ -1,7 +1,7 @@
 package components
 
 templ TableComponent(headers []string, rowCount int) {
-	<table class="border-collapse border border-stone-50/25 text-sm mb-2 w-full max-w-3xl">
+	<table data-table class="border-collapse border border-stone-50/25 text-sm mb-2 w-full max-w-3xl">
 		@TableHead(headers)
 		@TableBody(len(headers), rowCount)
 	</table>
@@ -20,7 +20,7 @@ templ TableHead(headers []string) {
 templ TableBody(colCount, rowCount int) {
 	<tbody>
 		for rowIdx :=range rowCount {
-			<tr>
+			<tr data-row-y={ rowIdx }>
 				for colIdx :=range colCount {
 					{{
 						cellVariant := CellVariantDefault
@@ -28,7 +28,7 @@ templ TableBody(colCount, rowCount int) {
 							cellVariant = CellVariantNormal
 						}
 					}}
-					@TableDataCell(cellVariant, "data")
+					@TableDataCell(cellVariant, "data", colIdx, rowIdx)
 				}
 			</tr>
 		}
@@ -50,18 +50,30 @@ templ TableHeaderCell(value string) {
 	<th class={ CellBaseStyle + "text-left font-bold text-stone-50/70" }>{ value }</th>
 }
 
-templ TableDataCell(variant CellVariant, value string) {
-	switch variant {
+templ TableDataCell(variant CellVariant, value string, x, y int) {
+	{{
+		style := CellBaseStyle
+		switch variant {
 		case CellVariantNormal:
-			<td class={ CellBaseStyle + "bg-stone-50/10" }>{ value }</td>
+			style += "bg-stone-50/10"
 		case CellVariantInput:
-			<td class={ CellBaseStyle }>
-				<input type="text" value={ value } class="w-full bg-transparent border-none focus:ring-0 text-sm"/>
-			</td>
+			style += ""
 		case CellVariantVisual:
-			<td class={ CellBaseStyle + "bg-blue-50/10 text-stone-50/70" }>{ value }</td>
+			style += "bg-blue-50/10 text-stone-50/70"
 		default:
-			<td class={ CellBaseStyle }>{ value }</td>
-	}
+			style += ""
+		}
+	}}
+	<td
+		class={ style }
+		data-cell-variant={ variant }
+		data-cell-x={ x }
+		data-cell-y={ y }
+	>
+		if variant == CellVariantInput {
+			<input type="text" value={ value } class="w-full bg-transparent border-none focus:ring-0 text-sm"/>
+		} else {
+			{ value }
+		}
+	</td>
 }
-
