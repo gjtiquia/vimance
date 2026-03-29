@@ -8,51 +8,17 @@ templ HomePage(version string) {
 			</h1>
 		</header>
 		<main>
-			<table class="border-collapse border border-stone-50/25 text-sm mb-2 w-full max-w-3xl">
-				<thead>
-					<tr>
-						<th class="border border-stone-50/25 px-2 py-1 text-left font-bold text-stone-50/70">A</th>
-						<th class="border border-stone-50/25 px-2 py-1 text-left font-bold text-stone-50/70">B</th>
-						<th class="border border-stone-50/25 px-2 py-1 text-left font-bold text-stone-50/70">C</th>
-						<th class="border border-stone-50/25 px-2 py-1 text-left font-bold text-stone-50/70">D</th>
-						<th class="border border-stone-50/25 px-2 py-1 text-left font-bold text-stone-50/70">E</th>
-						<th class="border border-stone-50/25 px-2 py-1 text-left font-bold text-stone-50/70">F</th>
-						<th class="border border-stone-50/25 px-2 py-1 text-left font-bold text-stone-50/70">G</th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr>
-						for i := 0; i < 7; i++ {
-							<td class="border border-stone-50/25 px-2 py-1">hi</td>
-						}
-					</tr>
-					<tr>
-						for i := 0; i < 7; i++ {
-							<td class="border border-stone-50/25 px-2 py-1"></td>
-						}
-					</tr>
-					<tr>
-						for i := 0; i < 7; i++ {
-							<td class="border border-stone-50/25 px-2 py-1"></td>
-						}
-					</tr>
-					<tr>
-						for i := 0; i < 7; i++ {
-							<td class="border border-stone-50/25 px-2 py-1"></td>
-						}
-					</tr>
-				</tbody>
-			</table>
+			@TableComponent([]string{"A", "B", "C", "D", "E", "F"}, 5)
 			<div class="flex flex-col gap-2">
 				<button
 					data-test-button
-					class="w-fit cursor-pointer text-stone-50/25 hover:text-stone-50/50 border-1 rounded-sm px-2"
+					class="w-fit cursor-pointer text-stone-50/25 hover:text-stone-50/50 border rounded-sm px-2"
 				>
 					echo
 				</button>
 				<div
 					data-engine-debug-console
-					class="border-1 border-stone-50/25 rounded-sm p-2"
+					class="border border-stone-50/25 rounded-sm p-2"
 				>
 					<p>[engine debug console]</p>
 				</div>

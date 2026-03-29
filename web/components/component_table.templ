@@ -1,0 +1,38 @@
+package components
+
+templ TableComponent(headers []string, rowCount int) {
+	<table class="border-collapse border border-stone-50/25 text-sm mb-2 w-full max-w-3xl">
+		@TableHead(headers)
+		@TableBody(len(headers), rowCount)
+	</table>
+}
+
+templ TableHead(headers []string) {
+	<thead>
+		<tr>
+			for _, header := range headers {
+				@TableHeaderCell(header)
+			}
+		</tr>
+	</thead>
+}
+
+templ TableBody(colCount, rowCount int) {
+	<tbody>
+		for range rowCount {
+			<tr>
+				for range colCount {
+					@TableDataCell("")
+				}
+			</tr>
+		}
+	</tbody>
+}
+
+templ TableHeaderCell(value string) {
+	<th class="border border-stone-50/25 px-2 py-1 h-6 text-left font-bold text-stone-50/70">{ value }</th>
+}
+
+templ TableDataCell(value string) {
+	<td class="border border-stone-50/25 px-2 py-1 h-6">{ value }</td>
+}
