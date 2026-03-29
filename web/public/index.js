@@ -5,11 +5,16 @@ function init() {
     if (!button.matches("[data-test-button]"))
       return;
     console.log("button pressed");
-    const response = await globalThis.goWasmJsonRpcAsync?.call(JSON.stringify({ message: "Hello from the button!" }));
+    const response = await sendRpcAsync({
+      message: "hello world from button"
+    });
     console.log("response from go wasm:", response);
   });
 }
 init();
+async function sendRpcAsync(obj) {
+  return globalThis.goWasmJsonRpcAsync.call(JSON.stringify(obj));
+}
 
 // web/src/wasm/exports.ts
 function createExports() {
