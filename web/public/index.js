@@ -5,24 +5,24 @@ function init() {
     if (!button.matches("[data-test-button]"))
       return;
     console.log("button pressed");
-    const response = await sendRpcAsync("echo", "helloooooo from js");
+    const response = await sendRpcAsync("echo", {
+      message: "helloooooo from js"
+    });
     console.log("awaited response from go wasm:", response);
   });
 }
 init();
-var requestIdCounter = 0;
 async function sendRpcAsync(method, params) {
-  requestIdCounter++;
-  return globalThis.jsToGoJsonRpcAsync.call(JSON.stringify({
-    jsonrpc: "2.0",
-    method,
-    params,
-    id: requestIdCounter
-  }));
+  const request = newJsonRpcRequest(method, params);
+  const requestJson = JSON.stringify(request);
+  return globalThis.jsToGoJsonRpcAsync.call(requestJson);
 }
-async function onReceiveJsonRpcAsync(message) {
-  console.log("received json rpc from go wasm:", message);
-  return "test response from js";
+async function onReceiveJsonRpcAsync(jsonString) {
+  const request = decodeJsonRpcRequest(jsonString);
+  console.log("js.onReceiveJsonRpcAsync:", request);
+  const response = newJsonRpcResponse({ message: `js echoooooo ${request.params}` }, request.id);
+  const responseJson = JSON.stringify(response);
+  return responseJson;
 }
 Object.defineProperty(globalThis, "goToJsJsonRpcAsync", {
   value: onReceiveJsonRpcAsync,
@@ -30,6 +30,27 @@ Object.defineProperty(globalThis, "goToJsJsonRpcAsync", {
   configurable: false,
   enumerable: false
 });
+var requestIdCounter = 0;
+function newJsonRpcRequest(method, params) {
+  requestIdCounter++;
+  return {
+    jsonrpc: "2.0",
+    method,
+    params,
+    id: requestIdCounter
+  };
+}
+function decodeJsonRpcRequest(jsonString) {
+  const obj = JSON.parse(jsonString);
+  return obj;
+}
+function newJsonRpcResponse(result, id) {
+  return {
+    jsonrpc: "2.0",
+    result,
+    id
+  };
+}
 
 // web/src/wasm/exports.ts
 function createExports() {

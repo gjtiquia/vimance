@@ -10,13 +10,11 @@ export function init() {
         // TODO : should send a json rpc that follows the spec
         // - https://www.jsonrpc.org/specification
 
-        const response = await sendRpcAsync("echo", "helloooooo from js");
+        const response = await sendRpcAsync("echo", {
+            message: "helloooooo from js",
+        });
 
         console.log("awaited response from go wasm:", response);
-
-        // TODO : go wasm side should also send a delayed message back
-        // - go wasm side should be able to send/receive according to json rpc spec
-        // - go json blog https://go.dev/blog/json
     });
 }
 
@@ -24,18 +22,11 @@ init();
 
 // ===== send RPC =====
 
-let requestIdCounter = 0;
-
 async function sendRpcAsync(method: string, params: any): Promise<string> {
-    requestIdCounter++;
-    return (globalThis as GoGlobal).jsToGoJsonRpcAsync.call(
-        JSON.stringify({
-            jsonrpc: "2.0",
-            method,
-            params,
-            id: requestIdCounter,
-        }),
-    );
+    const request = newJsonRpcRequest(method, params);
+    const requestJson = JSON.stringify(request);
+
+    return (globalThis as GoGlobal).jsToGoJsonRpcAsync.call(requestJson);
 }
 
 type GoGlobal = typeof globalThis & {
@@ -48,11 +39,22 @@ type GoFunc = {
 
 // ===== receive RPC =====
 
-async function onReceiveJsonRpcAsync(message: string): Promise<string> {
-    console.log("received json rpc from go wasm:", message);
+async function onReceiveJsonRpcAsync(jsonString: string): Promise<string> {
+    const request = decodeJsonRpcRequest(jsonString);
 
-    // TODO : json rpc spec
-    return "test response from js";
+    console.log("js.onReceiveJsonRpcAsync:", request);
+
+    // TODO : route to different handlers based on the method in the request, and return appropriate responses
+    // for now its assuming "echo"
+    // params should be structured data, but for simplicity we are just using a string here for now
+
+    const response = newJsonRpcResponse(
+        { message: `js echoooooo ${request.params}` },
+        request.id,
+    );
+
+    const responseJson = JSON.stringify(response);
+    return responseJson;
 }
 
 Object.defineProperty(globalThis, "goToJsJsonRpcAsync", {
@@ -61,3 +63,57 @@ Object.defineProperty(globalThis, "goToJsJsonRpcAsync", {
     configurable: false,
     enumerable: false,
 });
+
+// ====== JSON RPC types ======
+
+interface JsonRpcRequest {
+    jsonrpc: "2.0";
+    method: string;
+    params: any;
+    id: number | string | null;
+}
+
+let requestIdCounter = 0;
+
+function newJsonRpcRequest(method: string, params: any): JsonRpcRequest {
+    requestIdCounter++;
+    return {
+        jsonrpc: "2.0",
+        method,
+        params,
+        id: requestIdCounter,
+    };
+}
+
+// decode json rpc request
+function decodeJsonRpcRequest(jsonString: string): JsonRpcRequest {
+    const obj = JSON.parse(jsonString);
+
+    // for simplicity, we assume the request is always valid and does not contain an error
+    return obj as JsonRpcRequest;
+}
+
+interface JsonRpcResponse {
+    jsonrpc: "2.0";
+    result?: any;
+    error?: { code: number; message: string; data?: any };
+    id: number | string | null;
+}
+
+function newJsonRpcResponse(
+    result: any,
+    id: number | string | null,
+): JsonRpcResponse {
+    return {
+        jsonrpc: "2.0",
+        result,
+        id,
+    };
+}
+
+function decodeJsonRpcResponse(jsonString: string): JsonRpcResponse {
+    const obj = JSON.parse(jsonString);
+
+    // for simplicity, we assume the response is always valid and does not contain an error
+    return obj as JsonRpcResponse;
+}

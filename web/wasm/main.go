@@ -52,9 +52,14 @@ func handleJsonRpc(jsonString string) (string, error) {
 	// here for testing we send another RPC before sending a response
 	go sendJsonRpcToJs("echo", "helloooooo from go")
 
-	// TODO : refactor later
-	// For demonstration, we just return a simple response
-	result := fmt.Sprintf("Received method: %s with params: %v", requestFromJs.Method, requestFromJs.Params)
+	// TODO : route request to appropriate handler based on requestFromJs.Method and get the result
+	// for now assume always "echo"
+	// result is struct {message:"go echoooo requestFromJs.Params.message"}
+
+	// TODO : unmarshall params and get message field
+	result := map[string]any{
+		"message": fmt.Sprintf("go echoooo %v", requestFromJs.Params),
+	}
 
 	responseJson, err := jsonrpc.NewResponse(result, requestFromJs.Id).ToJsonString()
 	if err != nil {

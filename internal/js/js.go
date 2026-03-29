@@ -56,7 +56,7 @@ func AwaitGlobalPromise(name string, jsonString string) (string, error) {
 
 	type promiseResponse struct {
 		StringValue string
-		Error error
+		Error       error
 	}
 
 	ch := make(chan promiseResponse, 1)
