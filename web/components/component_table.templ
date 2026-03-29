@@ -4,6 +4,7 @@ templ TableComponent(headers []string, rowCount int) {
 	<table data-table class="border-collapse border border-stone-50/25 text-sm mb-2 w-full max-w-3xl">
 		@TableHead(headers)
 		@TableBody(len(headers), rowCount)
+		@TableCellTemplates()
 	</table>
 }
 
@@ -44,28 +45,37 @@ const (
 	CellVariantVisual  CellVariant = "visual"
 )
 
+templ TableCellTemplates() {
+	@TableCellTemplate(CellVariantDefault)
+	@TableCellTemplate(CellVariantNormal)
+	@TableCellTemplate(CellVariantInput)
+	@TableCellTemplate(CellVariantVisual)
+}
+
 const CellBaseStyle = "border border-stone-50/25 px-2 py-1 h-8" + " "
+
+func cellStyle(variant CellVariant) string {
+	style := CellBaseStyle
+	switch variant {
+	case CellVariantNormal:
+		style += "bg-stone-50/30"
+	case CellVariantInput:
+		style += ""
+	case CellVariantVisual:
+		style += "bg-blue-50/10 text-stone-50/70"
+	default:
+		style += ""
+	}
+	return style
+}
 
 templ TableHeaderCell(value string) {
 	<th class={ CellBaseStyle + "text-left font-bold text-stone-50/70" }>{ value }</th>
 }
 
 templ TableDataCell(variant CellVariant, value string, x, y int) {
-	{{
-		style := CellBaseStyle
-		switch variant {
-		case CellVariantNormal:
-			style += "bg-stone-50/30"
-		case CellVariantInput:
-			style += ""
-		case CellVariantVisual:
-			style += "bg-blue-50/10 text-stone-50/70"
-		default:
-			style += ""
-		}
-	}}
 	<td
-		class={ style }
+		class={ cellStyle(variant) }
 		data-cell-variant={ variant }
 		data-cell-x={ x }
 		data-cell-y={ y }
@@ -77,3 +87,17 @@ templ TableDataCell(variant CellVariant, value string, x, y int) {
 		}
 	</td>
 }
+
+templ TableCellTemplate(variant CellVariant) {
+	<template data-cell-template={ variant }>
+		<td
+			class={ cellStyle(variant) }
+			data-cell-variant={ variant }
+		>
+			if variant == CellVariantInput {
+				<input type="text" value="" class="w-full bg-transparent border-none focus:ring-0 text-sm"/>
+			}
+		</td>
+	</template>
+}
+

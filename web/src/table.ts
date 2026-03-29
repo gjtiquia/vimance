@@ -38,14 +38,43 @@ function handleOnModeChanged(table: HTMLTableElement, params: any) {
     const mode = params.mode;
 
     if (mode === "i") {
-        const normalCell = table.querySelector("[data-cell-variant='normal']");
+        const normalCell = table.querySelector("[data-cell-variant='normal']") as HTMLTableCellElement | null;
         if (!normalCell) {
-            console.error("js: table: handleOnModeChanged: No normal cell found! unable to change mode to insert mode!");
+            console.error("js: table: handleOnModeChanged: No normal cell found!");
+            return;
         }
 
-        // TODO :
-        // - save cell content
-        // - change cell to input
-        // - add cell content to input
+        const value = normalCell.textContent?.trim() || "";
+        replaceCell(table, normalCell, "input", value);
     }
+}
+
+function replaceCell(
+    table: HTMLTableElement,
+    oldCell: HTMLTableCellElement,
+    variant: string,
+    value: string,
+): HTMLTableCellElement | null {
+    const template = table.querySelector(`template[data-cell-template="${variant}"]`) as HTMLTemplateElement | null;
+    if (!template) {
+        console.error(`js: table: replaceCell: No template found for variant: ${variant}`);
+        return null;
+    }
+
+    const newCell = template.content.firstElementChild!.cloneNode(true) as HTMLTableCellElement;
+
+    const x = oldCell.getAttribute("data-cell-x");
+    const y = oldCell.getAttribute("data-cell-y");
+    if (x !== null) newCell.setAttribute("data-cell-x", x);
+    if (y !== null) newCell.setAttribute("data-cell-y", y);
+
+    const input = newCell.querySelector("input");
+    if (input) {
+        input.value = value;
+    } else {
+        newCell.textContent = value;
+    }
+
+    oldCell.replaceWith(newCell);
+    return newCell;
 }
