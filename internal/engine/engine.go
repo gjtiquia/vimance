@@ -29,14 +29,18 @@ func (eng *Engine) KeyPress(key string) {
 
 	case ModeNormal:
 		switch key {
+
 		case "i":
 			eng.mode = ModeInsert
 			// TODO : handle cursor position
+
 		case "a":
 			eng.mode = ModeInsert
 			// TODO : handle cursor position
+
 		case "v":
 			eng.mode = ModeVisual
+
 		}
 
 	case ModeInsert:

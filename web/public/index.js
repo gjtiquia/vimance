@@ -89,9 +89,24 @@ function init() {
 }
 init();
 
+// web/src/engine/input.ts
+function subscribeToKeyDownEvent() {
+  document.addEventListener("keydown", (e) => {
+    sendRpcAsync("keydown", {
+      key: e.key
+    });
+  });
+}
+
+// web/src/engine/index.ts
+function init2() {
+  subscribeToKeyDownEvent();
+}
+
 // web/src/index.ts
 async function initAsync2() {
   console.log("js: running...");
+  init2();
   await initAsync();
 }
 initAsync2();

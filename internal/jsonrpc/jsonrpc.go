@@ -43,6 +43,41 @@ func (r Request) ToJsonString() (string, error) {
 	return string(requestBytes), nil
 }
 
+func (r Request) GetParam(key string) (any, bool) {
+	paramsMap, ok := r.Params.(map[string]any)
+	if !ok {
+		return nil, false
+	}
+
+	value, ok := paramsMap[key]
+	return value, ok
+}
+
+// go does not support method generics, go only supports generics for types and functions
+func (r Request) GetParamString(key string) (string, bool) {
+	var zeroValue string
+
+	// checks if Params is a map[string]any
+	paramsMap, ok := r.Params.(map[string]any)
+	if !ok {
+		return zeroValue, false
+	}
+
+	// checks if the key exists in the map
+	value, ok := paramsMap[key]
+	if !ok {
+		return zeroValue, false
+	}
+
+	// checks if the value is of type T
+	typedValue, ok := value.(string)
+	if !ok {
+		return zeroValue, false
+	}
+
+	return typedValue, true
+}
+
 type Response struct {
 	Jsonrpc string         `json:"jsonrpc"`
 	Result  any            `json:"result,omitempty"`
@@ -62,6 +97,11 @@ func NewResponse(result any, id *int) Response {
 		Result:  result,
 		Id:      id,
 	}
+}
+
+// Meant for generic success responses that dont have a specific result to return, but JSON RPC 2.0 spec requires a result if there is no error
+func NewSuccessResponse(id *int) Response {
+	return NewResponse(map[string]any{"success": true}, id)
 }
 
 func DecodeResponse(jsonString string) (Response, error) {
@@ -85,8 +125,8 @@ func NewInvalidRequestError(id *int) Response {
 }
 
 // The method does not exist / is not available.
-func NewMethodNotFoundError(id *int) Response {
-	return NewError(-32601, "Method not found: The method does not exist / is not available.", nil, id)
+func NewMethodNotFoundError(request Request) Response {
+	return NewError(-32601, fmt.Sprintf("Method not found: The method '%s' does not exist / is not available.", request.Method), nil, request.Id)
 }
 
 // Invalid method parameter(s).

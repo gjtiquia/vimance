@@ -6,9 +6,12 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/gjtiquia/vimance/internal/engine"
 	"github.com/gjtiquia/vimance/internal/js"
 	"github.com/gjtiquia/vimance/internal/jsonrpc"
 )
+
+var eng = engine.New()
 
 func main() {
 	fmt.Println("go: running...")
@@ -60,31 +63,43 @@ func routeJsonRpcRequest(request jsonrpc.Request) jsonrpc.Response {
 	case "echo":
 		return handleEcho(request)
 
+	case "keydown":
+		return handleKeydown(request)
+
 	default:
-		return jsonrpc.NewMethodNotFoundError(request.Id)
+		res := jsonrpc.NewMethodNotFoundError(request)
+		fmt.Println("go: " + res.Error.Message)
+		return res
 	}
 }
 
 // ====== handlers
 
 func handleEcho(request jsonrpc.Request) jsonrpc.Response {
-	paramsMap, ok := request.Params.(map[string]any)
-	if !ok {
-		return jsonrpc.NewInvalidParamsError(request.Id)
-	}
-
-	msg, ok := paramsMap["message"]
+	msg, ok := request.GetParam("message")
 	if !ok {
 		return jsonrpc.NewInvalidParamsError(request.Id)
 	}
 
 	fmt.Printf("go: %s.request.params.message: %v\n", request.Method, msg)
 
-	result := map[string]any{
+	result := map[string]string{
 		"message": fmt.Sprintf("go echoooo %v", msg),
 	}
 
 	return jsonrpc.NewResponse(result, request.Id)
+}
+
+func handleKeydown(request jsonrpc.Request) jsonrpc.Response {
+	key, ok := request.GetParamString("key")
+	if !ok {
+		return jsonrpc.NewInvalidParamsError(request.Id)
+	}
+
+	fmt.Printf("go: %s.request.params.key: %v\n", request.Method, key)
+
+	eng.KeyPress(key)
+	return jsonrpc.NewSuccessResponse(request.Id)
 }
 
 // ====== utils
