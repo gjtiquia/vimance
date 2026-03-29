@@ -1,4 +1,11 @@
 {
+  "scripts": {
+    "build:assets": "bunx tsc --noEmit && bunx tailwindcss -i ./web/src/input.css -o ./web/public/styles.css && bun build ./web/src/index.ts --outdir=./web/public && templ generate && GOOS=js GOARCH=wasm tinygo build -o ./web/public/main.wasm ./web/wasm",
+    "build:go": "go build -o ./tmp/main .",
+    "build": "bun run build:assets && bun run build:go",
+    "dev": "air",
+    "start": "bun run build && ./tmp/main"
+  },
   "dependencies": {
     "@tailwindcss/cli": "^4.2.2",
     "prettier": "^3.8.1",

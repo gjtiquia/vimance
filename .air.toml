@@ -6,15 +6,11 @@ testdata_dir = "testdata"
 tmp_dir = "tmp"
 
 [build]
+  # Asset pipeline order and commands: package.json "build:assets" (comment wasm step there for faster web-only iteration)
   args_bin = []
   bin = "./tmp/main"
   pre_cmd = [
-    "bunx tsc --noEmit",
-    "bunx tailwindcss -i ./web/src/input.css -o ./web/public/styles.css",
-    "bun build ./web/src/index.ts --outdir=./web/public",
-    "templ generate",
-    # can comment tinygo build if no frequent changes to wasm and want rapid iteration of web frontend
-    "GOOS=js GOARCH=wasm tinygo build -o ./web/public/main.wasm ./web/wasm",
+    "bun run build:assets",
     "echo 'proxy running at :3500'"
   ]
   cmd = "go build -o ./tmp/main ."

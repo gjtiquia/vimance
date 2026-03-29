@@ -38,10 +38,22 @@ htmx - cuz why not
 
 ### commands
 
+The asset pipeline (TypeScript, Tailwind, bundling, `templ generate`, TinyGo wasm) lives in **`bun run build:assets`** — a single source of truth for order and commands. Air’s `pre_cmd` calls that script before each `go build`.
+
 ```bash
-# install dependencies
+# install JS/CSS tooling (tailwind, typescript, etc.)
 bun install
 
-# start dev server with hot reloading
-air
+# dev: watch + rebuild (runs build:assets, then go build, then the binary)
+# browser live reload uses Air’s proxy at :3500; the app listens on :3000
+bun run dev
+
+# production-style: build once and run (no watcher, no proxy)
+bun run start
+
+# optional: only assets + codegen (no go build)
+bun run build:assets
+
+# optional: full build (assets + go), does not start the server
+bun run build
 ```
