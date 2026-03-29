@@ -68,7 +68,7 @@ func baseLayout(version string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\" rel=\"stylesheet\"><title>vimance</title></head><body>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\" rel=\"stylesheet\"><title>vimance</title></head><body class=\"h-dvh p-2 font-fira bg-stone-900 text-stone-50 flex flex-col\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

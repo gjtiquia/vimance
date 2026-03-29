@@ -2,7 +2,26 @@ package components
 
 templ HomePage(version string) {
 	@baseLayout(version) {
-		<h1># vimance</h1>
-		<button data-test-button>test</button>
+		<header>
+			<h1 class="font-bold pb-1">
+				# vimance
+			</h1>
+		</header>
+		<main>
+			<div class="flex flex-col gap-2">
+				<button
+					data-test-button
+					class="w-fit cursor-pointer text-stone-50/25 hover:text-stone-50/50 border-1 rounded-sm px-2"
+				>
+					echo
+				</button>
+				<pre
+					data-engine-debug-console
+					class="border-1 border-stone-50/25 rounded-sm p-2"
+				>
+					[engine debug console]
+				</pre>
+			</div>
+		</main>
 	}
 }
