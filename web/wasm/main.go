@@ -106,7 +106,7 @@ func handleKeydown(request jsonrpc.Request) jsonrpc.Response {
 		return jsonrpc.NewInvalidParamsError(request.Id)
 	}
 
-	fmt.Printf("go: %s.request.params.key: %v\n", request.Method, key)
+	// fmt.Printf("go: %s.request.params.key: %v\n", request.Method, key)
 
 	eng.KeyPress(key)
 	return jsonrpc.NewSuccessResponse(request.Id)

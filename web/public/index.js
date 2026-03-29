@@ -76,7 +76,6 @@ async function sendRpcAsync(method, params) {
 }
 async function onReceiveJsonRpcAsync(jsonString) {
   const request2 = decodeRequest(jsonString);
-  console.log(`js: ${request2.method}.request.params:`, request2.params);
   const { ok, responseJson } = tryHandleEngineEvents(request2);
   if (ok) {
     return responseJson;
@@ -133,10 +132,6 @@ function init2() {
   const elements = document.body.querySelectorAll("[data-engine-debug-console]");
   document.body.addEventListener("engine:onEventTriggered", async (event) => {
     const customEvent = event;
-    console.log("js: engine:onEventTriggered:", {
-      type: customEvent.type,
-      detail: customEvent.detail
-    });
     elements.forEach((parent) => {
       const eventName = customEvent.detail.eventName;
       const params = customEvent.detail.params;

@@ -28,7 +28,7 @@ export async function sendRpcAsync(
 async function onReceiveJsonRpcAsync(jsonString: string): Promise<string> {
     const request = jsonrpc.decodeRequest(jsonString);
 
-    console.log(`js: ${request.method}.request.params:`, request.params);
+    // console.log(`js: ${request.method}.request.params:`, request.params);
 
     // TODO : refactor this such that wasm/rpc does not depend on engine
     const { ok, responseJson } = tryHandleEngineEvents(request);
