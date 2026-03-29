@@ -6,6 +6,10 @@ export function init() {
         console.log("button pressed");
 
         // TODO : refactor this
+
+        // TODO : should send a json rpc that follows the spec
+        // - https://www.jsonrpc.org/specification
+
         const response: string = await (
             globalThis as any
         ).goWasmJsonRpcAsync?.call(
@@ -15,6 +19,8 @@ export function init() {
         console.log("response from go wasm:", response);
 
         // TODO : go wasm side should also send a delayed message back
+        // - go wasm side should be able to send/receive according to json rpc spec
+        // - go json blog https://go.dev/blog/json
     });
 }
 

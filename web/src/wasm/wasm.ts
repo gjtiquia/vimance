@@ -46,7 +46,6 @@ export async function initAsync() {
         const exitCode = await go.run(wasm); // runs main()
 
         console.log("main.wasm exit code:", exitCode);
-
     } catch (err) {
         console.error("wasm.initAsync: error");
         console.error(err);
