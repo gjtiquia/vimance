@@ -19,20 +19,49 @@ templ TableHead(headers []string) {
 
 templ TableBody(colCount, rowCount int) {
 	<tbody>
-		for range rowCount {
+		for rowIdx :=range rowCount {
 			<tr>
-				for range colCount {
-					@TableDataCell("")
+				for colIdx :=range colCount {
+					{{
+						cellVariant := CellVariantDefault
+						if rowIdx == 0 && colIdx == 0 {
+							cellVariant = CellVariantNormal
+						}
+					}}
+					@TableDataCell(cellVariant, "data")
 				}
 			</tr>
 		}
 	</tbody>
 }
 
+type CellVariant = string
+
+const (
+	CellVariantDefault CellVariant = "default"
+	CellVariantNormal  CellVariant = "normal"
+	CellVariantInput   CellVariant = "input"
+	CellVariantVisual  CellVariant = "visual"
+)
+
+const CellBaseStyle = "border border-stone-50/25 px-2 py-1 h-8" + " "
+
 templ TableHeaderCell(value string) {
-	<th class="border border-stone-50/25 px-2 py-1 h-6 text-left font-bold text-stone-50/70">{ value }</th>
+	<th class={ CellBaseStyle + "text-left font-bold text-stone-50/70" }>{ value }</th>
 }
 
-templ TableDataCell(value string) {
-	<td class="border border-stone-50/25 px-2 py-1 h-6">{ value }</td>
+templ TableDataCell(variant CellVariant, value string) {
+	switch variant {
+		case CellVariantNormal:
+			<td class={ CellBaseStyle + "bg-stone-50/10" }>{ value }</td>
+		case CellVariantInput:
+			<td class={ CellBaseStyle }>
+				<input type="text" value={ value } class="w-full bg-transparent border-none focus:ring-0 text-sm"/>
+			</td>
+		case CellVariantVisual:
+			<td class={ CellBaseStyle + "bg-blue-50/10 text-stone-50/70" }>{ value }</td>
+		default:
+			<td class={ CellBaseStyle }>{ value }</td>
+	}
 }
+
