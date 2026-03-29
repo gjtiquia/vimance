@@ -119,7 +119,8 @@ func handleJsonRpc(payload string) (string, error) {
 	}
 
 	// TODO : require a response back
-	js.Global().Call("goToJsJsonRpcAsync", string(requestToJsBytes))
+	responseFromJs := js.Global().Call("goToJsJsonRpcAsync", string(requestToJsBytes))
+	fmt.Printf("gowasm: received response from JS: %s\n", responseFromJs.String())
 
 	// TODO : refactor later
 	// For demonstration, we just return a simple response

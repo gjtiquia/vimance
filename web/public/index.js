@@ -24,6 +24,7 @@ async function sendRpcAsync(method, params) {
 }
 function onReceiveJsonRpc(message) {
   console.log("received json rpc from go wasm:", message);
+  return "test response from js";
 }
 Object.defineProperty(globalThis, "goToJsJsonRpcAsync", {
   value: onReceiveJsonRpc,
