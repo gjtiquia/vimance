@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -31,8 +32,15 @@ func main() {
 	fs := http.FileServer(http.Dir("./web/public"))
 	http.Handle("GET /public/", http.StripPrefix("/public/", fs))
 
-	fmt.Println("listening on :3000")
-	http.ListenAndServe(":3000", nil)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "3000"
+	}
+	addr := ":" + port
+	fmt.Println("listening on", addr)
+	if err := http.ListenAndServe(addr, nil); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func getCurrentVersion() string {
