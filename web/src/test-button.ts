@@ -10,9 +10,7 @@ export function init() {
         // TODO : should send a json rpc that follows the spec
         // - https://www.jsonrpc.org/specification
 
-        const response = await sendRpcAsync("echo", {
-            message: "helloooooo from js",
-        });
+        const response = await sendRpcAsync("echo", "helloooooo from js");
 
         console.log("response from go wasm:", response);
 
@@ -28,7 +26,7 @@ init();
 
 let requestIdCounter = 0;
 
-async function sendRpcAsync(method: string, params: object): Promise<string> {
+async function sendRpcAsync(method: string, params: any): Promise<string> {
     requestIdCounter++;
     return (globalThis as GoGlobal).jsToGoJsonRpcAsync.call(
         JSON.stringify({
@@ -50,7 +48,7 @@ type GoFunc = {
 
 // ===== receive RPC =====
 
-function onReceiveJsonRpc(message: string): string {
+async function onReceiveJsonRpcAsync(message: string): Promise<string> {
     console.log("received json rpc from go wasm:", message);
 
     // TODO : json rpc spec
@@ -58,7 +56,7 @@ function onReceiveJsonRpc(message: string): string {
 }
 
 Object.defineProperty(globalThis, "goToJsJsonRpcAsync", {
-    value: onReceiveJsonRpc,
+    value: onReceiveJsonRpcAsync,
     writable: false,
     configurable: false,
     enumerable: false,

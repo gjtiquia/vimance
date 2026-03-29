@@ -5,9 +5,7 @@ function init() {
     if (!button.matches("[data-test-button]"))
       return;
     console.log("button pressed");
-    const response = await sendRpcAsync("echo", {
-      message: "helloooooo from js"
-    });
+    const response = await sendRpcAsync("echo", "helloooooo from js");
     console.log("response from go wasm:", response);
   });
 }
@@ -22,12 +20,12 @@ async function sendRpcAsync(method, params) {
     id: requestIdCounter
   }));
 }
-function onReceiveJsonRpc(message) {
+async function onReceiveJsonRpcAsync(message) {
   console.log("received json rpc from go wasm:", message);
   return "test response from js";
 }
 Object.defineProperty(globalThis, "goToJsJsonRpcAsync", {
-  value: onReceiveJsonRpc,
+  value: onReceiveJsonRpcAsync,
   writable: false,
   configurable: false,
   enumerable: false
