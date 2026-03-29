@@ -73,15 +73,7 @@ func handleJsonRpc(jsonString string) (string, error) {
 
 	// TODO : remove later
 	// here for testing we send another RPC before sending a response
-
-	requestToJsJson, err := jsonrpc.NewRequest("echo", map[string]string{"message": "helloooooo from go"}).ToJsonString()
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal JSON-RPC request to JS: %w", err)
-	}
-
-	// TODO : decode response to json rpc
-	responseFromJs := js.Global().Call("goToJsJsonRpcAsync", requestToJsJson)
-	fmt.Printf("gowasm: received response from JS: %s\n", responseFromJs.String())
+	go sendJsonRpcToJs("echo", "helloooooo from go")
 
 	// TODO : refactor later
 	// For demonstration, we just return a simple response
@@ -95,4 +87,19 @@ func handleJsonRpc(jsonString string) (string, error) {
 	}
 
 	return responseJson, nil
+}
+
+func sendJsonRpcToJs(method string, params any) (string, error) {
+	requestJson, err := jsonrpc.NewRequest(method, params).ToJsonString()
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal JSON-RPC request: %w", err)
+	}
+
+	// TODO : need to await the promise
+	response := js.Global().Call("goToJsJsonRpcAsync", requestJson)
+
+	// TODO : decode response to json rpc
+	fmt.Printf("gowasm: received response from JS: %s\n", response.String())
+
+	return response.String(), nil
 }
