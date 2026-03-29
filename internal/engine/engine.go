@@ -9,12 +9,11 @@ type EventListener interface {
 	OnModeChanged(mode Mode)
 }
 
-type Mode uint
-
+type Mode string
 const (
-	ModeNormal Mode = iota
-	ModeInsert
-	ModeVisual
+	ModeNormal Mode = "n"
+	ModeInsert Mode = "i"
+	ModeVisual Mode = "v"
 )
 
 const KeyEsc string = "Escape"
