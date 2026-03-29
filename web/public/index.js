@@ -277,7 +277,18 @@ function replaceCell(table, oldCell, variant, value) {
 function shouldPreventDefaultForVim(key) {
   const mode = getClientMode();
   if (mode === "n") {
-    return ["i", "a", "v", "h", "j", "k", "l"].includes(key);
+    return [
+      "i",
+      "a",
+      "v",
+      "h",
+      "j",
+      "k",
+      "l",
+      "w",
+      "e",
+      "b"
+    ].includes(key);
   }
   if (mode === "i" && key === "Escape") {
     return true;

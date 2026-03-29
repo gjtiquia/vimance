@@ -90,13 +90,13 @@ func (eng *Engine) KeyPress(key string) {
 		case "v":
 			eng.setMode(ModeVisual, InsertPositionNone)
 
-		case "h":
+		case "h", "b":
 			if eng.cursorX > 0 {
 				eng.cursorX--
 				eng.notifyCursorMoved()
 			}
 
-		case "l":
+		case "l", "w", "e":
 			if eng.cursorX < eng.cols-1 {
 				eng.cursorX++
 				eng.notifyCursorMoved()

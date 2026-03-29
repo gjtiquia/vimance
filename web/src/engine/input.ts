@@ -4,7 +4,18 @@ import { getClientMode } from "./mode";
 function shouldPreventDefaultForVim(key: string): boolean {
     const mode = getClientMode();
     if (mode === "n") {
-        return ["i", "a", "v", "h", "j", "k", "l"].includes(key);
+        return [
+            "i",
+            "a",
+            "v",
+            "h",
+            "j",
+            "k",
+            "l",
+            "w",
+            "e",
+            "b",
+        ].includes(key);
     }
     if (mode === "i" && key === "Escape") {
         return true;

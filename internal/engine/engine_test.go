@@ -179,3 +179,22 @@ func TestHjklBounds(t *testing.T) {
 		t.Errorf("expected no OnCursorMoved at max edge for l/j, got %v", listener.OnCursorMovedCounter)
 	}
 }
+
+func TestWebEAndBMoveHorizontally(t *testing.T) {
+	eng := engine.New(testCols, testRows)
+
+	eng.KeyPress("w")
+	if eng.CursorX() != 1 || eng.CursorY() != 0 {
+		t.Errorf("after w, expected (1,0), got (%d,%d)", eng.CursorX(), eng.CursorY())
+	}
+
+	eng.KeyPress("e")
+	if eng.CursorX() != 2 || eng.CursorY() != 0 {
+		t.Errorf("after e, expected (2,0), got (%d,%d)", eng.CursorX(), eng.CursorY())
+	}
+
+	eng.KeyPress("b")
+	if eng.CursorX() != 1 || eng.CursorY() != 0 {
+		t.Errorf("after b, expected (1,0), got (%d,%d)", eng.CursorX(), eng.CursorY())
+	}
+}
