@@ -1,4 +1,5 @@
 /*! tailwindcss v4.2.2 | MIT License | https://tailwindcss.com */
+@import url('https://fonts.googleapis.com/css2?family=Fira+Mono:wght@400;500;700&display=swap');
 @layer properties;
 @layer theme, base, components, utilities;
 @layer theme {
@@ -14,6 +15,7 @@
     --radius-sm: 0.25rem;
     --default-font-family: var(--font-sans);
     --default-mono-font-family: var(--font-mono);
+    --font-fira: "Fira Mono", monospace;
   }
 }
 @layer base {
@@ -210,6 +212,9 @@
   }
   .pb-1 {
     padding-bottom: calc(var(--spacing) * 1);
+  }
+  .font-fira {
+    font-family: var(--font-fira);
   }
   .font-bold {
     --tw-font-weight: var(--font-weight-bold);

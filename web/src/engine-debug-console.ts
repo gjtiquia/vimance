@@ -1,4 +1,6 @@
 export function init() {
+    const elements = document.body.querySelectorAll("[data-engine-debug-console]");
+
     document.body.addEventListener("engine:onEventTriggered", async (event) => {
         const customEvent = event as CustomEvent;
 
@@ -7,7 +9,13 @@ export function init() {
             detail: customEvent.detail,
         });
 
-        // TODO : append the <pre> element with "{}: {params}"
+        elements.forEach((parent) => {
+            const eventName = customEvent.detail.eventName;
+            const params = customEvent.detail.params;
+            const child = document.createElement("p");
+            child.textContent = `${eventName}: ${JSON.stringify(params)}`;
+            parent.appendChild(child);
+        });
     });
 }
 
