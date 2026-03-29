@@ -1,9 +1,4 @@
-import { newJsonRpcRequest, decodeJsonRpcRequest } from "../jsonrpc/request";
-import {
-    JsonRpcResponse,
-    decodeJsonRpcResponse,
-    newJsonRpcResponse,
-} from "../jsonrpc/response";
+import * as jsonrpc from "../jsonrpc";
 
 type GoGlobal = typeof globalThis & {
     goToJsJsonRpcAsync: (json: string) => Promise<string>;
@@ -19,36 +14,75 @@ type GoFunc = {
 export async function sendRpcAsync(
     method: string,
     params: any,
-): Promise<JsonRpcResponse> {
-    const request = newJsonRpcRequest(method, params);
+): Promise<jsonrpc.Response> {
+    const request = jsonrpc.newRequest(method, params);
     const requestJson = JSON.stringify(request);
 
     const responseJson = await (globalThis as GoGlobal).jsToGoJsonRpcAsync.call(
         requestJson,
     );
 
-    return decodeJsonRpcResponse(responseJson);
+    return jsonrpc.decodeResponse(responseJson);
 }
 
 async function onReceiveJsonRpcAsync(jsonString: string): Promise<string> {
-    const request = decodeJsonRpcRequest(jsonString);
+    const request = jsonrpc.decodeRequest(jsonString);
 
-    // TODO : route to different handlers based on the method in the request, and return appropriate responses
-    // for now its assuming "echo"
+    console.log(`js: ${request.method}.request.params:`, request.params);
 
+    // TODO : refactor this such that wasm/rpc does not depend on engine
+    const { ok, responseJson } = tryHandleEngineEvents(request);
+    if (ok) {
+        return responseJson;
+    }
+
+    switch (request.method) {
+        case "echo":
+            return handleEcho(request);
+
+        default:
+            const response = jsonrpc.newMethodNotFoundResponse(request);
+            console.error(`js: ${response.error?.message}`);
+            return JSON.stringify(response);
+    }
+}
+
+async function handleEcho(request: jsonrpc.Request): Promise<string> {
     type EchoParams = { message: string };
     const echoParams = request.params as EchoParams; // TODO : should use some sort of runtime validation eg. zod
 
-    console.log(
-        `js: ${request.method}.request.params.message:`,
-        echoParams.message,
-    );
-
-    const response = newJsonRpcResponse(
+    const response = jsonrpc.newResponse(
         { message: `js echoooooo ${echoParams.message}` },
         request.id,
     );
 
     const responseJson = JSON.stringify(response);
     return responseJson;
+}
+
+// ===== engine router =====
+
+function tryHandleEngineEvents(request: jsonrpc.Request) {
+    if (
+        !request.method.startsWith("engine.") ||
+        request.method.split(".").length !== 2
+    ) {
+        return { ok: false } as const;
+    }
+
+    const eventName = request.method.split(".")[1];
+
+    document.body.dispatchEvent(
+        new CustomEvent("engine:onEventTriggered", {
+            // bubbles: true,
+            // composed: true,
+            detail: {
+                eventName,
+                params: request.params,
+            },
+        }),
+    );
+
+    const response = jsonrpc.newSuccessResponse(request.id);
+    return { ok: true, responseJson: JSON.stringify(response) } as const;
 }

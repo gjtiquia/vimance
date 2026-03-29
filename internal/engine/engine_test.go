@@ -11,7 +11,7 @@ type TestEngineEventListener struct {
 	OnModeChangedCounter int
 }
 
-func (l *TestEngineEventListener) OnModeChanged() {
+func (l *TestEngineEventListener) OnModeChanged(mode engine.Mode) {
 	l.OnModeChangedCounter++
 }
 
@@ -54,7 +54,7 @@ func TestModeSwitching(t *testing.T) {
 		t.Fatalf("expected mode to be normal, got %v", eng.Mode())
 	}
 
-	if (listener.OnModeChangedCounter != 4) {
+	if listener.OnModeChangedCounter != 4 {
 		t.Errorf("expected OnModeChanged to be called 4 times, got %v", listener.OnModeChangedCounter)
 	}
 }

@@ -11,18 +11,28 @@ import (
 	"github.com/gjtiquia/vimance/internal/jsonrpc"
 )
 
-var eng = engine.New()
+var eng engine.Engine
+
+type EngineEventListener struct{}
+
+func (l *EngineEventListener) OnModeChanged(mode engine.Mode) {
+	sendJsonRpcToJs("engine.OnModeChanged", map[string]any{
+		"mode": mode,
+	})
+}
 
 func main() {
 	fmt.Println("go: running...")
 
-	waitCh := make(chan int)
+	eng = engine.New()
+	eng.AddListener(&EngineEventListener{})
 
 	rpcListener := js.NewFunc(onReceiveJsonRpc)
 	defer rpcListener.Release()
 
 	js.SetGlobalFunc("jsToGoJsonRpcAsync", rpcListener)
 
+	waitCh := make(chan int)
 	<-waitCh
 }
 
@@ -120,6 +130,7 @@ func sendJsonRpcToJs(method string, params any) (jsonrpc.Response, error) {
 		return jsonrpc.Response{}, fmt.Errorf("failed to parse JSON-RPC response: %w", err)
 	}
 
+	// fmt.Printf("go: %s.response.result: %v\n", method, response.Result)
 	return response, nil
 }
 

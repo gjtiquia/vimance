@@ -2,11 +2,11 @@ package engine
 
 type Engine struct {
 	listeners []EventListener
-	mode Mode
+	mode      Mode
 }
 
 type EventListener interface {
-	OnModeChanged()
+	OnModeChanged(mode Mode)
 }
 
 type Mode uint
@@ -17,12 +17,12 @@ const (
 	ModeVisual
 )
 
-const KeyEsc string = "esc"
+const KeyEsc string = "Escape"
 
 func New() Engine {
 	return Engine{
 		listeners: []EventListener{},
-		mode: ModeNormal,
+		mode:      ModeNormal,
 	}
 }
 
@@ -38,7 +38,7 @@ func (eng *Engine) setMode(mode Mode) {
 	eng.mode = mode
 
 	for _, listener := range eng.listeners {
-		listener.OnModeChanged()
+		listener.OnModeChanged(mode)
 	}
 }
 

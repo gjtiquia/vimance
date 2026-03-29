@@ -28,7 +28,7 @@ async function initAsync() {
 }
 // web/src/jsonrpc/request.ts
 var requestIdCounter = 0;
-function newJsonRpcRequest(method, params) {
+function newRequest(method, params) {
   requestIdCounter++;
   return {
     jsonrpc: "2.0",
@@ -37,39 +37,78 @@ function newJsonRpcRequest(method, params) {
     id: requestIdCounter
   };
 }
-function decodeJsonRpcRequest(jsonString) {
+function decodeRequest(jsonString) {
   const obj = JSON.parse(jsonString);
   return obj;
 }
-
 // web/src/jsonrpc/response.ts
-function newJsonRpcResponse(result, id) {
+function newResponse(result, id) {
   return {
     jsonrpc: "2.0",
     result,
     id
   };
 }
-function decodeJsonRpcResponse(jsonString) {
+function newSuccessResponse(id) {
+  return newResponse({ success: true }, id);
+}
+function decodeResponse(jsonString) {
   const obj = JSON.parse(jsonString);
   return obj;
 }
-
+function newMethodNotFoundResponse(request) {
+  return newErrorResponse(-32601, `Method not found: ${request.method}`, request.id);
+}
+function newErrorResponse(code, message, id, data) {
+  return {
+    jsonrpc: "2.0",
+    error: { code, message, data },
+    id
+  };
+}
 // web/src/wasm/rpc.ts
 globalThis.goToJsJsonRpcAsync = onReceiveJsonRpcAsync;
 async function sendRpcAsync(method, params) {
-  const request = newJsonRpcRequest(method, params);
-  const requestJson = JSON.stringify(request);
+  const request2 = newRequest(method, params);
+  const requestJson = JSON.stringify(request2);
   const responseJson = await globalThis.jsToGoJsonRpcAsync.call(requestJson);
-  return decodeJsonRpcResponse(responseJson);
+  return decodeResponse(responseJson);
 }
 async function onReceiveJsonRpcAsync(jsonString) {
-  const request = decodeJsonRpcRequest(jsonString);
-  const echoParams = request.params;
-  console.log(`js: ${request.method}.request.params.message:`, echoParams.message);
-  const response = newJsonRpcResponse({ message: `js echoooooo ${echoParams.message}` }, request.id);
-  const responseJson = JSON.stringify(response);
+  const request2 = decodeRequest(jsonString);
+  console.log(`js: ${request2.method}.request.params:`, request2.params);
+  const { ok, responseJson } = tryHandleEngineEvents(request2);
+  if (ok) {
+    return responseJson;
+  }
+  switch (request2.method) {
+    case "echo":
+      return handleEcho(request2);
+    default:
+      const response2 = newMethodNotFoundResponse(request2);
+      console.error(`js: ${response2.error?.message}`);
+      return JSON.stringify(response2);
+  }
+}
+async function handleEcho(request2) {
+  const echoParams = request2.params;
+  const response2 = newResponse({ message: `js echoooooo ${echoParams.message}` }, request2.id);
+  const responseJson = JSON.stringify(response2);
   return responseJson;
+}
+function tryHandleEngineEvents(request2) {
+  if (!request2.method.startsWith("engine.") || request2.method.split(".").length !== 2) {
+    return { ok: false };
+  }
+  const eventName = request2.method.split(".")[1];
+  document.body.dispatchEvent(new CustomEvent("engine:onEventTriggered", {
+    detail: {
+      eventName,
+      params: request2.params
+    }
+  }));
+  const response2 = newSuccessResponse(request2.id);
+  return { ok: true, responseJson: JSON.stringify(response2) };
 }
 // web/src/test-button.ts
 function init() {
@@ -77,17 +116,29 @@ function init() {
     const button = event.target;
     if (!button.matches("[data-test-button]"))
       return;
-    const response = await sendRpcAsync("echo", {
+    const response2 = await sendRpcAsync("echo", {
       message: "helloooooo from js"
     });
-    if (response.error) {
-      console.error("js: echo.response.error:", response.error);
+    if (response2.error) {
+      console.error("js: echo.response.error:", response2.error);
       return;
     }
-    console.log("js: echo.response.result.message:", response.result.message);
+    console.log("js: echo.response.result.message:", response2.result.message);
   });
 }
 init();
+
+// web/src/engine-debug-console.ts
+function init2() {
+  document.body.addEventListener("engine:onEventTriggered", async (event) => {
+    const customEvent = event;
+    console.log("js: engine:onEventTriggered:", {
+      type: customEvent.type,
+      detail: customEvent.detail
+    });
+  });
+}
+init2();
 
 // web/src/engine/input.ts
 function subscribeToKeyDownEvent() {
@@ -99,14 +150,14 @@ function subscribeToKeyDownEvent() {
 }
 
 // web/src/engine/index.ts
-function init2() {
+function init3() {
   subscribeToKeyDownEvent();
 }
 
 // web/src/index.ts
 async function initAsync2() {
   console.log("js: running...");
-  init2();
+  init3();
   await initAsync();
 }
 initAsync2();
