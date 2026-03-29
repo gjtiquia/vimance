@@ -5,52 +5,29 @@ package main
 import (
 	"errors"
 	"fmt"
-	"syscall/js"
 
+	"github.com/gjtiquia/vimance/internal/js"
 	"github.com/gjtiquia/vimance/internal/jsonrpc"
 )
 
 func main() {
 	fmt.Println("gowasm: running...")
 
-	waitCh := make(chan struct{})
+	waitCh := make(chan int)
 
-	rpcListener := js.FuncOf(onReceiveJsonRpc)
+	rpcListener := js.NewFunc(onReceiveJsonRpc)
 	defer rpcListener.Release()
 
-	js.Global().Set("jsToGoJsonRpcAsync", rpcListener)
+	js.SetGlobalFunc("jsToGoJsonRpcAsync", rpcListener)
 
-	// Keep the program running
 	<-waitCh
 }
 
 // called from JavaScript, returned as a Promise, in-case we expect a response
-func onReceiveJsonRpc(this js.Value, args []js.Value) interface{} {
-	payload := this.String()
-	promiseConstructor := js.Global().Get("Promise")
-
-	var executor js.Func
-	executor = js.FuncOf(func(_ js.Value, promiseArgs []js.Value) interface{} {
-		resolve := promiseArgs[0]
-		reject := promiseArgs[1]
-
-		go func() {
-			defer executor.Release()
-
-			out, err := handleJsonRpc(payload)
-			if err != nil {
-				fmt.Printf("gowasm: error handling JSON-RPC request: %v\n", err)
-				reject.Invoke(js.ValueOf(err.Error()))
-				return
-			}
-
-			resolve.Invoke(js.ValueOf(out))
-		}()
-
-		return nil
+func onReceiveJsonRpc(jsonString string) js.Value {
+	return js.NewPromise(func() (any, error) {
+		return handleJsonRpc(jsonString)
 	})
-
-	return promiseConstructor.New(executor)
 }
 
 func handleJsonRpc(jsonString string) (string, error) {
@@ -96,7 +73,7 @@ func sendJsonRpcToJs(method string, params any) (string, error) {
 	}
 
 	// TODO : need to await the promise
-	response := js.Global().Call("goToJsJsonRpcAsync", requestJson)
+	response := js.CallGlobalFunc("goToJsJsonRpcAsync", requestJson)
 
 	// TODO : decode response to json rpc
 	fmt.Printf("gowasm: received response from JS: %s\n", response.String())

@@ -6,7 +6,7 @@ function init() {
       return;
     console.log("button pressed");
     const response = await sendRpcAsync("echo", "helloooooo from js");
-    console.log("response from go wasm:", response);
+    console.log("awaited response from go wasm:", response);
   });
 }
 init();

@@ -12,7 +12,7 @@ export function init() {
 
         const response = await sendRpcAsync("echo", "helloooooo from js");
 
-        console.log("response from go wasm:", response);
+        console.log("awaited response from go wasm:", response);
 
         // TODO : go wasm side should also send a delayed message back
         // - go wasm side should be able to send/receive according to json rpc spec
