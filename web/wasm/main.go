@@ -32,7 +32,7 @@ func onReceiveJsonRpc(jsonString string) js.Value {
 func handleJsonRpc(jsonString string) (string, error) {
 	request, err := jsonrpc.DecodeRequest(jsonString)
 	if err != nil {
-		responseJson, err := jsonrpc.NewResponseError(-32700, "Invalid JSON was received by the server.", nil).ToJsonString()
+		responseJson, err := jsonrpc.NewParseError().ToJsonString()
 		if err != nil {
 			// cant marshall reponse into json, so we return a string error message instead
 			errorMsg := fmt.Sprintf("Invalid JSON was received by the server; AND Server failed to marshal JSON-RPC error response: %v", err)
@@ -61,7 +61,7 @@ func routeJsonRpcRequest(request jsonrpc.Request) jsonrpc.Response {
 		return handleEcho(request)
 
 	default:
-		return jsonrpc.NewResponseError(-32601, fmt.Sprintf("Method not found: %s", request.Method), request.Id)
+		return jsonrpc.NewMethodNotFoundError(request.Id)
 	}
 }
 
@@ -70,12 +70,12 @@ func routeJsonRpcRequest(request jsonrpc.Request) jsonrpc.Response {
 func handleEcho(request jsonrpc.Request) jsonrpc.Response {
 	paramsMap, ok := request.Params.(map[string]any)
 	if !ok {
-		return jsonrpc.NewResponseError(-32602, "Invalid params: expected an object with a 'message' field.", request.Id)
+		return jsonrpc.NewInvalidParamsError(request.Id)
 	}
 
 	msg, ok := paramsMap["message"]
 	if !ok {
-		return jsonrpc.NewResponseError(-32602, "Invalid params: expected an object with a 'message' field.", request.Id)
+		return jsonrpc.NewInvalidParamsError(request.Id)
 	}
 
 	fmt.Printf("go: %s.request.params.message: %v\n", request.Method, msg)

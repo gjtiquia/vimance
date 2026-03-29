@@ -47,12 +47,13 @@ type Response struct {
 	Jsonrpc string         `json:"jsonrpc"`
 	Result  any            `json:"result,omitempty"`
 	Error   *ResponseError `json:"error,omitempty"`
-	Id      *int           `json:"id,omitempty"`
+	Id      *int           `json:"id"`
 }
 
 type ResponseError struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
 }
 
 func NewResponse(result any, id *int) Response {
@@ -73,13 +74,43 @@ func DecodeResponse(jsonString string) (Response, error) {
 	return response, nil
 }
 
-// TODO : some built-in error codes following spec
-func NewResponseError(code int, message string, id *int) Response {
+// Invalid JSON was received by the server. An error occurred on the server while parsing the JSON text.
+func NewParseError() Response {
+	return NewError(-32700, "Parse error: Invalid JSON was received by the server.", nil, nil)
+}
+
+// The JSON sent is not a valid Request object.
+func NewInvalidRequestError(id *int) Response {
+	return NewError(-32600, "Invalid Request: The JSON sent is not a valid Request object.", nil, id)
+}
+
+// The method does not exist / is not available.
+func NewMethodNotFoundError(id *int) Response {
+	return NewError(-32601, "Method not found: The method does not exist / is not available.", nil, id)
+}
+
+// Invalid method parameter(s).
+func NewInvalidParamsError(id *int) Response {
+	return NewError(-32602, "Invalid params: Invalid method parameter(s).", nil, id)
+}
+
+// Internal JSON-RPC error.
+func NewInternalError(id *int) Response {
+	return NewError(-32603, "Internal error: Internal JSON-RPC error.", nil, id)
+}
+
+// Server error. Reserved for implementation-defined server-errors.
+func NewServerError(message string, id *int) Response {
+	return NewError(-32000, message, nil, id)
+}
+
+func NewError(code int, message string, data any, id *int) Response {
 	return Response{
 		Jsonrpc: "2.0",
 		Error: &ResponseError{
 			Code:    code,
 			Message: message,
+			Data:    data,
 		},
 		Id: id,
 	}

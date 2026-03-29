@@ -10,7 +10,7 @@ import (
 type Value = js.Value
 
 func NewFunc(fn func(jsonString string) js.Value) js.Func {
-	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	return js.FuncOf(func(this js.Value, args []js.Value) any {
 		jsonString := this.String()
 		return fn(jsonString)
 	})
@@ -20,7 +20,7 @@ func NewPromise(fn func() (any, error)) js.Value {
 	promiseConstructor := js.Global().Get("Promise")
 
 	var executor js.Func
-	executor = js.FuncOf(func(_ js.Value, promiseArgs []js.Value) interface{} {
+	executor = js.FuncOf(func(_ js.Value, promiseArgs []js.Value) any {
 		resolve := promiseArgs[0]
 		reject := promiseArgs[1]
 
@@ -61,7 +61,7 @@ func AwaitGlobalPromise(name string, jsonString string) (string, error) {
 
 	ch := make(chan promiseResponse, 1)
 
-	thenFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	thenFunc := js.FuncOf(func(this js.Value, args []js.Value) any {
 		val := args[0]
 
 		var s string
@@ -75,7 +75,7 @@ func AwaitGlobalPromise(name string, jsonString string) (string, error) {
 		return nil
 	})
 
-	catchFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	catchFunc := js.FuncOf(func(this js.Value, args []js.Value) any {
 		val := args[0]
 
 		var s string
