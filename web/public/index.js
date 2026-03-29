@@ -166,9 +166,18 @@ function getEventHandler(eventName) {
   switch (eventName) {
     case "OnModeChanged":
       return handleOnModeChanged;
+    case "OnCursorMoved":
+      return handleOnCursorMoved;
     default:
       return null;
   }
+}
+function getCellDisplayValue(cell) {
+  const input = cell.querySelector("input");
+  if (input) {
+    return input.value;
+  }
+  return cell.textContent?.trim() ?? "";
 }
 function handleOnModeChanged(table, params) {
   console.log("js: table: handleOnModeChanged:", params);
@@ -180,8 +189,54 @@ function handleOnModeChanged(table, params) {
       return;
     }
     const value = normalCell.textContent?.trim() || "";
-    replaceCell(table, normalCell, "input", value);
+    const newCell = replaceCell(table, normalCell, "input", value);
+    if (!newCell) {
+      return;
+    }
+    const input = newCell.querySelector("input");
+    if (!input) {
+      return;
+    }
+    input.focus();
+    const insertPosition = params.insertPosition;
+    if (insertPosition === "after") {
+      const len = input.value.length;
+      input.setSelectionRange(len, len);
+    } else {
+      input.setSelectionRange(0, 0);
+    }
+  } else if (mode === "n") {
+    const inputCell = table.querySelector("[data-cell-variant='input']");
+    if (!inputCell) {
+      return;
+    }
+    const input = inputCell.querySelector("input");
+    const value = input?.value?.trim() ?? inputCell.textContent?.trim() ?? "";
+    replaceCell(table, inputCell, "normal", value);
   }
+}
+function handleOnCursorMoved(table, params) {
+  const x = params.x;
+  const y = params.y;
+  const targetCell = table.querySelector(`td[data-cell-x="${x}"][data-cell-y="${y}"]`);
+  if (!targetCell) {
+    return;
+  }
+  const normalCell = table.querySelector("[data-cell-variant='normal']");
+  if (!normalCell) {
+    return;
+  }
+  if (normalCell === targetCell) {
+    return;
+  }
+  const fromValue = getCellDisplayValue(normalCell);
+  const toValue = getCellDisplayValue(targetCell);
+  replaceCell(table, normalCell, "default", fromValue);
+  const newTarget = table.querySelector(`td[data-cell-x="${x}"][data-cell-y="${y}"]`);
+  if (!newTarget) {
+    return;
+  }
+  replaceCell(table, newTarget, "normal", toValue);
 }
 function replaceCell(table, oldCell, variant, value) {
   const template = table.querySelector(`template[data-cell-template="${variant}"]`);

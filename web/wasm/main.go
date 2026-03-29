@@ -15,16 +15,24 @@ var eng engine.Engine
 
 type EngineEventListener struct{}
 
-func (l *EngineEventListener) OnModeChanged(mode engine.Mode) {
+func (l *EngineEventListener) OnModeChanged(mode engine.Mode, insertPosition engine.InsertPosition) {
 	sendJsonRpcToJs("engine.OnModeChanged", map[string]any{
-		"mode": mode,
+		"mode":             mode,
+		"insertPosition": insertPosition,
+	})
+}
+
+func (l *EngineEventListener) OnCursorMoved(x, y int) {
+	sendJsonRpcToJs("engine.OnCursorMoved", map[string]any{
+		"x": x,
+		"y": y,
 	})
 }
 
 func main() {
 	fmt.Println("go: running...")
 
-	eng = engine.New()
+	eng = engine.New(6, 5)
 	eng.AddListener(&EngineEventListener{})
 
 	rpcListener := js.NewFunc(onReceiveJsonRpc)
