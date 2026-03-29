@@ -24,6 +24,16 @@ func NewRequest(method string, params any) Request {
 	}
 }
 
+func DecodeRequest(jsonString string) (Request, error) {
+	var request Request
+	err := json.Unmarshal([]byte(jsonString), &request)
+	if err != nil {
+		return Request{}, fmt.Errorf("failed to parse JSON-RPC request: %w", err)
+	}
+
+	return request, nil
+}
+
 func (r Request) ToJsonString() (string, error) {
 	requestBytes, err := json.Marshal(r)
 	if err != nil {

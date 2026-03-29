@@ -3,7 +3,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"syscall/js"
@@ -12,7 +11,7 @@ import (
 )
 
 func main() {
-	fmt.Println("main.go: running...")
+	fmt.Println("gowasm: running...")
 
 	waitCh := make(chan struct{})
 
@@ -60,9 +59,7 @@ func handleJsonRpc(jsonString string) (string, error) {
 
 	// https://go.dev/blog/json
 
-	// TODO : refactor into Decode
-	var requestFromJs jsonrpc.Request
-	err := json.Unmarshal([]byte(jsonString), &requestFromJs)
+	requestFromJs, err := jsonrpc.DecodeRequest(jsonString)
 	if err != nil {
 		responseJson, err := jsonrpc.NewResponseError(-32700, "Invalid JSON was received by the server.", nil).ToJsonString()
 		if err != nil {
@@ -74,7 +71,7 @@ func handleJsonRpc(jsonString string) (string, error) {
 		return responseJson, fmt.Errorf("failed to parse JSON-RPC request: %w", err)
 	}
 
-	// TODO : refactor later
+	// TODO : remove later
 	// here for testing we send another RPC before sending a response
 
 	requestToJsJson, err := jsonrpc.NewRequest("echo", map[string]string{"message": "helloooooo from go"}).ToJsonString()
