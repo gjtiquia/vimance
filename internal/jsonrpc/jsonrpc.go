@@ -63,6 +63,16 @@ func NewResponse(result any, id *int) Response {
 	}
 }
 
+func DecodeResponse(jsonString string) (Response, error) {
+	var response Response
+	err := json.Unmarshal([]byte(jsonString), &response)
+	if err != nil {
+		return Response{}, fmt.Errorf("failed to parse JSON-RPC response: %w", err)
+	}
+
+	return response, nil
+}
+
 // TODO : some built-in error codes following spec
 func NewResponseError(code int, message string, id *int) Response {
 	return Response{

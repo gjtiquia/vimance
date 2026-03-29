@@ -4,32 +4,32 @@ function init() {
     const button = event.target;
     if (!button.matches("[data-test-button]"))
       return;
-    console.log("button pressed");
     const response = await sendRpcAsync("echo", {
       message: "helloooooo from js"
     });
-    console.log("awaited response from go wasm:", response);
+    if (response.error) {
+      console.error("js: echo.response.error.message:", response.error.message);
+      return;
+    }
+    console.log("js: echo.response.result.message:", response.result.message);
   });
 }
 init();
 async function sendRpcAsync(method, params) {
   const request = newJsonRpcRequest(method, params);
   const requestJson = JSON.stringify(request);
-  return globalThis.jsToGoJsonRpcAsync.call(requestJson);
+  const responseJson = await globalThis.jsToGoJsonRpcAsync.call(requestJson);
+  return decodeJsonRpcResponse(responseJson);
 }
+globalThis.goToJsJsonRpcAsync = onReceiveJsonRpcAsync;
 async function onReceiveJsonRpcAsync(jsonString) {
   const request = decodeJsonRpcRequest(jsonString);
-  console.log("js.onReceiveJsonRpcAsync:", request);
-  const response = newJsonRpcResponse({ message: `js echoooooo ${request.params}` }, request.id);
+  const echoParams = request.params;
+  console.log(`js: ${request.method}.request.params.message:`, echoParams.message);
+  const response = newJsonRpcResponse({ message: `js echoooooo ${echoParams.message}` }, request.id);
   const responseJson = JSON.stringify(response);
   return responseJson;
 }
-Object.defineProperty(globalThis, "goToJsJsonRpcAsync", {
-  value: onReceiveJsonRpcAsync,
-  writable: false,
-  configurable: false,
-  enumerable: false
-});
 var requestIdCounter = 0;
 function newJsonRpcRequest(method, params) {
   requestIdCounter++;
@@ -50,6 +50,10 @@ function newJsonRpcResponse(result, id) {
     result,
     id
   };
+}
+function decodeJsonRpcResponse(jsonString) {
+  const obj = JSON.parse(jsonString);
+  return obj;
 }
 
 // web/src/wasm/exports.ts
@@ -72,17 +76,17 @@ async function initAsync() {
   try {
     const result = await WebAssembly.instantiateStreaming(fetch(WASM_URL), go.importObject);
     wasm = result.instance;
-    console.log("running main.wasm...");
+    console.log("js: running main.wasm...");
     const exitCode = await go.run(wasm);
-    console.log("main.wasm exit code:", exitCode);
+    console.log("js: main.wasm exit code:", exitCode);
   } catch (err) {
-    console.error("wasm.initAsync: error");
+    console.error("js: wasm.initAsync: error");
     console.error(err);
   }
 }
 // web/src/index.ts
 async function initAsync2() {
-  console.log("hello world from js");
+  console.log("js: running...");
   await initAsync();
 }
 initAsync2();

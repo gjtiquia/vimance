@@ -41,13 +41,13 @@ export async function initAsync() {
 
         wasm = result.instance as Wasm;
 
-        console.log("running main.wasm...");
+        console.log("js: running main.wasm...");
 
         const exitCode = await go.run(wasm); // runs main()
 
-        console.log("main.wasm exit code:", exitCode);
+        console.log("js: main.wasm exit code:", exitCode);
     } catch (err) {
-        console.error("wasm.initAsync: error");
+        console.error("js: wasm.initAsync: error");
         console.error(err);
     }
 }

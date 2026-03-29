@@ -3,18 +3,22 @@ export function init() {
         const button = event.target as HTMLElement;
         if (!button.matches("[data-test-button]")) return;
 
-        console.log("button pressed");
-
-        // TODO : refactor this
-
-        // TODO : should send a json rpc that follows the spec
-        // - https://www.jsonrpc.org/specification
-
         const response = await sendRpcAsync("echo", {
             message: "helloooooo from js",
         });
 
-        console.log("awaited response from go wasm:", response);
+        if (response.error) {
+            console.error(
+                "js: echo.response.error.message:",
+                response.error.message,
+            );
+            return;
+        }
+
+        console.log(
+            "js: echo.response.result.message:",
+            response.result.message,
+        );
     });
 }
 
@@ -22,47 +26,51 @@ init();
 
 // ===== send RPC =====
 
-async function sendRpcAsync(method: string, params: any): Promise<string> {
+async function sendRpcAsync(
+    method: string,
+    params: any,
+): Promise<JsonRpcResponse> {
     const request = newJsonRpcRequest(method, params);
     const requestJson = JSON.stringify(request);
 
-    return (globalThis as GoGlobal).jsToGoJsonRpcAsync.call(requestJson);
+    const responseJson = await (globalThis as GoGlobal).jsToGoJsonRpcAsync.call(
+        requestJson,
+    );
+    return decodeJsonRpcResponse(responseJson);
 }
 
 type GoGlobal = typeof globalThis & {
+    goToJsJsonRpcAsync: (json: string) => Promise<string>;
     jsToGoJsonRpcAsync: GoFunc;
 };
 
 type GoFunc = {
-    call: (message: string) => Promise<string>;
+    call: (json: string) => Promise<string>;
 };
 
 // ===== receive RPC =====
 
+(globalThis as GoGlobal).goToJsJsonRpcAsync = onReceiveJsonRpcAsync;
+
 async function onReceiveJsonRpcAsync(jsonString: string): Promise<string> {
     const request = decodeJsonRpcRequest(jsonString);
 
-    console.log("js.onReceiveJsonRpcAsync:", request);
-
     // TODO : route to different handlers based on the method in the request, and return appropriate responses
     // for now its assuming "echo"
-    // params should be structured data, but for simplicity we are just using a string here for now
+
+    type EchoParams = { message: string };
+    const echoParams = request.params as EchoParams; // TODO : should use some sort of runtime validation eg. zod
+
+    console.log(`js: ${request.method}.request.params.message:`, echoParams.message);
 
     const response = newJsonRpcResponse(
-        { message: `js echoooooo ${request.params}` },
+        { message: `js echoooooo ${echoParams.message}` },
         request.id,
     );
 
     const responseJson = JSON.stringify(response);
     return responseJson;
 }
-
-Object.defineProperty(globalThis, "goToJsJsonRpcAsync", {
-    value: onReceiveJsonRpcAsync,
-    writable: false,
-    configurable: false,
-    enumerable: false,
-});
 
 // ====== JSON RPC types ======
 
