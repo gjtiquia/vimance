@@ -61,7 +61,10 @@ async function onReceiveJsonRpcAsync(jsonString: string): Promise<string> {
     type EchoParams = { message: string };
     const echoParams = request.params as EchoParams; // TODO : should use some sort of runtime validation eg. zod
 
-    console.log(`js: ${request.method}.request.params.message:`, echoParams.message);
+    console.log(
+        `js: ${request.method}.request.params.message:`,
+        echoParams.message,
+    );
 
     const response = newJsonRpcResponse(
         { message: `js echoooooo ${echoParams.message}` },

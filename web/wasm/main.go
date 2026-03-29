@@ -23,7 +23,6 @@ func main() {
 	<-waitCh
 }
 
-// called from JavaScript, returned as a Promise, in-case we expect a response
 func onReceiveJsonRpc(jsonString string) js.Value {
 	return js.NewPromise(func() (any, error) {
 		return handleJsonRpc(jsonString)
@@ -31,7 +30,7 @@ func onReceiveJsonRpc(jsonString string) js.Value {
 }
 
 func handleJsonRpc(jsonString string) (string, error) {
-	requestFromJs, err := jsonrpc.DecodeRequest(jsonString)
+	request, err := jsonrpc.DecodeRequest(jsonString)
 	if err != nil {
 		responseJson, err := jsonrpc.NewResponseError(-32700, "Invalid JSON was received by the server.", nil).ToJsonString()
 		if err != nil {
@@ -43,58 +42,52 @@ func handleJsonRpc(jsonString string) (string, error) {
 		return responseJson, fmt.Errorf("failed to parse JSON-RPC request: %w", err)
 	}
 
-
-	// ===== test sending json rpc from go to js ===== // TODO : remove later
-	response, err := sendJsonRpcToJs("echo", map[string]any{
-		"message": "helloooooo from go",
-	})
-	if err != nil {
-		fmt.Printf("go: error sending json rpc to js: %v\n", err)
-	} else {
-		resultMap, ok := response.Result.(map[string]any)
-		if !ok {
-			errorMsg := fmt.Sprintf("go: error decoding json rpc response from js: expected result to be a map[string]any, got %T", response.Result)
-			fmt.Println(errorMsg)
-			return "", errors.New(errorMsg)
-		}
-
-		fmt.Printf("go: echo.response.result.message: %v\n", resultMap["message"])
-	}
-	// ===============================================
-
-	// TODO : route request to appropriate handler based on requestFromJs.Method and get the result
-	// for now assume always "echo"
-
-	// type-assert params to expected type, and return error if not as expected
-	paramsMap, ok := requestFromJs.Params.(map[string]any)
-	if !ok {
-		responseJson, err := jsonrpc.NewResponseError(-32602, "Invalid params: expected an object with a 'message' field.", requestFromJs.Id).ToJsonString()
-		if err != nil {
-			// cant marshall reponse into json, so we return a string error message instead
-			errorMsg := fmt.Sprintf("Invalid params: expected an object with a 'message' field; AND Server failed to marshal JSON-RPC error response: %v", err)
-			return errorMsg, errors.New(errorMsg)
-		}
-
-		return responseJson, fmt.Errorf("invalid params: expected an object with a 'message' field")
-	}
-
-	msg := paramsMap["message"]
-
-	fmt.Printf("go: %s.request.params.message: %v\n", requestFromJs.Method, msg)
-
-	result := map[string]any{
-		"message": fmt.Sprintf("go echoooo %v", msg),
-	}
-
-	responseJson, err := jsonrpc.NewResponse(result, requestFromJs.Id).ToJsonString()
+	responseJson, err := routeJsonRpcRequest(request).ToJsonString()
 	if err != nil {
 		// cant marshall reponse into json, so we return a string error message instead
-		errorMsg := fmt.Sprintf("failed to marshal JSON-RPC response: %v", err)
+		errorMsg := fmt.Sprintf("Server failed to marshal JSON-RPC response: %v", err)
 		return errorMsg, errors.New(errorMsg)
 	}
 
 	return responseJson, nil
 }
+
+// ====== routers
+
+func routeJsonRpcRequest(request jsonrpc.Request) jsonrpc.Response {
+	switch request.Method {
+
+	case "echo":
+		return handleEcho(request)
+
+	default:
+		return jsonrpc.NewResponseError(-32601, fmt.Sprintf("Method not found: %s", request.Method), request.Id)
+	}
+}
+
+// ====== handlers
+
+func handleEcho(request jsonrpc.Request) jsonrpc.Response {
+	paramsMap, ok := request.Params.(map[string]any)
+	if !ok {
+		return jsonrpc.NewResponseError(-32602, "Invalid params: expected an object with a 'message' field.", request.Id)
+	}
+
+	msg, ok := paramsMap["message"]
+	if !ok {
+		return jsonrpc.NewResponseError(-32602, "Invalid params: expected an object with a 'message' field.", request.Id)
+	}
+
+	fmt.Printf("go: %s.request.params.message: %v\n", request.Method, msg)
+
+	result := map[string]any{
+		"message": fmt.Sprintf("go echoooo %v", msg),
+	}
+
+	return jsonrpc.NewResponse(result, request.Id)
+}
+
+// ====== utils
 
 func sendJsonRpcToJs(method string, params any) (jsonrpc.Response, error) {
 	requestJson, err := jsonrpc.NewRequest(method, params).ToJsonString()
@@ -113,4 +106,34 @@ func sendJsonRpcToJs(method string, params any) (jsonrpc.Response, error) {
 	}
 
 	return response, nil
+}
+
+// ====== temp place to put stuff i dun wanna delete yet but dun hv a concrete use case yet
+
+func sendEchoToJs(message string) (string, error) {
+	response, err := sendJsonRpcToJs("echo", map[string]any{
+		"message": message,
+	})
+
+	if err != nil {
+		fmt.Printf("go: error sending json rpc to js: %v\n", err)
+		return "", err
+	}
+
+	resultMap, ok := response.Result.(map[string]any)
+	if !ok {
+		errorMsg := fmt.Sprintf("go: error decoding json rpc response from js: expected result to be a map[string]any, got %T", response.Result)
+		fmt.Println(errorMsg)
+		return "", errors.New(errorMsg)
+	}
+
+	echoMessage, ok := resultMap["message"]
+	if !ok {
+		errorMsg := fmt.Sprintf("go: error decoding json rpc response from js: expected result to have a 'message' field, got %v", resultMap)
+		fmt.Println(errorMsg)
+		return "", errors.New(errorMsg)
+	}
+
+	fmt.Printf("go: echo.response.result.message: %v\n", echoMessage)
+	return resultMap["message"].(string), nil
 }
