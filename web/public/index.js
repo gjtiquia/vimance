@@ -143,6 +143,44 @@ function init2() {
 }
 init2();
 
+// web/src/table.ts
+init3();
+function init3() {
+  const tables = document.body.querySelectorAll("[data-table]");
+  document.body.addEventListener("engine:onEventTriggered", async (event) => {
+    const customEvent = event;
+    const eventName = customEvent.detail.eventName;
+    const params = customEvent.detail.params;
+    const handler = getEventHandler(eventName);
+    if (!handler) {
+      console.warn(`js: table: No handler found for event: ${eventName}`);
+      return;
+    }
+    tables.forEach((element) => {
+      const table = element;
+      handler(table, params);
+    });
+  });
+}
+function getEventHandler(eventName) {
+  switch (eventName) {
+    case "OnModeChanged":
+      return handleOnModeChanged;
+    default:
+      return null;
+  }
+}
+function handleOnModeChanged(table, params) {
+  console.log("js: table: handleOnModeChanged:", params);
+  const mode = params.mode;
+  if (mode === "i") {
+    const normalCell = table.querySelector("[data-cell-variant='normal']");
+    if (!normalCell) {
+      console.error("js: table: handleOnModeChanged: No normal cell found! unable to change mode to insert mode!");
+    }
+  }
+}
+
 // web/src/engine/input.ts
 function subscribeToKeyDownEvent() {
   document.addEventListener("keydown", (e) => {
@@ -153,14 +191,14 @@ function subscribeToKeyDownEvent() {
 }
 
 // web/src/engine/index.ts
-function init3() {
+function init4() {
   subscribeToKeyDownEvent();
 }
 
 // web/src/index.ts
 async function initAsync2() {
   console.log("js: running...");
-  init3();
+  init4();
   await initAsync();
 }
 initAsync2();

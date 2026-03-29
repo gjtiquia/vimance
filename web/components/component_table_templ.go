@@ -249,7 +249,7 @@ func TableDataCell(variant CellVariant, value string, x, y int) templ.Component 
 		style := CellBaseStyle
 		switch variant {
 		case CellVariantNormal:
-			style += "bg-stone-50/10"
+			style += "bg-stone-50/30"
 		case CellVariantInput:
 			style += ""
 		case CellVariantVisual:
