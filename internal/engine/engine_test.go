@@ -6,6 +6,15 @@ import (
 	"github.com/gjtiquia/vimance/internal/engine"
 )
 
+// create a listener struct, follows an interface we will create later, pass to the New method, which has OnModeChanged callback, which for now just increments a OnModeChangedCounter field for testing
+type TestEngineEventListener struct {
+	OnModeChangedCounter int
+}
+
+func (l *TestEngineEventListener) OnModeChanged() {
+	l.OnModeChangedCounter++
+}
+
 func TestInitialState(t *testing.T) {
 	eng := engine.New()
 
@@ -15,7 +24,11 @@ func TestInitialState(t *testing.T) {
 }
 
 func TestModeSwitching(t *testing.T) {
+
 	eng := engine.New()
+
+	listener := TestEngineEventListener{}
+	eng.AddListener(&listener)
 
 	// Switch to insert mode
 	eng.KeyPress("i")
@@ -39,5 +52,9 @@ func TestModeSwitching(t *testing.T) {
 	eng.KeyPress(engine.KeyEsc) // Escape key
 	if eng.Mode() != engine.ModeNormal {
 		t.Fatalf("expected mode to be normal, got %v", eng.Mode())
+	}
+
+	if (listener.OnModeChangedCounter != 4) {
+		t.Errorf("expected OnModeChanged to be called 4 times, got %v", listener.OnModeChangedCounter)
 	}
 }

@@ -1,7 +1,12 @@
 package engine
 
 type Engine struct {
+	listeners []EventListener
 	mode Mode
+}
+
+type EventListener interface {
+	OnModeChanged()
 }
 
 type Mode uint
@@ -16,12 +21,25 @@ const KeyEsc string = "esc"
 
 func New() Engine {
 	return Engine{
+		listeners: []EventListener{},
 		mode: ModeNormal,
 	}
 }
 
+func (eng *Engine) AddListener(listener EventListener) {
+	eng.listeners = append(eng.listeners, listener)
+}
+
 func (eng *Engine) Mode() Mode {
 	return eng.mode
+}
+
+func (eng *Engine) setMode(mode Mode) {
+	eng.mode = mode
+
+	for _, listener := range eng.listeners {
+		listener.OnModeChanged()
+	}
 }
 
 func (eng *Engine) KeyPress(key string) {
@@ -31,26 +49,25 @@ func (eng *Engine) KeyPress(key string) {
 		switch key {
 
 		case "i":
-			eng.mode = ModeInsert
+			eng.setMode(ModeInsert)
 			// TODO : handle cursor position
 
 		case "a":
-			eng.mode = ModeInsert
+			eng.setMode(ModeInsert)
 			// TODO : handle cursor position
 
 		case "v":
-			eng.mode = ModeVisual
-
+			eng.setMode(ModeVisual)
 		}
 
 	case ModeInsert:
 		if key == KeyEsc {
-			eng.mode = ModeNormal
+			eng.setMode(ModeNormal)
 		}
 
 	case ModeVisual:
 		if key == KeyEsc {
-			eng.mode = ModeNormal
+			eng.setMode(ModeNormal)
 		}
 	}
 }
