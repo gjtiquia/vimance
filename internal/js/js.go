@@ -16,14 +16,6 @@ func NewFunc(fn func(jsonString string) js.Value) js.Func {
 	})
 }
 
-func SetGlobalFunc(name string, jsFunc js.Func) {
-	js.Global().Set(name, jsFunc)
-}
-
-func CallGlobalFunc(name string, jsonString string) js.Value {
-	return js.Global().Call(name, jsonString)
-}
-
 func NewPromise(fn func() (any, error)) js.Value {
 	promiseConstructor := js.Global().Get("Promise")
 
@@ -49,4 +41,64 @@ func NewPromise(fn func() (any, error)) js.Value {
 	})
 
 	return promiseConstructor.New(executor)
+}
+
+func SetGlobalFunc(name string, jsFunc js.Func) {
+	js.Global().Set(name, jsFunc)
+}
+
+func CallGlobalFunc(name string, jsonString string) js.Value {
+	return js.Global().Call(name, jsonString)
+}
+
+func AwaitGlobalPromise(name string, jsonString string) (string, error) {
+	promise := js.Global().Call(name, jsonString)
+
+	type promiseResponse struct {
+		StringValue string
+		Error error
+	}
+
+	ch := make(chan promiseResponse, 1)
+
+	thenFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		val := args[0]
+
+		var s string
+		if val.Type() == js.TypeString {
+			s = val.String()
+		} else {
+			s = js.Global().Get("JSON").Call("stringify", val).String()
+		}
+
+		ch <- promiseResponse{StringValue: s, Error: nil}
+		return nil
+	})
+
+	catchFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		val := args[0]
+
+		var s string
+		if val.Type() == js.TypeString {
+			s = val.String()
+		} else {
+			if m := val.Get("message"); m.Type() == js.TypeString {
+				s = m.String()
+			} else {
+				s = js.Global().Get("JSON").Call("stringify", val).String()
+			}
+		}
+
+		ch <- promiseResponse{StringValue: "", Error: fmt.Errorf("js promise rejected: %s", s)}
+		return nil
+	})
+
+	promise.Call("then", thenFunc).Call("catch", catchFunc)
+
+	response := <-ch
+
+	thenFunc.Release()
+	catchFunc.Release()
+
+	return response.StringValue, response.Error
 }

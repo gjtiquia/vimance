@@ -72,11 +72,13 @@ func sendJsonRpcToJs(method string, params any) (string, error) {
 		return "", fmt.Errorf("failed to marshal JSON-RPC request: %w", err)
 	}
 
-	// TODO : need to await the promise
-	response := js.CallGlobalFunc("goToJsJsonRpcAsync", requestJson)
+	responseJson, err := js.AwaitGlobalPromise("goToJsJsonRpcAsync", requestJson)
+	if err != nil {
+		return "", fmt.Errorf("error calling JS function: %w", err)
+	}
 
 	// TODO : decode response to json rpc
-	fmt.Printf("gowasm: received response from JS: %s\n", response.String())
+	fmt.Printf("gowasm: received response from JS: %s\n", responseJson)
 
-	return response.String(), nil
+	return responseJson, nil
 }
