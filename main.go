@@ -11,16 +11,17 @@ import (
 )
 
 // TODO :
-// - setup spreadsheet visual
 // - setup vim keybinds (keep in mind mouse and mobile controls as well)
 // - keep in mind modality, undo tree, keybinding config, command palette
 // - command mode :w sends to server with visual indicator (disable when saving)
+// - vim hints (like my current neovim setup where it gives hints)
 // - htmx, server side sqlite setup
 // - for now, we have to explicitly disable concurrent multiplayer, only one person can edit at a time
 //   - tho we should allow multiple people viewing at the same time
 //   - viewing should also allow vim-motions, to scroll around and copy and stuff
 //   - allow "force" to GRAB the edit lock, in-case something bugged out or i am SURE i can edit it
 // - special columns handling (dates, tags, auto-complete behavior)
+// - keybind config
 
 func main() {
 	version := getCurrentVersion()
