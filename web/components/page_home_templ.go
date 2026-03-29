@@ -41,7 +41,47 @@ func HomePage(version string) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<header><h1 class=\"font-bold pb-1\"># vimance</h1></header><main><div class=\"flex flex-col gap-2\"><button data-test-button class=\"w-fit cursor-pointer text-stone-50/25 hover:text-stone-50/50 border-1 rounded-sm px-2\">echo</button><div data-engine-debug-console class=\"border-1 border-stone-50/25 rounded-sm p-2\"><p>[engine debug console]</p></div></div></main>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<header><h1 class=\"font-bold pb-1\"># vimance</h1></header><main><table class=\"border-collapse border border-stone-50/25 text-sm mb-2 w-full max-w-3xl\"><thead><tr><th class=\"border border-stone-50/25 px-2 py-1 text-left font-bold text-stone-50/70\">A</th><th class=\"border border-stone-50/25 px-2 py-1 text-left font-bold text-stone-50/70\">B</th><th class=\"border border-stone-50/25 px-2 py-1 text-left font-bold text-stone-50/70\">C</th><th class=\"border border-stone-50/25 px-2 py-1 text-left font-bold text-stone-50/70\">D</th><th class=\"border border-stone-50/25 px-2 py-1 text-left font-bold text-stone-50/70\">E</th><th class=\"border border-stone-50/25 px-2 py-1 text-left font-bold text-stone-50/70\">F</th><th class=\"border border-stone-50/25 px-2 py-1 text-left font-bold text-stone-50/70\">G</th></tr></thead> <tbody><tr>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			for i := 0; i < 7; i++ {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<td class=\"border border-stone-50/25 px-2 py-1\">hi</td>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</tr><tr>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			for i := 0; i < 7; i++ {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<td class=\"border border-stone-50/25 px-2 py-1\"></td>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</tr><tr>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			for i := 0; i < 7; i++ {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<td class=\"border border-stone-50/25 px-2 py-1\"></td>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</tr><tr>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			for i := 0; i < 7; i++ {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<td class=\"border border-stone-50/25 px-2 py-1\"></td>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</tr></tbody></table><div class=\"flex flex-col gap-2\"><button data-test-button class=\"w-fit cursor-pointer text-stone-50/25 hover:text-stone-50/50 border-1 rounded-sm px-2\">echo</button><div data-engine-debug-console class=\"border-1 border-stone-50/25 rounded-sm p-2\"><p>[engine debug console]</p></div></div></main>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

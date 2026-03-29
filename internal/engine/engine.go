@@ -10,6 +10,7 @@ type EventListener interface {
 }
 
 type Mode string
+
 const (
 	ModeNormal Mode = "n"
 	ModeInsert Mode = "i"

@@ -1,5 +1,7 @@
 export function init() {
-    const elements = document.body.querySelectorAll("[data-engine-debug-console]");
+    const elements = document.body.querySelectorAll(
+        "[data-engine-debug-console]",
+    );
 
     document.body.addEventListener("engine:onEventTriggered", async (event) => {
         const customEvent = event as CustomEvent;

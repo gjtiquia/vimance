@@ -8,6 +8,41 @@ templ HomePage(version string) {
 			</h1>
 		</header>
 		<main>
+			<table class="border-collapse border border-stone-50/25 text-sm mb-2 w-full max-w-3xl">
+				<thead>
+					<tr>
+						<th class="border border-stone-50/25 px-2 py-1 text-left font-bold text-stone-50/70">A</th>
+						<th class="border border-stone-50/25 px-2 py-1 text-left font-bold text-stone-50/70">B</th>
+						<th class="border border-stone-50/25 px-2 py-1 text-left font-bold text-stone-50/70">C</th>
+						<th class="border border-stone-50/25 px-2 py-1 text-left font-bold text-stone-50/70">D</th>
+						<th class="border border-stone-50/25 px-2 py-1 text-left font-bold text-stone-50/70">E</th>
+						<th class="border border-stone-50/25 px-2 py-1 text-left font-bold text-stone-50/70">F</th>
+						<th class="border border-stone-50/25 px-2 py-1 text-left font-bold text-stone-50/70">G</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						for i := 0; i < 7; i++ {
+							<td class="border border-stone-50/25 px-2 py-1">hi</td>
+						}
+					</tr>
+					<tr>
+						for i := 0; i < 7; i++ {
+							<td class="border border-stone-50/25 px-2 py-1"></td>
+						}
+					</tr>
+					<tr>
+						for i := 0; i < 7; i++ {
+							<td class="border border-stone-50/25 px-2 py-1"></td>
+						}
+					</tr>
+					<tr>
+						for i := 0; i < 7; i++ {
+							<td class="border border-stone-50/25 px-2 py-1"></td>
+						}
+					</tr>
+				</tbody>
+			</table>
 			<div class="flex flex-col gap-2">
 				<button
 					data-test-button
