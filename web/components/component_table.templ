@@ -1,7 +1,7 @@
 package components
 
 templ TableComponent(headers []string, rowCount int) {
-	<table data-table class="border-collapse border border-stone-50/25 text-sm mb-2 w-full max-w-3xl">
+	<table data-table class="table-fixed border-collapse border border-stone-50/25 text-sm mb-2 w-full max-w-3xl">
 		@TableHead(headers)
 		@TableBody(len(headers), rowCount)
 		@TableCellTemplates()
@@ -60,7 +60,7 @@ func cellStyle(variant CellVariant) string {
 	case CellVariantNormal:
 		style += "bg-stone-50/30"
 	case CellVariantInput:
-		style += ""
+		style += "min-w-0"
 	case CellVariantVisual:
 		style += "bg-blue-50/10 text-stone-50/70"
 	default:
@@ -81,7 +81,7 @@ templ TableDataCell(variant CellVariant, value string, x, y int) {
 		data-cell-y={ y }
 	>
 		if variant == CellVariantInput {
-			<input type="text" value={ value } class="w-full bg-transparent border-none focus:ring-0 text-sm"/>
+			<input type="text" value={ value } class="min-w-0 w-full bg-transparent border-none focus:ring-0 text-sm"/>
 		} else {
 			{ value }
 		}
@@ -95,7 +95,7 @@ templ TableCellTemplate(variant CellVariant) {
 			data-cell-variant={ variant }
 		>
 			if variant == CellVariantInput {
-				<input type="text" value="" class="w-full bg-transparent border-none focus:ring-0 text-sm"/>
+				<input type="text" value="" class="min-w-0 w-full bg-transparent border-none focus:ring-0 text-sm"/>
 			}
 		</td>
 	</template>

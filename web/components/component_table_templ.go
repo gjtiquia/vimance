@@ -29,7 +29,7 @@ func TableComponent(headers []string, rowCount int) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<table data-table class=\"border-collapse border border-stone-50/25 text-sm mb-2 w-full max-w-3xl\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<table data-table class=\"table-fixed border-collapse border border-stone-50/25 text-sm mb-2 w-full max-w-3xl\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -216,7 +216,7 @@ func cellStyle(variant CellVariant) string {
 	case CellVariantNormal:
 		style += "bg-stone-50/30"
 	case CellVariantInput:
-		style += ""
+		style += "min-w-0"
 	case CellVariantVisual:
 		style += "bg-blue-50/10 text-stone-50/70"
 	default:
@@ -381,7 +381,7 @@ func TableDataCell(variant CellVariant, value string, x, y int) templ.Component 
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\" class=\"w-full bg-transparent border-none focus:ring-0 text-sm\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\" class=\"min-w-0 w-full bg-transparent border-none focus:ring-0 text-sm\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -478,7 +478,7 @@ func TableCellTemplate(variant CellVariant) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if variant == CellVariantInput {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<input type=\"text\" value=\"\" class=\"w-full bg-transparent border-none focus:ring-0 text-sm\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<input type=\"text\" value=\"\" class=\"min-w-0 w-full bg-transparent border-none focus:ring-0 text-sm\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
