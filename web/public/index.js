@@ -5,15 +5,22 @@ function init() {
     if (!button.matches("[data-test-button]"))
       return;
     console.log("button pressed");
-    const response = await sendRpcAsync({
-      message: "hello world from button"
+    const response = await sendRpcAsync("echo", {
+      message: "helloooooo from js"
     });
     console.log("response from go wasm:", response);
   });
 }
 init();
-async function sendRpcAsync(obj) {
-  return globalThis.jsToGoJsonRpcAsync.call(JSON.stringify(obj));
+var requestIdCounter = 0;
+async function sendRpcAsync(method, params) {
+  requestIdCounter++;
+  return globalThis.jsToGoJsonRpcAsync.call(JSON.stringify({
+    jsonrpc: "2.0",
+    method,
+    params,
+    id: requestIdCounter
+  }));
 }
 function onReceiveJsonRpc(message) {
   console.log("received json rpc from go wasm:", message);
