@@ -49,7 +49,7 @@ func HomePage(version string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"flex flex-col gap-2\"><button data-test-button class=\"w-fit cursor-pointer text-stone-50/25 hover:text-stone-50/50 border rounded-sm px-2\">echo</button><div data-engine-debug-console class=\"border border-stone-50/25 rounded-sm p-2\"><p>[engine debug console]</p></div></div></main>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"flex flex-col gap-2\"><button data-test-button class=\"w-fit cursor-pointer text-stone-50/25 hover:text-stone-50/50 border rounded-sm px-2\">echo</button><div data-engine-debug-console class=\"h-48 overflow-y-auto border border-stone-50/25 rounded-sm p-2\"><p>[engine debug console]</p></div></div></main>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

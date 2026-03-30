@@ -189,6 +189,9 @@
   .h-8 {
     height: calc(var(--spacing) * 8);
   }
+  .h-48 {
+    height: calc(var(--spacing) * 48);
+  }
   .h-dvh {
     height: 100dvh;
   }
@@ -218,6 +221,9 @@
   }
   .gap-2 {
     gap: calc(var(--spacing) * 2);
+  }
+  .overflow-y-auto {
+    overflow-y: auto;
   }
   .rounded-sm {
     border-radius: var(--radius-sm);
