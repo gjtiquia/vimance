@@ -323,8 +323,10 @@ function subscribeToKeyDownEvent() {
   });
 }
 var DOUBLE_TAP_MS = 300;
+var GHOST_CLICK_AFTER_TOUCH_MS = 450;
 var lastTouchCellKey = null;
 var lastTouchTime = 0;
+var lastTouchOnGridCellMs = 0;
 function getCellCoordsFromEventTarget(target) {
   if (!target || !(target instanceof Element)) {
     return null;
@@ -345,10 +347,17 @@ function getCellCoordsFromEventTarget(target) {
   }
   return { x, y };
 }
+function isGhostMouseEventAfterTouch() {
+  return Date.now() - lastTouchOnGridCellMs < GHOST_CLICK_AFTER_TOUCH_MS;
+}
 function subscribeToPointerEvents() {
   document.addEventListener("click", (e) => {
     const coords = getCellCoordsFromEventTarget(e.target);
     if (!coords) {
+      return;
+    }
+    if (isGhostMouseEventAfterTouch()) {
+      e.preventDefault();
       return;
     }
     sendRpcAsync("setCursor", coords);
@@ -356,6 +365,10 @@ function subscribeToPointerEvents() {
   document.addEventListener("dblclick", (e) => {
     const coords = getCellCoordsFromEventTarget(e.target);
     if (!coords) {
+      return;
+    }
+    if (isGhostMouseEventAfterTouch()) {
+      e.preventDefault();
       return;
     }
     e.preventDefault();
@@ -366,8 +379,9 @@ function subscribeToPointerEvents() {
     if (!coords) {
       return;
     }
+    lastTouchOnGridCellMs = Date.now();
     const key = `${coords.x},${coords.y}`;
-    const now = Date.now();
+    const now = lastTouchOnGridCellMs;
     const isDoubleTap = key === lastTouchCellKey && now - lastTouchTime < DOUBLE_TAP_MS;
     lastTouchCellKey = key;
     lastTouchTime = now;

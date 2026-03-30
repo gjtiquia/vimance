@@ -52,15 +52,13 @@ templ TableCellTemplates() {
 	@TableCellTemplate(CellVariantVisual)
 }
 
-const CellBaseStyle = "border border-stone-50/25 px-2 py-1 h-8" + " "
+const CellBaseStyle = "border border-stone-50/25 px-2 py-1 h-8 min-w-0 truncate" + " "
 
 func cellStyle(variant CellVariant) string {
 	style := CellBaseStyle
 	switch variant {
 	case CellVariantNormal:
 		style += "bg-stone-50/30"
-	case CellVariantInput:
-		style += "min-w-0"
 	case CellVariantVisual:
 		style += "bg-blue-50/10 text-stone-50/70"
 	default:
@@ -81,7 +79,7 @@ templ TableDataCell(variant CellVariant, value string, x, y int) {
 		data-cell-y={ y }
 	>
 		if variant == CellVariantInput {
-			<input type="text" value={ value } class="min-w-0 w-full bg-transparent border-none focus:ring-0 text-sm"/>
+			<input type="text" value={ value } class="min-w-0 w-full truncate bg-transparent border-none focus:ring-0 text-sm"/>
 		} else {
 			{ value }
 		}
@@ -95,7 +93,7 @@ templ TableCellTemplate(variant CellVariant) {
 			data-cell-variant={ variant }
 		>
 			if variant == CellVariantInput {
-				<input type="text" value="" class="min-w-0 w-full bg-transparent border-none focus:ring-0 text-sm"/>
+				<input type="text" value="" class="min-w-0 w-full truncate bg-transparent border-none focus:ring-0 text-sm"/>
 			}
 		</td>
 	</template>
