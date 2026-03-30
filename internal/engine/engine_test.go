@@ -294,6 +294,28 @@ func TestSetCursorExitsInsertModeFirst(t *testing.T) {
 	}
 }
 
+// Redundant SetCursor (same cell) while in insert must not exit insert — avoids jank when e.g. touch
+// is followed by a synthetic click with the same coordinates.
+func TestSetCursorSameCellWhileInsertIsNoOp(t *testing.T) {
+	eng := engine.New(testCols, testRows)
+	listener := TestEngineEventListener{}
+	eng.AddListener(&listener)
+
+	eng.SetCursorAndEdit(2, 2)
+	if eng.Mode() != engine.ModeInsert {
+		t.Fatalf("expected insert mode, got %v", eng.Mode())
+	}
+	listener.OnModeChangedCounter = 0
+
+	eng.SetCursor(2, 2)
+	if eng.Mode() != engine.ModeInsert {
+		t.Errorf("expected insert mode after redundant SetCursor, got %v", eng.Mode())
+	}
+	if listener.OnModeChangedCounter != 0 {
+		t.Errorf("expected no OnModeChanged for redundant SetCursor, got %v", listener.OnModeChangedCounter)
+	}
+}
+
 func TestSetCursorAndEditMovesAndEntersInsert(t *testing.T) {
 	eng := engine.New(testCols, testRows)
 	listener := TestEngineEventListener{}

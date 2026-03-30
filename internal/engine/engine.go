@@ -130,10 +130,14 @@ func (eng *Engine) KeyPress(key string) {
 	}
 }
 
-// SetCursor moves the cursor to (x, y). If the engine is in insert mode, it switches to normal first.
-// Out-of-bounds coordinates are ignored. Cursor listeners are notified only when the position changes.
+// SetCursor moves the cursor to (x, y). If the engine is in insert mode, it switches to normal first
+// (unless the target cell is already the current cell — then the call is a no-op so redundant pointer
+// events do not exit insert mode). Out-of-bounds coordinates are ignored.
 func (eng *Engine) SetCursor(x, y int) {
 	if eng.mode == ModeInsert {
+		if eng.cursorX == x && eng.cursorY == y {
+			return
+		}
 		eng.setMode(ModeNormal, InsertPositionNone)
 	}
 	eng.moveCursorTo(x, y)
