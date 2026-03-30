@@ -75,6 +75,21 @@ func (eng *Engine) notifyCursorMoved() {
 	}
 }
 
+// moveCursorTo sets the cursor to (x, y) if in bounds and different from the current cell.
+// All grid cursor movement should go through this so listeners are notified consistently.
+func (eng *Engine) moveCursorTo(x, y int) bool {
+	if x < 0 || x >= eng.cols || y < 0 || y >= eng.rows {
+		return false
+	}
+	if eng.cursorX == x && eng.cursorY == y {
+		return false
+	}
+	eng.cursorX = x
+	eng.cursorY = y
+	eng.notifyCursorMoved()
+	return true
+}
+
 func (eng *Engine) KeyPress(key string) {
 	switch eng.mode {
 
@@ -84,35 +99,23 @@ func (eng *Engine) KeyPress(key string) {
 		case "i":
 			eng.setMode(ModeInsert, InsertPositionBefore)
 
-		case "a":
+		case "a", "Enter":
 			eng.setMode(ModeInsert, InsertPositionAfter)
 
 		case "v":
 			eng.setMode(ModeVisual, InsertPositionNone)
 
-		case "h", "b":
-			if eng.cursorX > 0 {
-				eng.cursorX--
-				eng.notifyCursorMoved()
-			}
+		case "h", "b", "ArrowLeft":
+			eng.moveCursorTo(eng.cursorX-1, eng.cursorY)
 
-		case "l", "w", "e":
-			if eng.cursorX < eng.cols-1 {
-				eng.cursorX++
-				eng.notifyCursorMoved()
-			}
+		case "l", "w", "e", "ArrowRight":
+			eng.moveCursorTo(eng.cursorX+1, eng.cursorY)
 
-		case "j":
-			if eng.cursorY < eng.rows-1 {
-				eng.cursorY++
-				eng.notifyCursorMoved()
-			}
+		case "j", "ArrowDown":
+			eng.moveCursorTo(eng.cursorX, eng.cursorY+1)
 
-		case "k":
-			if eng.cursorY > 0 {
-				eng.cursorY--
-				eng.notifyCursorMoved()
-			}
+		case "k", "ArrowUp":
+			eng.moveCursorTo(eng.cursorX, eng.cursorY-1)
 		}
 
 	case ModeInsert:
@@ -125,4 +128,26 @@ func (eng *Engine) KeyPress(key string) {
 			eng.setMode(ModeNormal, InsertPositionNone)
 		}
 	}
+}
+
+// SetCursor moves the cursor to (x, y). If the engine is in insert mode, it switches to normal first.
+// Out-of-bounds coordinates are ignored. Cursor listeners are notified only when the position changes.
+func (eng *Engine) SetCursor(x, y int) {
+	if eng.mode == ModeInsert {
+		eng.setMode(ModeNormal, InsertPositionNone)
+	}
+	eng.moveCursorTo(x, y)
+}
+
+// SetCursorAndEdit moves the cursor to (x, y) and enters insert mode with the caret after the cell text.
+// Exits insert mode first if needed. Out-of-bounds coordinates are ignored (insert mode is still exited if active).
+func (eng *Engine) SetCursorAndEdit(x, y int) {
+	if eng.mode == ModeInsert {
+		eng.setMode(ModeNormal, InsertPositionNone)
+	}
+	if x < 0 || x >= eng.cols || y < 0 || y >= eng.rows {
+		return
+	}
+	eng.moveCursorTo(x, y)
+	eng.setMode(ModeInsert, InsertPositionAfter)
 }

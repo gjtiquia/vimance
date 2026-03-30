@@ -78,6 +78,24 @@ func (r Request) GetParamString(key string) (string, bool) {
 	return typedValue, true
 }
 
+// GetParamInt reads a JSON number from params (e.g. float64 from JavaScript) or a Go int.
+func (r Request) GetParamInt(key string) (int, bool) {
+	v, ok := r.GetParam(key)
+	if !ok {
+		return 0, false
+	}
+	switch n := v.(type) {
+	case float64:
+		return int(n), true
+	case int:
+		return n, true
+	case int64:
+		return int(n), true
+	default:
+		return 0, false
+	}
+}
+
 type Response struct {
 	Jsonrpc string         `json:"jsonrpc"`
 	Result  any            `json:"result,omitempty"`

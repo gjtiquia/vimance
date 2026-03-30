@@ -198,3 +198,133 @@ func TestWebEAndBMoveHorizontally(t *testing.T) {
 		t.Errorf("after b, expected (1,0), got (%d,%d)", eng.CursorX(), eng.CursorY())
 	}
 }
+
+func TestArrowKeysMoveCursorLikeHjkl(t *testing.T) {
+	eng := engine.New(testCols, testRows)
+	listener := TestEngineEventListener{}
+	eng.AddListener(&listener)
+
+	eng.KeyPress("ArrowRight")
+	if eng.CursorX() != 1 || eng.CursorY() != 0 {
+		t.Errorf("after ArrowRight, expected (1,0), got (%d,%d)", eng.CursorX(), eng.CursorY())
+	}
+
+	eng.KeyPress("ArrowDown")
+	if eng.CursorX() != 1 || eng.CursorY() != 1 {
+		t.Errorf("after ArrowDown, expected (1,1), got (%d,%d)", eng.CursorX(), eng.CursorY())
+	}
+
+	eng.KeyPress("ArrowLeft")
+	if eng.CursorX() != 0 || eng.CursorY() != 1 {
+		t.Errorf("after ArrowLeft, expected (0,1), got (%d,%d)", eng.CursorX(), eng.CursorY())
+	}
+
+	eng.KeyPress("ArrowUp")
+	if eng.CursorX() != 0 || eng.CursorY() != 0 {
+		t.Errorf("after ArrowUp, expected (0,0), got (%d,%d)", eng.CursorX(), eng.CursorY())
+	}
+
+	if listener.OnCursorMovedCounter != 4 {
+		t.Errorf("expected OnCursorMoved 4 times, got %v", listener.OnCursorMovedCounter)
+	}
+}
+
+func TestEnterEntersInsertAfterLikeA(t *testing.T) {
+	eng := engine.New(testCols, testRows)
+	listener := TestEngineEventListener{}
+	eng.AddListener(&listener)
+
+	eng.KeyPress("Enter")
+	if eng.Mode() != engine.ModeInsert {
+		t.Fatalf("expected mode to be insert, got %v", eng.Mode())
+	}
+	if listener.LastInsertPosition != engine.InsertPositionAfter {
+		t.Errorf("expected insert position after for Enter, got %v", listener.LastInsertPosition)
+	}
+}
+
+func TestSetCursorMovesAndRespectsBounds(t *testing.T) {
+	eng := engine.New(testCols, testRows)
+	listener := TestEngineEventListener{}
+	eng.AddListener(&listener)
+
+	eng.SetCursor(3, 2)
+	if eng.CursorX() != 3 || eng.CursorY() != 2 {
+		t.Errorf("expected cursor (3,2), got (%d,%d)", eng.CursorX(), eng.CursorY())
+	}
+	if listener.OnCursorMovedCounter != 1 {
+		t.Errorf("expected OnCursorMoved once, got %v", listener.OnCursorMovedCounter)
+	}
+
+	listener.OnCursorMovedCounter = 0
+	eng.SetCursor(-1, 0)
+	if eng.CursorX() != 3 || eng.CursorY() != 2 {
+		t.Errorf("invalid x should not move cursor, got (%d,%d)", eng.CursorX(), eng.CursorY())
+	}
+	if listener.OnCursorMovedCounter != 0 {
+		t.Errorf("expected no OnCursorMoved for out-of-bounds, got %v", listener.OnCursorMovedCounter)
+	}
+
+	eng.SetCursor(testCols, 0)
+	if eng.CursorX() != 3 || eng.CursorY() != 2 {
+		t.Errorf("invalid x should not move cursor, got (%d,%d)", eng.CursorX(), eng.CursorY())
+	}
+}
+
+func TestSetCursorExitsInsertModeFirst(t *testing.T) {
+	eng := engine.New(testCols, testRows)
+	listener := TestEngineEventListener{}
+	eng.AddListener(&listener)
+
+	eng.KeyPress("i")
+	if eng.Mode() != engine.ModeInsert {
+		t.Fatalf("expected insert mode")
+	}
+	listener.OnModeChangedCounter = 0
+
+	eng.SetCursor(2, 1)
+	if eng.Mode() != engine.ModeNormal {
+		t.Errorf("expected normal mode after SetCursor, got %v", eng.Mode())
+	}
+	if eng.CursorX() != 2 || eng.CursorY() != 1 {
+		t.Errorf("expected cursor (2,1), got (%d,%d)", eng.CursorX(), eng.CursorY())
+	}
+	if listener.OnModeChangedCounter < 1 {
+		t.Errorf("expected OnModeChanged when leaving insert, got %v", listener.OnModeChangedCounter)
+	}
+}
+
+func TestSetCursorAndEditMovesAndEntersInsert(t *testing.T) {
+	eng := engine.New(testCols, testRows)
+	listener := TestEngineEventListener{}
+	eng.AddListener(&listener)
+
+	eng.SetCursorAndEdit(4, 3)
+	if eng.Mode() != engine.ModeInsert {
+		t.Fatalf("expected insert mode, got %v", eng.Mode())
+	}
+	if eng.CursorX() != 4 || eng.CursorY() != 3 {
+		t.Errorf("expected cursor (4,3), got (%d,%d)", eng.CursorX(), eng.CursorY())
+	}
+	if listener.LastInsertPosition != engine.InsertPositionAfter {
+		t.Errorf("expected insert position after, got %v", listener.LastInsertPosition)
+	}
+}
+
+func TestSetCursorAndEditFromInsertMode(t *testing.T) {
+	eng := engine.New(testCols, testRows)
+	listener := TestEngineEventListener{}
+	eng.AddListener(&listener)
+
+	eng.KeyPress("i")
+	eng.SetCursorAndEdit(1, 2)
+	if eng.Mode() != engine.ModeInsert {
+		t.Fatalf("expected insert mode, got %v", eng.Mode())
+	}
+	if eng.CursorX() != 1 || eng.CursorY() != 2 {
+		t.Errorf("expected cursor (1,2), got (%d,%d)", eng.CursorX(), eng.CursorY())
+	}
+	if listener.LastInsertPosition != engine.InsertPositionAfter {
+		t.Errorf("expected insert position after, got %v", listener.LastInsertPosition)
+	}
+}

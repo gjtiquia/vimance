@@ -1,5 +1,6 @@
-import { subscribeToKeyDownEvent } from "./input";
+import { subscribeToKeyDownEvent, subscribeToPointerEvents } from "./input";
 
 export function init() {
     subscribeToKeyDownEvent();
+    subscribeToPointerEvents();
 }

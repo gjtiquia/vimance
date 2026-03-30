@@ -84,6 +84,12 @@ func routeJsonRpcRequest(request jsonrpc.Request) jsonrpc.Response {
 	case "keydown":
 		return handleKeydown(request)
 
+	case "setCursor":
+		return handleSetCursor(request)
+
+	case "setCursorAndEdit":
+		return handleSetCursorAndEdit(request)
+
 	default:
 		res := jsonrpc.NewMethodNotFoundError(request)
 		fmt.Println("go: " + res.Error.Message)
@@ -117,6 +123,28 @@ func handleKeydown(request jsonrpc.Request) jsonrpc.Response {
 	// fmt.Printf("go: %s.request.params.key: %v\n", request.Method, key)
 
 	eng.KeyPress(key)
+	return jsonrpc.NewSuccessResponse(request.Id)
+}
+
+func handleSetCursor(request jsonrpc.Request) jsonrpc.Response {
+	x, okX := request.GetParamInt("x")
+	y, okY := request.GetParamInt("y")
+	if !okX || !okY {
+		return jsonrpc.NewInvalidParamsError(request.Id)
+	}
+
+	eng.SetCursor(x, y)
+	return jsonrpc.NewSuccessResponse(request.Id)
+}
+
+func handleSetCursorAndEdit(request jsonrpc.Request) jsonrpc.Response {
+	x, okX := request.GetParamInt("x")
+	y, okY := request.GetParamInt("y")
+	if !okX || !okY {
+		return jsonrpc.NewInvalidParamsError(request.Id)
+	}
+
+	eng.SetCursorAndEdit(x, y)
 	return jsonrpc.NewSuccessResponse(request.Id)
 }
 

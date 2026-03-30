@@ -296,7 +296,12 @@ function shouldPreventDefaultForVim(key) {
       "l",
       "w",
       "e",
-      "b"
+      "b",
+      "ArrowLeft",
+      "ArrowRight",
+      "ArrowUp",
+      "ArrowDown",
+      "Enter"
     ].includes(key);
   }
   if (mode === "i" && key === "Escape") {
@@ -317,10 +322,67 @@ function subscribeToKeyDownEvent() {
     });
   });
 }
+var DOUBLE_TAP_MS = 300;
+var lastTouchCellKey = null;
+var lastTouchTime = 0;
+function getCellCoordsFromEventTarget(target) {
+  if (!target || !(target instanceof Element)) {
+    return null;
+  }
+  const cell = target.closest("td[data-cell-x][data-cell-y]");
+  if (!cell) {
+    return null;
+  }
+  const xs = cell.getAttribute("data-cell-x");
+  const ys = cell.getAttribute("data-cell-y");
+  if (xs === null || ys === null) {
+    return null;
+  }
+  const x = parseInt(xs, 10);
+  const y = parseInt(ys, 10);
+  if (Number.isNaN(x) || Number.isNaN(y)) {
+    return null;
+  }
+  return { x, y };
+}
+function subscribeToPointerEvents() {
+  document.addEventListener("click", (e) => {
+    const coords = getCellCoordsFromEventTarget(e.target);
+    if (!coords) {
+      return;
+    }
+    sendRpcAsync("setCursor", coords);
+  });
+  document.addEventListener("dblclick", (e) => {
+    const coords = getCellCoordsFromEventTarget(e.target);
+    if (!coords) {
+      return;
+    }
+    e.preventDefault();
+    sendRpcAsync("setCursorAndEdit", coords);
+  });
+  document.addEventListener("touchend", (e) => {
+    const coords = getCellCoordsFromEventTarget(e.target);
+    if (!coords) {
+      return;
+    }
+    const key = `${coords.x},${coords.y}`;
+    const now = Date.now();
+    const isDoubleTap = key === lastTouchCellKey && now - lastTouchTime < DOUBLE_TAP_MS;
+    lastTouchCellKey = key;
+    lastTouchTime = now;
+    if (isDoubleTap) {
+      sendRpcAsync("setCursorAndEdit", coords);
+    } else {
+      sendRpcAsync("setCursor", coords);
+    }
+  });
+}
 
 // web/src/engine/index.ts
 function init4() {
   subscribeToKeyDownEvent();
+  subscribeToPointerEvents();
 }
 
 // web/src/index.ts
