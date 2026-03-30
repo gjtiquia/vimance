@@ -16,20 +16,27 @@ const (
 
 // normalKeyHandler implements normal-mode key parsing: counts, simple commands, motions, and multi-key motions.
 type normalKeyHandler struct {
-	motions  *MotionRegistry
-	commands *SimpleCommandRegistry
+	motions   *MotionRegistry
+	commands  *SimpleCommandRegistry
+	operators *OperatorRegistry
 
 	countDigits string
 
-	pending           []string
-	pendingMotionCtx  MotionContext
+	pending             []string
+	pendingMotionCtx    MotionContext
 	hasPendingMotionCtx bool
+
+	pendingOp             string
+	pendingOpCount        int
+	pendingOpCountGiven   bool
 }
 
 func newNormalKeyHandler() *normalKeyHandler {
 	return &normalKeyHandler{
-		motions:  NewMotionRegistry(),
-		commands: NewSimpleCommandRegistry(),
+		motions:        NewMotionRegistry(),
+		commands:       NewSimpleCommandRegistry(),
+		operators:      NewOperatorRegistry(),
+		pendingOpCount: 1,
 	}
 }
 
@@ -58,6 +65,9 @@ func (kh *normalKeyHandler) Feed(eng *Engine, key string) ParseResult {
 	if len(kh.pending) > 0 {
 		return kh.feedWithPending(eng, key)
 	}
+	if kh.pendingOp != "" {
+		return kh.feedWithOperatorPending(eng, key)
+	}
 
 	if isDigitKey(key) {
 		if key == "0" && kh.countDigits == "" {
@@ -72,6 +82,13 @@ func (kh *normalKeyHandler) Feed(eng *Engine, key string) ParseResult {
 	if fn, ok := kh.commands.Get(key); ok {
 		fn(eng, CommandContext{Count: n, CountGiven: countGiven})
 		return ParseExecuted
+	}
+
+	if kh.operators.IsOperator(key) {
+		kh.pendingOp = key
+		kh.pendingOpCount = n
+		kh.pendingOpCountGiven = countGiven
+		return ParseIncomplete
 	}
 
 	mr, mfn := kh.motions.Lookup([]string{key})
@@ -129,10 +146,32 @@ func (kh *normalKeyHandler) feedWithPending(eng *Engine, key string) ParseResult
 	}
 }
 
+func (kh *normalKeyHandler) feedWithOperatorPending(eng *Engine, key string) ParseResult {
+	if key == kh.pendingOp {
+		op := kh.pendingOp
+		ctx := OperatorContext{
+			Count:      kh.pendingOpCount,
+			CountGiven: kh.pendingOpCountGiven,
+		}
+		kh.clearOperatorPending()
+		eng.ExecuteLinewiseDoubled(op, ctx)
+		return ParseExecuted
+	}
+	kh.clearOperatorPending()
+	return kh.Feed(eng, key)
+}
+
+func (kh *normalKeyHandler) clearOperatorPending() {
+	kh.pendingOp = ""
+	kh.pendingOpCount = 1
+	kh.pendingOpCountGiven = false
+}
+
 // ResetPending clears an incomplete multi-key sequence and count buffer (e.g. after mode switch).
 func (kh *normalKeyHandler) ResetPending() {
 	kh.pending = kh.pending[:0]
 	kh.countDigits = ""
 	kh.pendingMotionCtx = MotionContext{}
 	kh.hasPendingMotionCtx = false
+	kh.clearOperatorPending()
 }

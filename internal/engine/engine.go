@@ -1,5 +1,7 @@
 package engine
 
+import "strings"
+
 type Engine struct {
 	listeners []EventListener
 	mode      Mode
@@ -11,6 +13,9 @@ type Engine struct {
 	cells      [][]string
 	dataSource DataSource
 
+	register           Register
+	clipboardDelimiter string
+
 	normalKH        *normalKeyHandler
 	lastKeyCaptured bool
 }
@@ -18,6 +23,8 @@ type Engine struct {
 type EventListener interface {
 	OnModeChanged(mode Mode, insertPosition InsertPosition)
 	OnCursorMoved(x, y int)
+	OnBufferChanged()
+	OnClipboardWrite(text string)
 }
 
 type Mode string
@@ -49,16 +56,17 @@ func New(dataSource DataSource) Engine {
 		panic("engine.New: DataSource.Load must return a non-empty rectangular grid")
 	}
 	return Engine{
-		listeners:       []EventListener{},
-		mode:            ModeNormal,
-		cursorX:         0,
-		cursorY:         0,
-		cols:            cols,
-		rows:            rows,
-		cells:           cells,
-		dataSource:      dataSource,
-		normalKH:        newNormalKeyHandler(),
-		lastKeyCaptured: false,
+		listeners:            []EventListener{},
+		mode:                 ModeNormal,
+		cursorX:              0,
+		cursorY:              0,
+		cols:                 cols,
+		rows:                 rows,
+		cells:                cells,
+		dataSource:           dataSource,
+		clipboardDelimiter:   " ",
+		normalKH:             newNormalKeyHandler(),
+		lastKeyCaptured:      false,
 	}
 }
 
@@ -123,6 +131,226 @@ func (eng *Engine) LastKeyCaptured() bool {
 	return eng.lastKeyCaptured
 }
 
+// RegisterSnapshot returns a copy of the unnamed register (for tests).
+func (eng *Engine) RegisterSnapshot() Register {
+	return Register{
+		Cells:    cloneCells(eng.register.Cells),
+		Linewise: eng.register.Linewise,
+	}
+}
+
+func (eng *Engine) notifyBufferChanged() {
+	for _, listener := range eng.listeners {
+		listener.OnBufferChanged()
+	}
+}
+
+func (eng *Engine) notifyClipboardWrite(text string) {
+	for _, listener := range eng.listeners {
+		listener.OnClipboardWrite(text)
+	}
+}
+
+func (eng *Engine) formatRegisterClipboard() string {
+	if len(eng.register.Cells) == 0 {
+		return ""
+	}
+	d := eng.clipboardDelimiter
+	if d == "" {
+		d = " "
+	}
+	lines := make([]string, len(eng.register.Cells))
+	for i, row := range eng.register.Cells {
+		lines[i] = strings.Join(row, d)
+	}
+	return strings.Join(lines, "\n")
+}
+
+// ExecuteLinewiseDoubled runs dd, yy, or cc (second key matched the operator).
+func (eng *Engine) ExecuteLinewiseDoubled(op string, ctx OperatorContext) {
+	n := ctx.Count
+	if n < 1 {
+		n = 1
+	}
+	switch op {
+	case "d":
+		eng.linewiseDelete(n)
+	case "y":
+		eng.linewiseYank(n)
+	case "c":
+		eng.linewiseChange(n)
+	}
+}
+
+func (eng *Engine) linewiseDelete(n int) {
+	start := eng.cursorY
+	if start == 0 {
+		return // header row protected
+	}
+	end := start + n
+	if end > eng.rows {
+		end = eng.rows
+	}
+	if start >= eng.rows {
+		return
+	}
+	toCopy := eng.cells[start:end]
+	eng.register = Register{Cells: cloneCells(toCopy), Linewise: true}
+	eng.notifyClipboardWrite(eng.formatRegisterClipboard())
+
+	eng.cells = append(eng.cells[:start], eng.cells[end:]...)
+	eng.rows = len(eng.cells)
+	if eng.rows == 0 {
+		panic("engine: grid became empty after delete")
+	}
+	eng.cols = len(eng.cells[0])
+
+	cx := eng.cursorX
+	if cx >= eng.cols {
+		cx = eng.cols - 1
+	}
+	cy := eng.cursorY
+	if cy >= eng.rows {
+		cy = eng.rows - 1
+	}
+	eng.moveCursorTo(cx, cy)
+	eng.notifyBufferChanged()
+}
+
+func (eng *Engine) linewiseYank(n int) {
+	start := eng.cursorY
+	end := start + n
+	if end > eng.rows {
+		end = eng.rows
+	}
+	if start >= eng.rows {
+		return
+	}
+	slice := eng.cells[start:end]
+	eng.register = Register{Cells: cloneCells(slice), Linewise: true}
+	eng.notifyClipboardWrite(eng.formatRegisterClipboard())
+}
+
+func (eng *Engine) linewiseChange(n int) {
+	start := eng.cursorY
+	if start == 0 {
+		return // header protected
+	}
+	end := start + n
+	if end > eng.rows {
+		end = eng.rows
+	}
+	if start >= eng.rows {
+		return
+	}
+	slice := eng.cells[start:end]
+	eng.register = Register{Cells: cloneCells(slice), Linewise: true}
+	eng.notifyClipboardWrite(eng.formatRegisterClipboard())
+
+	for y := start; y < end; y++ {
+		for x := 0; x < eng.cols; x++ {
+			eng.cells[y][x] = ""
+		}
+	}
+	eng.notifyBufferChanged()
+	eng.setMode(ModeInsert, InsertPositionHighlight)
+}
+
+// DeleteCharUnderCursor clears the current cell and stores the old value in the register (non-linewise).
+func (eng *Engine) DeleteCharUnderCursor() {
+	v, ok := eng.CellValue(eng.cursorX, eng.cursorY)
+	if !ok {
+		return
+	}
+	eng.register = Register{Cells: [][]string{{v}}, Linewise: false}
+	eng.SetCellValue(eng.cursorX, eng.cursorY, "")
+	eng.notifyBufferChanged()
+}
+
+// PasteAfter puts register contents at or below the cursor (linewise or character).
+func (eng *Engine) PasteAfter() {
+	if eng.register.Linewise {
+		if len(eng.register.Cells) == 0 {
+			return
+		}
+		newRows := cloneCells(eng.register.Cells)
+		insertAt := eng.cursorY + 1
+		if insertAt > eng.rows {
+			insertAt = eng.rows
+		}
+		eng.cells = spliceRowsAt(eng.cells, insertAt, newRows)
+		eng.rows = len(eng.cells)
+		eng.cols = len(eng.cells[0])
+		lastY := insertAt + len(newRows) - 1
+		if lastY >= eng.rows {
+			lastY = eng.rows - 1
+		}
+		x := eng.cursorX
+		if x >= eng.cols {
+			x = eng.cols - 1
+		}
+		eng.moveCursorTo(x, lastY)
+		eng.notifyBufferChanged()
+		return
+	}
+	if len(eng.register.Cells) != 1 || len(eng.register.Cells[0]) != 1 {
+		return
+	}
+	v := eng.register.Cells[0][0]
+	eng.SetCellValue(eng.cursorX, eng.cursorY, v)
+	eng.notifyBufferChanged()
+}
+
+// PasteBefore puts register contents above the cursor (linewise) or replaces current cell (non-linewise).
+func (eng *Engine) PasteBefore() {
+	if eng.register.Linewise {
+		if len(eng.register.Cells) == 0 {
+			return
+		}
+		newRows := cloneCells(eng.register.Cells)
+		insertAt := eng.cursorY
+		if insertAt < 1 {
+			insertAt = 1 // never above header row
+		}
+		eng.cells = spliceRowsAt(eng.cells, insertAt, newRows)
+		eng.rows = len(eng.cells)
+		eng.cols = len(eng.cells[0])
+		lastY := insertAt + len(newRows) - 1
+		if lastY >= eng.rows {
+			lastY = eng.rows - 1
+		}
+		x := eng.cursorX
+		if x >= eng.cols {
+			x = eng.cols - 1
+		}
+		eng.moveCursorTo(x, lastY)
+		eng.notifyBufferChanged()
+		return
+	}
+	if len(eng.register.Cells) != 1 || len(eng.register.Cells[0]) != 1 {
+		return
+	}
+	v := eng.register.Cells[0][0]
+	eng.SetCellValue(eng.cursorX, eng.cursorY, v)
+	eng.notifyBufferChanged()
+}
+
+func spliceRowsAt(cells [][]string, at int, insert [][]string) [][]string {
+	if at < 0 {
+		at = 0
+	}
+	if at > len(cells) {
+		at = len(cells)
+	}
+	out := make([][]string, 0, len(cells)+len(insert))
+	out = append(out, cells[:at]...)
+	for _, row := range insert {
+		out = append(out, append([]string(nil), row...))
+	}
+	out = append(out, cells[at:]...)
+	return out
+}
+
 func (eng *Engine) setMode(mode Mode, insertPosition InsertPosition) {
 	if eng.mode != mode {
 		eng.normalKH.ResetPending()
@@ -167,8 +395,19 @@ func (eng *Engine) KeyPress(key string) {
 		}
 
 	case ModeInsert:
-		if key == KeyEsc {
+		switch key {
+		case KeyEsc:
 			eng.setMode(ModeNormal, InsertPositionNone)
+			eng.lastKeyCaptured = true
+		case "Tab":
+			eng.setMode(ModeNormal, InsertPositionNone)
+			eng.moveCursorTo(eng.cursorX+1, eng.cursorY)
+			eng.setMode(ModeInsert, InsertPositionHighlight)
+			eng.lastKeyCaptured = true
+		case "Enter":
+			eng.setMode(ModeNormal, InsertPositionNone)
+			eng.moveCursorTo(eng.cursorX, eng.cursorY+1)
+			eng.setMode(ModeInsert, InsertPositionHighlight)
 			eng.lastKeyCaptured = true
 		}
 

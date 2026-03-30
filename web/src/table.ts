@@ -138,6 +138,12 @@ function getEventHandler(eventName: string) {
         case "OnCursorMoved":
             return handleOnCursorMoved;
 
+        case "OnBufferChanged":
+            return handleOnBufferChanged;
+
+        case "OnClipboardWrite":
+            return handleOnClipboardWrite;
+
         default:
             return null;
     }
@@ -216,6 +222,20 @@ function handleOnModeChanged(table: HTMLTableElement, params: any) {
         }
 
         replaceCell(table, inputCell, "normal", value);
+    }
+}
+
+function handleOnBufferChanged(table: HTMLTableElement, _params: unknown) {
+    void table;
+    hydrateTableFromEngine();
+}
+
+function handleOnClipboardWrite(_table: HTMLTableElement, params: { text?: string }) {
+    const text = params.text ?? "";
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        void navigator.clipboard.writeText(text).catch((err) => {
+            console.warn("js: table: clipboard write failed", err);
+        });
     }
 }
 

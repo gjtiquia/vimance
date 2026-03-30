@@ -46,4 +46,16 @@ func (r *SimpleCommandRegistry) registerBuiltins() {
 		_ = ctx
 		eng.setMode(ModeVisual, InsertPositionNone)
 	})
+	r.Register("x", func(eng *Engine, ctx CommandContext) {
+		_ = ctx
+		eng.DeleteCharUnderCursor()
+	})
+	r.Register("p", func(eng *Engine, ctx CommandContext) {
+		_ = ctx
+		eng.PasteAfter()
+	})
+	r.Register("P", func(eng *Engine, ctx CommandContext) {
+		_ = ctx
+		eng.PasteBefore()
+	})
 }

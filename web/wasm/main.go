@@ -53,6 +53,16 @@ func (l *EngineEventListener) OnCursorMoved(x, y int) {
 	})
 }
 
+func (l *EngineEventListener) OnBufferChanged() {
+	appendEngineEvent("engine.OnBufferChanged", map[string]any{})
+}
+
+func (l *EngineEventListener) OnClipboardWrite(text string) {
+	appendEngineEvent("engine.OnClipboardWrite", map[string]any{
+		"text": text,
+	})
+}
+
 func main() {
 	fmt.Println("go: running...")
 

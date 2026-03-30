@@ -30,8 +30,9 @@ func TestNormalKeyHandlerInvalidThenRetry(t *testing.T) {
 	eng := emptyGridEngine(6, 5)
 	kh := newNormalKeyHandler()
 	_ = kh.Feed(&eng, "g")
-	if r := kh.Feed(&eng, "x"); r != ParseInvalid {
-		t.Fatalf("gx: expected ParseInvalid after retry, got %v", r)
+	// "x" is a normal-mode command; use an unknown key after incomplete "g".
+	if r := kh.Feed(&eng, "z"); r != ParseInvalid {
+		t.Fatalf("gz: expected ParseInvalid after retry, got %v", r)
 	}
 }
 

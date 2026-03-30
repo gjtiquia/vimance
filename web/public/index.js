@@ -267,6 +267,10 @@ function getEventHandler(eventName) {
       return handleOnModeChanged;
     case "OnCursorMoved":
       return handleOnCursorMoved;
+    case "OnBufferChanged":
+      return handleOnBufferChanged;
+    case "OnClipboardWrite":
+      return handleOnClipboardWrite;
     default:
       return null;
   }
@@ -328,6 +332,17 @@ function handleOnModeChanged(table, params) {
       }
     }
     replaceCell(table, inputCell, "normal", value);
+  }
+}
+function handleOnBufferChanged(table, _params) {
+  hydrateTableFromEngine();
+}
+function handleOnClipboardWrite(_table, params) {
+  const text = params.text ?? "";
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).catch((err) => {
+      console.warn("js: table: clipboard write failed", err);
+    });
   }
 }
 function handleOnCursorMoved(table, params) {

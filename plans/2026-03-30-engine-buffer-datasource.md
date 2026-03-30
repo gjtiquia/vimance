@@ -20,7 +20,7 @@ Keep **`engine.init()`** before **`await wasm.initAsync()`** (see comment in `in
 
 - Replace `StubDataSource` with SQLite (or HTTP) loading the same `[][]string` shape.
 - Wire **`:w`** to `saveBuffer` RPC (and optional server persistence).
-- Phase 3 operators (`dd`, `yy`) mutate `cells` and call listeners for the table.
+- Phase 3a operators (`dd`, `yy`, `cc`, `p`/`P`) mutate `cells` / clipboard; `OnBufferChanged` + `hydrateTableFromEngine` refresh the table — see [2026-03-30-phase3a-operators.md](./2026-03-30-phase3a-operators.md).
 
 ## Rollback
 
