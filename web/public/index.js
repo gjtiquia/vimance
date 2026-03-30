@@ -128,20 +128,29 @@ function init() {
 init();
 
 // web/src/engine-debug-console.ts
+init2();
 function init2() {
   const elements = document.body.querySelectorAll("[data-engine-debug-console]");
   document.body.addEventListener("engine:onEventTriggered", async (event) => {
     const customEvent = event;
-    elements.forEach((parent) => {
+    elements.forEach((element) => {
+      const container = element;
       const eventName = customEvent.detail.eventName;
       const params = customEvent.detail.params;
-      const child = document.createElement("p");
-      child.textContent = `${eventName}: ${JSON.stringify(params)}`;
-      parent.appendChild(child);
+      const log = document.createElement("p");
+      log.textContent = `${eventName}: ${JSON.stringify(params)}`;
+      const stickToBottom = isScrolledToBottom(container);
+      container.appendChild(log);
+      if (stickToBottom) {
+        container.scrollTop = container.scrollHeight;
+      }
     });
   });
 }
-init2();
+var BOTTOM_THRESHOLD_PX = 4;
+function isScrolledToBottom(el) {
+  return el.scrollHeight - el.scrollTop - el.clientHeight <= BOTTOM_THRESHOLD_PX;
+}
 
 // web/src/engine/mode.ts
 var clientMode = "n";
