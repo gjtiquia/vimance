@@ -3,6 +3,8 @@ import * as jsonrpc from "../jsonrpc";
 type GoGlobal = typeof globalThis & {
     goToJsJsonRpcAsync: (json: string) => Promise<string>;
     jsToGoJsonRpcAsync: GoFunc;
+    /** Go wasm_exec passes the JSON request string as `this` (see js.NewSyncStringFunc). */
+    jsToGoJsonRpcSync?: (this: string) => string;
 };
 
 type GoFunc = {
@@ -10,6 +12,38 @@ type GoFunc = {
 };
 
 (globalThis as GoGlobal).goToJsJsonRpcAsync = onReceiveJsonRpcAsync;
+
+/** Synchronous engine events from Go (setCursor / setCursorAndEdit), same shape as keydown result.events. */
+type EngineEventPayload = { method: string; params: Record<string, unknown> };
+
+(globalThis as Record<string, unknown>).goEngineEventsSync = (
+    json: string,
+): void => {
+    const events = JSON.parse(json) as EngineEventPayload[];
+    for (const e of events) {
+        const parts = e.method.split(".");
+        const eventName = parts.length >= 2 ? parts[1] : e.method;
+        document.body.dispatchEvent(
+            new CustomEvent("engine:onEventTriggered", {
+                detail: {
+                    eventName,
+                    params: e.params,
+                },
+            }),
+        );
+    }
+};
+
+export function sendRpcSync(method: string, params: unknown): jsonrpc.Response {
+    const request = jsonrpc.newRequest(method, params);
+    const requestJson = JSON.stringify(request);
+    const fn = (globalThis as GoGlobal).jsToGoJsonRpcSync;
+    if (typeof fn !== "function") {
+        throw new Error("jsToGoJsonRpcSync is not registered (WASM not loaded?)");
+    }
+    const responseJson = fn.call(requestJson);
+    return jsonrpc.decodeResponse(responseJson);
+}
 
 export async function sendRpcAsync(
     method: string,

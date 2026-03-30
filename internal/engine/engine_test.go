@@ -350,3 +350,44 @@ func TestSetCursorAndEditFromInsertMode(t *testing.T) {
 		t.Errorf("expected insert position highlight, got %v", listener.LastInsertPosition)
 	}
 }
+
+func TestGGMovesToFirstRowKeepingColumn(t *testing.T) {
+	eng := engine.New(testCols, testRows)
+	for range 3 {
+		eng.KeyPress("l")
+	}
+	for range 2 {
+		eng.KeyPress("j")
+	}
+	if eng.CursorX() != 3 || eng.CursorY() != 2 {
+		t.Fatalf("setup cursor, got (%d,%d)", eng.CursorX(), eng.CursorY())
+	}
+	eng.KeyPress("g")
+	eng.KeyPress("g")
+	if eng.CursorX() != 3 || eng.CursorY() != 0 {
+		t.Errorf("after gg, expected (3,0), got (%d,%d)", eng.CursorX(), eng.CursorY())
+	}
+}
+
+func TestGMovesToLastRow(t *testing.T) {
+	eng := engine.New(testCols, testRows)
+	eng.KeyPress("G")
+	if eng.CursorY() != testRows-1 {
+		t.Errorf("after G, expected y=%d, got %d", testRows-1, eng.CursorY())
+	}
+}
+
+func TestZeroAndDollarMoveColumn(t *testing.T) {
+	eng := engine.New(testCols, testRows)
+	for range 4 {
+		eng.KeyPress("l")
+	}
+	eng.KeyPress("0")
+	if eng.CursorX() != 0 {
+		t.Errorf("after 0, expected x=0, got %d", eng.CursorX())
+	}
+	eng.KeyPress("$")
+	if eng.CursorX() != testCols-1 {
+		t.Errorf("after $, expected x=%d, got %d", testCols-1, eng.CursorX())
+	}
+}

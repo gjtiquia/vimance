@@ -16,6 +16,14 @@ func NewFunc(fn func(jsonString string) js.Value) js.Func {
 	})
 }
 
+// NewSyncStringFunc registers a synchronous JS callback that takes JSON-RPC request string and returns JSON-RPC response string.
+func NewSyncStringFunc(fn func(jsonString string) string) js.Func {
+	return js.FuncOf(func(this js.Value, args []js.Value) any {
+		jsonString := this.String()
+		return fn(jsonString)
+	})
+}
+
 func NewPromise(fn func() (any, error)) js.Value {
 	promiseConstructor := js.Global().Get("Promise")
 

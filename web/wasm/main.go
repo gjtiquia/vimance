@@ -3,6 +3,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -13,17 +14,38 @@ import (
 
 var eng engine.Engine
 
+type wasmEvent struct {
+	Method string         `json:"method"`
+	Params map[string]any `json:"params"`
+}
+
+var eventBuffer []wasmEvent
+
+func clearEvents() {
+	eventBuffer = eventBuffer[:0]
+}
+
+func appendEngineEvent(method string, params map[string]any) {
+	eventBuffer = append(eventBuffer, wasmEvent{Method: method, Params: params})
+}
+
+func drainEvents() []wasmEvent {
+	out := eventBuffer
+	eventBuffer = nil
+	return out
+}
+
 type EngineEventListener struct{}
 
 func (l *EngineEventListener) OnModeChanged(mode engine.Mode, insertPosition engine.InsertPosition) {
-	sendJsonRpcToJs("engine.OnModeChanged", map[string]any{
+	appendEngineEvent("engine.OnModeChanged", map[string]any{
 		"mode":             mode,
 		"insertPosition": insertPosition,
 	})
 }
 
 func (l *EngineEventListener) OnCursorMoved(x, y int) {
-	sendJsonRpcToJs("engine.OnCursorMoved", map[string]any{
+	appendEngineEvent("engine.OnCursorMoved", map[string]any{
 		"x": x,
 		"y": y,
 	})
@@ -35,10 +57,13 @@ func main() {
 	eng = engine.New(6, 5)
 	eng.AddListener(&EngineEventListener{})
 
-	rpcListener := js.NewFunc(onReceiveJsonRpc)
-	defer rpcListener.Release()
+	rpcAsync := js.NewFunc(onReceiveJsonRpc)
+	defer rpcAsync.Release()
+	js.SetGlobalFunc("jsToGoJsonRpcAsync", rpcAsync)
 
-	js.SetGlobalFunc("jsToGoJsonRpcAsync", rpcListener)
+	rpcSync := js.NewSyncStringFunc(onReceiveJsonRpcSync)
+	defer rpcSync.Release()
+	js.SetGlobalFunc("jsToGoJsonRpcSync", rpcSync)
 
 	waitCh := make(chan int)
 	<-waitCh
@@ -46,26 +71,33 @@ func main() {
 
 func onReceiveJsonRpc(jsonString string) js.Value {
 	return js.NewPromise(func() (any, error) {
-		return handleJsonRpc(jsonString)
+		return handleJsonRpcAsync(jsonString)
 	})
 }
 
-func handleJsonRpc(jsonString string) (string, error) {
+func onReceiveJsonRpcSync(jsonString string) string {
+	s, err := handleJsonRpcAsync(jsonString)
+	if err != nil {
+		return s
+	}
+	return s
+}
+
+func handleJsonRpcAsync(jsonString string) (string, error) {
 	request, err := jsonrpc.DecodeRequest(jsonString)
 	if err != nil {
-		responseJson, err := jsonrpc.NewParseError().ToJsonString()
-		if err != nil {
-			// cant marshall reponse into json, so we return a string error message instead
-			errorMsg := fmt.Sprintf("Invalid JSON was received by the server; AND Server failed to marshal JSON-RPC error response: %v", err)
+		responseJson, err2 := jsonrpc.NewParseError().ToJsonString()
+		if err2 != nil {
+			errorMsg := fmt.Sprintf("Invalid JSON was received by the server; AND Server failed to marshal JSON-RPC error response: %v", err2)
 			return errorMsg, errors.New(errorMsg)
 		}
 
 		return responseJson, fmt.Errorf("failed to parse JSON-RPC request: %w", err)
 	}
 
-	responseJson, err := routeJsonRpcRequest(request).ToJsonString()
+	response := routeJsonRpcRequest(request)
+	responseJson, err := response.ToJsonString()
 	if err != nil {
-		// cant marshall reponse into json, so we return a string error message instead
 		errorMsg := fmt.Sprintf("Server failed to marshal JSON-RPC response: %v", err)
 		return errorMsg, errors.New(errorMsg)
 	}
@@ -82,7 +114,7 @@ func routeJsonRpcRequest(request jsonrpc.Request) jsonrpc.Response {
 		return handleEcho(request)
 
 	case "keydown":
-		return handleKeydown(request)
+		return handleKeydownSync(request)
 
 	case "setCursor":
 		return handleSetCursor(request)
@@ -114,16 +146,35 @@ func handleEcho(request jsonrpc.Request) jsonrpc.Response {
 	return jsonrpc.NewResponse(result, request.Id)
 }
 
-func handleKeydown(request jsonrpc.Request) jsonrpc.Response {
+func handleKeydownSync(request jsonrpc.Request) jsonrpc.Response {
 	key, ok := request.GetParamString("key")
 	if !ok {
 		return jsonrpc.NewInvalidParamsError(request.Id)
 	}
 
-	// fmt.Printf("go: %s.request.params.key: %v\n", request.Method, key)
-
+	clearEvents()
 	eng.KeyPress(key)
-	return jsonrpc.NewSuccessResponse(request.Id)
+	events := drainEvents()
+
+	return jsonrpc.NewResponse(map[string]any{
+		"captured": eng.LastKeyCaptured(),
+		"events":   eventsForJSON(events),
+	}, request.Id)
+}
+
+// eventsForJSON converts drained events to []any for JSON-RPC (slice of maps).
+func eventsForJSON(events []wasmEvent) []any {
+	if len(events) == 0 {
+		return []any{}
+	}
+	out := make([]any, len(events))
+	for i := range events {
+		out[i] = map[string]any{
+			"method": events[i].Method,
+			"params": events[i].Params,
+		}
+	}
+	return out
 }
 
 func handleSetCursor(request jsonrpc.Request) jsonrpc.Response {
@@ -133,7 +184,10 @@ func handleSetCursor(request jsonrpc.Request) jsonrpc.Response {
 		return jsonrpc.NewInvalidParamsError(request.Id)
 	}
 
+	clearEvents()
 	eng.SetCursor(x, y)
+	flushEventsToJs()
+
 	return jsonrpc.NewSuccessResponse(request.Id)
 }
 
@@ -144,7 +198,10 @@ func handleSetCursorAndEdit(request jsonrpc.Request) jsonrpc.Response {
 		return jsonrpc.NewInvalidParamsError(request.Id)
 	}
 
+	clearEvents()
 	eng.SetCursorAndEdit(x, y)
+	flushEventsToJs()
+
 	return jsonrpc.NewSuccessResponse(request.Id)
 }
 
@@ -166,8 +223,20 @@ func sendJsonRpcToJs(method string, params any) (jsonrpc.Response, error) {
 		return jsonrpc.Response{}, fmt.Errorf("failed to parse JSON-RPC response: %w", err)
 	}
 
-	// fmt.Printf("go: %s.response.result: %v\n", method, response.Result)
 	return response, nil
+}
+
+func flushEventsToJs() {
+	events := drainEvents()
+	if len(events) == 0 {
+		return
+	}
+	b, err := json.Marshal(events)
+	if err != nil {
+		fmt.Printf("go: flushEventsToJs: marshal: %v\n", err)
+		return
+	}
+	js.CallGlobalFunc("goEngineEventsSync", string(b))
 }
 
 // ====== temp place to put stuff i dun wanna delete yet but dun hv a concrete use case yet

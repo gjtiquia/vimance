@@ -7,6 +7,9 @@ type Engine struct {
 	cursorY   int
 	cols      int
 	rows      int
+
+	normalKH        *normalKeyHandler
+	lastKeyCaptured bool
 }
 
 type EventListener interface {
@@ -38,12 +41,14 @@ const KeyEsc string = "Escape"
 // New creates an engine for a grid with cols columns and rows rows (0-based indices up to cols-1, rows-1).
 func New(cols, rows int) Engine {
 	return Engine{
-		listeners: []EventListener{},
-		mode:      ModeNormal,
-		cursorX:   0,
-		cursorY:   0,
-		cols:      cols,
-		rows:      rows,
+		listeners:       []EventListener{},
+		mode:            ModeNormal,
+		cursorX:         0,
+		cursorY:         0,
+		cols:            cols,
+		rows:            rows,
+		normalKH:        newNormalKeyHandler(),
+		lastKeyCaptured: false,
 	}
 }
 
@@ -63,7 +68,15 @@ func (eng *Engine) CursorY() int {
 	return eng.cursorY
 }
 
+// LastKeyCaptured reports whether the last KeyPress consumed the key (motion/command, incomplete prefix, or Escape in insert/visual).
+func (eng *Engine) LastKeyCaptured() bool {
+	return eng.lastKeyCaptured
+}
+
 func (eng *Engine) setMode(mode Mode, insertPosition InsertPosition) {
+	if eng.mode != mode {
+		eng.normalKH.ResetPending()
+	}
 	eng.mode = mode
 
 	for _, listener := range eng.listeners {
@@ -93,44 +106,26 @@ func (eng *Engine) moveCursorTo(x, y int) bool {
 }
 
 func (eng *Engine) KeyPress(key string) {
+	eng.lastKeyCaptured = false
+
 	switch eng.mode {
 
 	case ModeNormal:
-		switch key {
-
-		case "i":
-			eng.setMode(ModeInsert, InsertPositionBefore)
-
-		case "a":
-			eng.setMode(ModeInsert, InsertPositionAfter)
-
-		case "Enter":
-			eng.setMode(ModeInsert, InsertPositionHighlight)
-
-		case "v":
-			eng.setMode(ModeVisual, InsertPositionNone)
-
-		case "h", "b", "ArrowLeft":
-			eng.moveCursorTo(eng.cursorX-1, eng.cursorY)
-
-		case "l", "w", "e", "ArrowRight":
-			eng.moveCursorTo(eng.cursorX+1, eng.cursorY)
-
-		case "j", "ArrowDown":
-			eng.moveCursorTo(eng.cursorX, eng.cursorY+1)
-
-		case "k", "ArrowUp":
-			eng.moveCursorTo(eng.cursorX, eng.cursorY-1)
+		r := eng.normalKH.Feed(eng, key)
+		if r != ParseInvalid {
+			eng.lastKeyCaptured = true
 		}
 
 	case ModeInsert:
 		if key == KeyEsc {
 			eng.setMode(ModeNormal, InsertPositionNone)
+			eng.lastKeyCaptured = true
 		}
 
 	case ModeVisual:
 		if key == KeyEsc {
 			eng.setMode(ModeNormal, InsertPositionNone)
+			eng.lastKeyCaptured = true
 		}
 	}
 }
@@ -145,6 +140,7 @@ func (eng *Engine) SetCursor(x, y int) {
 		}
 		eng.setMode(ModeNormal, InsertPositionNone)
 	}
+	eng.normalKH.ResetPending()
 	eng.moveCursorTo(x, y)
 }
 
@@ -154,6 +150,7 @@ func (eng *Engine) SetCursorAndEdit(x, y int) {
 	if eng.mode == ModeInsert {
 		eng.setMode(ModeNormal, InsertPositionNone)
 	}
+	eng.normalKH.ResetPending()
 	if x < 0 || x >= eng.cols || y < 0 || y >= eng.rows {
 		return
 	}

@@ -1,44 +1,47 @@
-import { sendRpcAsync } from "../wasm";
-import { getClientMode } from "./mode";
+import { sendRpcAsync, sendRpcSync } from "../wasm";
+import * as jsonrpc from "../jsonrpc";
 
-function shouldPreventDefaultForVim(key: string): boolean {
-    const mode = getClientMode();
-    if (mode === "n") {
-        return [
-            "i",
-            "a",
-            "v",
-            "h",
-            "j",
-            "k",
-            "l",
-            "w",
-            "e",
-            "b",
-            "ArrowLeft",
-            "ArrowRight",
-            "ArrowUp",
-            "ArrowDown",
-            "Enter",
-        ].includes(key);
+function dispatchKeydownEvents(
+    result: jsonrpc.Response["result"],
+): void {
+    if (!result || typeof result !== "object") {
+        return;
     }
-    if (mode === "i" && key === "Escape") {
-        return true;
+    const r = result as {
+        events?: { method: string; params: Record<string, unknown> }[];
+    };
+    if (!Array.isArray(r.events)) {
+        return;
     }
-    if (mode === "v" && key === "Escape") {
-        return true;
+    for (const e of r.events) {
+        const parts = e.method.split(".");
+        const eventName = parts.length >= 2 ? parts[1] : e.method;
+        document.body.dispatchEvent(
+            new CustomEvent("engine:onEventTriggered", {
+                detail: {
+                    eventName,
+                    params: e.params,
+                },
+            }),
+        );
     }
-    return false;
 }
 
 export function subscribeToKeyDownEvent() {
     document.addEventListener("keydown", (e) => {
-        if (shouldPreventDefaultForVim(e.key)) {
-            e.preventDefault();
-        }
-        sendRpcAsync("keydown", {
+        const response = sendRpcSync("keydown", {
             key: e.key,
         });
+        if (response.error) {
+            return;
+        }
+        const result = response.result as
+            | { captured?: boolean; events?: unknown }
+            | undefined;
+        if (result?.captured) {
+            e.preventDefault();
+        }
+        dispatchKeydownEvents(response.result);
     });
 }
 

@@ -68,6 +68,29 @@ function newErrorResponse(code, message, id, data) {
 }
 // web/src/wasm/rpc.ts
 globalThis.goToJsJsonRpcAsync = onReceiveJsonRpcAsync;
+globalThis.goEngineEventsSync = (json) => {
+  const events = JSON.parse(json);
+  for (const e of events) {
+    const parts = e.method.split(".");
+    const eventName = parts.length >= 2 ? parts[1] : e.method;
+    document.body.dispatchEvent(new CustomEvent("engine:onEventTriggered", {
+      detail: {
+        eventName,
+        params: e.params
+      }
+    }));
+  }
+};
+function sendRpcSync(method, params) {
+  const request2 = newRequest(method, params);
+  const requestJson = JSON.stringify(request2);
+  const fn = globalThis.jsToGoJsonRpcSync;
+  if (typeof fn !== "function") {
+    throw new Error("jsToGoJsonRpcSync is not registered (WASM not loaded?)");
+  }
+  const responseJson = fn.call(requestJson);
+  return decodeResponse(responseJson);
+}
 async function sendRpcAsync(method, params) {
   const request2 = newRequest(method, params);
   const requestJson = JSON.stringify(request2);
@@ -152,17 +175,6 @@ function isScrolledToBottom(el) {
   return el.scrollHeight - el.scrollTop - el.clientHeight <= BOTTOM_THRESHOLD_PX;
 }
 
-// web/src/engine/mode.ts
-var clientMode = "n";
-function setClientMode(mode) {
-  if (mode === "n" || mode === "i" || mode === "v") {
-    clientMode = mode;
-  }
-}
-function getClientMode() {
-  return clientMode;
-}
-
 // web/src/table.ts
 init3();
 function init3() {
@@ -201,7 +213,6 @@ function getCellDisplayValue(cell) {
 }
 function handleOnModeChanged(table, params) {
   console.log("js: table: handleOnModeChanged:", params);
-  setClientMode(params.mode);
   const mode = params.mode;
   if (mode === "i") {
     const normalCell = table.querySelector("[data-cell-variant='normal']");
@@ -286,43 +297,38 @@ function replaceCell(table, oldCell, variant, value) {
 }
 
 // web/src/engine/input.ts
-function shouldPreventDefaultForVim(key) {
-  const mode = getClientMode();
-  if (mode === "n") {
-    return [
-      "i",
-      "a",
-      "v",
-      "h",
-      "j",
-      "k",
-      "l",
-      "w",
-      "e",
-      "b",
-      "ArrowLeft",
-      "ArrowRight",
-      "ArrowUp",
-      "ArrowDown",
-      "Enter"
-    ].includes(key);
+function dispatchKeydownEvents(result) {
+  if (!result || typeof result !== "object") {
+    return;
   }
-  if (mode === "i" && key === "Escape") {
-    return true;
+  const r = result;
+  if (!Array.isArray(r.events)) {
+    return;
   }
-  if (mode === "v" && key === "Escape") {
-    return true;
+  for (const e of r.events) {
+    const parts = e.method.split(".");
+    const eventName = parts.length >= 2 ? parts[1] : e.method;
+    document.body.dispatchEvent(new CustomEvent("engine:onEventTriggered", {
+      detail: {
+        eventName,
+        params: e.params
+      }
+    }));
   }
-  return false;
 }
 function subscribeToKeyDownEvent() {
   document.addEventListener("keydown", (e) => {
-    if (shouldPreventDefaultForVim(e.key)) {
-      e.preventDefault();
-    }
-    sendRpcAsync("keydown", {
+    const response2 = sendRpcSync("keydown", {
       key: e.key
     });
+    if (response2.error) {
+      return;
+    }
+    const result = response2.result;
+    if (result?.captured) {
+      e.preventDefault();
+    }
+    dispatchKeydownEvents(response2.result);
   });
 }
 var DOUBLE_TAP_MS = 300;

@@ -6,7 +6,10 @@ import * as wasm from "./wasm";
 
 async function initAsync() {
     console.log("js: running...");
+
     engine.init();
+
+    // this is blocking, must run this last
     await wasm.initAsync();
 }
 

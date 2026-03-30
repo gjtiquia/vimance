@@ -1,0 +1,52 @@
+package engine
+
+import "testing"
+
+func TestNormalKeyHandlerGG(t *testing.T) {
+	eng := New(6, 5)
+	eng.moveCursorTo(3, 4)
+
+	kh := newNormalKeyHandler()
+	if r := kh.Feed(&eng, "g"); r != ParseIncomplete {
+		t.Fatalf("first g: ParseIncomplete, got %v", r)
+	}
+	if r := kh.Feed(&eng, "g"); r != ParseExecuted {
+		t.Fatalf("second g: ParseExecuted, got %v", r)
+	}
+	if eng.CursorX() != 3 || eng.CursorY() != 0 {
+		t.Fatalf("gg: expected (3,0), got (%d,%d)", eng.CursorX(), eng.CursorY())
+	}
+}
+
+func TestNormalKeyHandlerInvalidThenRetry(t *testing.T) {
+	eng := New(6, 5)
+	kh := newNormalKeyHandler()
+	_ = kh.Feed(&eng, "g")
+	if r := kh.Feed(&eng, "x"); r != ParseInvalid {
+		t.Fatalf("gx: expected ParseInvalid after retry, got %v", r)
+	}
+}
+
+func TestKeyPressLastKeyCaptured(t *testing.T) {
+	eng := New(6, 5)
+	eng.KeyPress("z")
+	if eng.LastKeyCaptured() {
+		t.Fatal("unknown key should not capture")
+	}
+	eng.KeyPress("l")
+	if !eng.LastKeyCaptured() {
+		t.Fatal("l should capture")
+	}
+}
+
+func TestKeyPressGGIncompleteCaptures(t *testing.T) {
+	eng := New(6, 5)
+	eng.KeyPress("g")
+	if !eng.LastKeyCaptured() {
+		t.Fatal("incomplete gg prefix should capture")
+	}
+	eng.KeyPress("g")
+	if !eng.LastKeyCaptured() {
+		t.Fatal("completing gg should capture")
+	}
+}

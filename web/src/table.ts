@@ -1,5 +1,3 @@
-import { setClientMode } from "./engine/mode";
-
 init();
 
 export function init() {
@@ -47,8 +45,6 @@ function getCellDisplayValue(cell: HTMLTableCellElement): string {
 
 function handleOnModeChanged(table: HTMLTableElement, params: any) {
     console.log("js: table: handleOnModeChanged:", params);
-
-    setClientMode(params.mode);
 
     const mode = params.mode;
 
