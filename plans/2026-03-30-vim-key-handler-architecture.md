@@ -22,7 +22,7 @@ Normal-mode input was a flat `switch` on single keys in `Engine.KeyPress`, which
 [count] operator [count] motion | text-object
 ```
 
-Not implemented yet: counts, operators, text objects, keymaps. Current code only supports simple commands, single-key motions, and `gg`.
+**Counts (Phase 2):** Leading digits (`3j`, `5G`, `5gg`, `10l`, …). Lone `0` is still the “first column” motion; other digits form a count until the next command. `G` without a count goes to the last row; with a count, to that 1-based line. **Not yet:** operators, text objects, keymaps.
 
 ## Sync RPC rationale
 
@@ -38,7 +38,7 @@ See `.cursor/plans` overview: Go must not `AwaitGlobalPromise` during a synchron
 
 ## Next phases
 
-- **Phase 2:** Leading digit counts (`3j`, `5G`).
+- **Phase 2:** Done — leading digit counts (`3j`, `5G`, `5gg`, etc.).
 - **Phase 3:** Operators `d`/`y`/`c`, doubled linewise, motion ranges.
 - **Phase 4:** Text objects (`iw`, …).
 - **Phase 5:** `Keymap` / `:nmap`-style remapping.

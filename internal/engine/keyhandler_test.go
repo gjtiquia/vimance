@@ -58,3 +58,37 @@ func TestKeyPressGGIncompleteCaptures(t *testing.T) {
 		t.Fatal("completing gg should capture")
 	}
 }
+
+func TestCountThreeJMovesDown(t *testing.T) {
+	eng := emptyGridEngine(6, 5)
+	eng.KeyPress("3")
+	eng.KeyPress("j")
+	if eng.CursorX() != 0 || eng.CursorY() != 3 {
+		t.Fatalf("3j: expected (0,3), got (%d,%d)", eng.CursorX(), eng.CursorY())
+	}
+}
+
+func TestCountFiveGToLineFive(t *testing.T) {
+	eng := emptyGridEngine(6, 5)
+	eng.KeyPress("5")
+	eng.KeyPress("G")
+	if eng.CursorY() != 4 {
+		t.Fatalf("5G: expected last row y=4, got %d", eng.CursorY())
+	}
+}
+
+func TestCountFiveGGToRowFive(t *testing.T) {
+	eng := emptyGridEngine(6, 5)
+	for range 3 {
+		eng.KeyPress("j")
+	}
+	if eng.CursorY() != 3 {
+		t.Fatalf("setup y=3, got %d", eng.CursorY())
+	}
+	eng.KeyPress("5")
+	eng.KeyPress("g")
+	eng.KeyPress("g")
+	if eng.CursorY() != 4 {
+		t.Fatalf("5gg: expected y=4 (line 5), got %d", eng.CursorY())
+	}
+}
