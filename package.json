@@ -1,6 +1,11 @@
 {
   "scripts": {
-    "build:assets": "bunx tsc --noEmit && bunx tailwindcss -i ./web/src/input.css -o ./web/public/styles.css && bun build ./web/src/index.ts --outdir=./web/public && templ generate && GOOS=js GOARCH=wasm tinygo build -o ./web/public/main.wasm ./web/wasm",
+    "build:tsc": "bunx tsc --noEmit",
+    "build:tailwind": "bunx tailwindcss -i ./web/src/input.css -o ./web/public/styles.css",
+    "build:bundle": "bun build ./web/src/index.ts --outdir=./web/public",
+    "build:templ": "templ generate",
+    "build:wasm": "GOOS=js GOARCH=wasm tinygo build -o ./web/public/main.wasm ./web/wasm",
+    "build:assets": "bun run build:tsc && bun run build:tailwind && bun run build:bundle && bun run build:templ && bun run build:wasm",
     "build:go": "go build -o ./tmp/main .",
     "build": "bun run build:assets && bun run build:go",
     "dev": "air",

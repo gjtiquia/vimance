@@ -6,7 +6,7 @@ testdata_dir = "testdata"
 tmp_dir = "tmp"
 
 [build]
-  # Asset pipeline order and commands: package.json "build:assets" (comment wasm step there for faster web-only iteration)
+  # Asset pipeline: package.json build:assets (build:tsc → build:tailwind → build:bundle → build:templ → build:wasm)
   args_bin = []
   bin = "./tmp/main"
   pre_cmd = [

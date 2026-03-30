@@ -2,7 +2,7 @@
 
 **Status:** not implemented yet — execute when ready.
 
-Skip TinyGo wasm recompilation when no Go source files have changed, using timestamp-based `find -newer` checking. Extract `build:wasm` into its own script with the caching logic.
+Skip TinyGo wasm recompilation when no Go source files have changed, using timestamp-based `find -newer` checking. Replace the **`build:wasm`** npm script (currently the raw `tinygo` command) with a small shell script that implements the cache check.
 
 ## Problem
 
@@ -50,12 +50,11 @@ Make the script executable: `chmod +x scripts/build-wasm.sh` (optional if invoki
 
 ### 2. Update `package.json`
 
-- Add `build:wasm` calling the script
-- Point `build:assets` at `bun run build:wasm` instead of the raw TinyGo command
+- Change **`build:wasm`** from the raw TinyGo command to `bash scripts/build-wasm.sh`
+- Leave **`build:assets`** as-is (it already ends with `bun run build:wasm`)
 
 ```json
-"build:assets": "bunx tsc --noEmit && bunx tailwindcss -i ./web/src/input.css -o ./web/public/styles.css && bun build ./web/src/index.ts --outdir=./web/public && templ generate && bun run build:wasm",
-"build:wasm": "bash scripts/build-wasm.sh",
+"build:wasm": "bash scripts/build-wasm.sh"
 ```
 
 ### 3. Update `.air.toml` comment (optional)
