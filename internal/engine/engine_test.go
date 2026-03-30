@@ -9,6 +9,14 @@ import (
 const testCols = 6
 const testRows = 5
 
+func newTestEngine(cols, rows int) engine.Engine {
+	cells := make([][]string, rows)
+	for y := range cells {
+		cells[y] = make([]string, cols)
+	}
+	return engine.New(&engine.StaticDataSource{Cells: cells})
+}
+
 type TestEngineEventListener struct {
 	OnModeChangedCounter     int
 	OnCursorMovedCounter     int
@@ -29,8 +37,19 @@ func (l *TestEngineEventListener) OnCursorMoved(x, y int) {
 	l.LastCursorY = y
 }
 
+func TestNewWithStubDataSourceDimensions(t *testing.T) {
+	eng := engine.New(&engine.StubDataSource{})
+	if eng.Cols() != 6 || eng.Rows() != 5 {
+		t.Fatalf("stub grid 6x5, got %dx%d", eng.Cols(), eng.Rows())
+	}
+	v, ok := eng.CellValue(0, 0)
+	if !ok || v != "Name" {
+		t.Fatalf("cell (0,0) want Name, got %q ok=%v", v, ok)
+	}
+}
+
 func TestInitialState(t *testing.T) {
-	eng := engine.New(testCols, testRows)
+	eng := newTestEngine(testCols, testRows)
 
 	if eng.Mode() != engine.ModeNormal {
 		t.Errorf("expected initial mode to be normal, got %v", eng.Mode())
@@ -42,7 +61,7 @@ func TestInitialState(t *testing.T) {
 
 func TestModeSwitching(t *testing.T) {
 
-	eng := engine.New(testCols, testRows)
+	eng := newTestEngine(testCols, testRows)
 
 	listener := TestEngineEventListener{}
 	eng.AddListener(&listener)
@@ -80,7 +99,7 @@ func TestModeSwitching(t *testing.T) {
 }
 
 func TestInsertPositionForA(t *testing.T) {
-	eng := engine.New(testCols, testRows)
+	eng := newTestEngine(testCols, testRows)
 	listener := TestEngineEventListener{}
 	eng.AddListener(&listener)
 
@@ -94,7 +113,7 @@ func TestInsertPositionForA(t *testing.T) {
 }
 
 func TestHjklMovesCursor(t *testing.T) {
-	eng := engine.New(testCols, testRows)
+	eng := newTestEngine(testCols, testRows)
 	listener := TestEngineEventListener{}
 	eng.AddListener(&listener)
 
@@ -127,7 +146,7 @@ func TestHjklMovesCursor(t *testing.T) {
 }
 
 func TestHjklDoesNotFireInInsertMode(t *testing.T) {
-	eng := engine.New(testCols, testRows)
+	eng := newTestEngine(testCols, testRows)
 	listener := TestEngineEventListener{}
 	eng.AddListener(&listener)
 
@@ -144,7 +163,7 @@ func TestHjklDoesNotFireInInsertMode(t *testing.T) {
 }
 
 func TestHjklBounds(t *testing.T) {
-	eng := engine.New(testCols, testRows)
+	eng := newTestEngine(testCols, testRows)
 	listener := TestEngineEventListener{}
 	eng.AddListener(&listener)
 
@@ -181,7 +200,7 @@ func TestHjklBounds(t *testing.T) {
 }
 
 func TestWebEAndBMoveHorizontally(t *testing.T) {
-	eng := engine.New(testCols, testRows)
+	eng := newTestEngine(testCols, testRows)
 
 	eng.KeyPress("w")
 	if eng.CursorX() != 1 || eng.CursorY() != 0 {
@@ -200,7 +219,7 @@ func TestWebEAndBMoveHorizontally(t *testing.T) {
 }
 
 func TestArrowKeysMoveCursorLikeHjkl(t *testing.T) {
-	eng := engine.New(testCols, testRows)
+	eng := newTestEngine(testCols, testRows)
 	listener := TestEngineEventListener{}
 	eng.AddListener(&listener)
 
@@ -230,7 +249,7 @@ func TestArrowKeysMoveCursorLikeHjkl(t *testing.T) {
 }
 
 func TestEnterEntersInsertWithHighlightSelection(t *testing.T) {
-	eng := engine.New(testCols, testRows)
+	eng := newTestEngine(testCols, testRows)
 	listener := TestEngineEventListener{}
 	eng.AddListener(&listener)
 
@@ -244,7 +263,7 @@ func TestEnterEntersInsertWithHighlightSelection(t *testing.T) {
 }
 
 func TestSetCursorMovesAndRespectsBounds(t *testing.T) {
-	eng := engine.New(testCols, testRows)
+	eng := newTestEngine(testCols, testRows)
 	listener := TestEngineEventListener{}
 	eng.AddListener(&listener)
 
@@ -272,7 +291,7 @@ func TestSetCursorMovesAndRespectsBounds(t *testing.T) {
 }
 
 func TestSetCursorExitsInsertModeFirst(t *testing.T) {
-	eng := engine.New(testCols, testRows)
+	eng := newTestEngine(testCols, testRows)
 	listener := TestEngineEventListener{}
 	eng.AddListener(&listener)
 
@@ -297,7 +316,7 @@ func TestSetCursorExitsInsertModeFirst(t *testing.T) {
 // Redundant SetCursor (same cell) while in insert must not exit insert — avoids jank when e.g. touch
 // is followed by a synthetic click with the same coordinates.
 func TestSetCursorSameCellWhileInsertIsNoOp(t *testing.T) {
-	eng := engine.New(testCols, testRows)
+	eng := newTestEngine(testCols, testRows)
 	listener := TestEngineEventListener{}
 	eng.AddListener(&listener)
 
@@ -317,7 +336,7 @@ func TestSetCursorSameCellWhileInsertIsNoOp(t *testing.T) {
 }
 
 func TestSetCursorAndEditMovesAndEntersInsert(t *testing.T) {
-	eng := engine.New(testCols, testRows)
+	eng := newTestEngine(testCols, testRows)
 	listener := TestEngineEventListener{}
 	eng.AddListener(&listener)
 
@@ -334,7 +353,7 @@ func TestSetCursorAndEditMovesAndEntersInsert(t *testing.T) {
 }
 
 func TestSetCursorAndEditFromInsertMode(t *testing.T) {
-	eng := engine.New(testCols, testRows)
+	eng := newTestEngine(testCols, testRows)
 	listener := TestEngineEventListener{}
 	eng.AddListener(&listener)
 
@@ -352,7 +371,7 @@ func TestSetCursorAndEditFromInsertMode(t *testing.T) {
 }
 
 func TestGGMovesToFirstRowKeepingColumn(t *testing.T) {
-	eng := engine.New(testCols, testRows)
+	eng := newTestEngine(testCols, testRows)
 	for range 3 {
 		eng.KeyPress("l")
 	}
@@ -370,7 +389,7 @@ func TestGGMovesToFirstRowKeepingColumn(t *testing.T) {
 }
 
 func TestGMovesToLastRow(t *testing.T) {
-	eng := engine.New(testCols, testRows)
+	eng := newTestEngine(testCols, testRows)
 	eng.KeyPress("G")
 	if eng.CursorY() != testRows-1 {
 		t.Errorf("after G, expected y=%d, got %d", testRows-1, eng.CursorY())
@@ -378,7 +397,7 @@ func TestGMovesToLastRow(t *testing.T) {
 }
 
 func TestZeroAndDollarMoveColumn(t *testing.T) {
-	eng := engine.New(testCols, testRows)
+	eng := newTestEngine(testCols, testRows)
 	for range 4 {
 		eng.KeyPress("l")
 	}

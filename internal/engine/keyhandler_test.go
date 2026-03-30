@@ -2,8 +2,16 @@ package engine
 
 import "testing"
 
+func emptyGridEngine(cols, rows int) Engine {
+	cells := make([][]string, rows)
+	for y := range cells {
+		cells[y] = make([]string, cols)
+	}
+	return New(&StaticDataSource{Cells: cells})
+}
+
 func TestNormalKeyHandlerGG(t *testing.T) {
-	eng := New(6, 5)
+	eng := emptyGridEngine(6, 5)
 	eng.moveCursorTo(3, 4)
 
 	kh := newNormalKeyHandler()
@@ -19,7 +27,7 @@ func TestNormalKeyHandlerGG(t *testing.T) {
 }
 
 func TestNormalKeyHandlerInvalidThenRetry(t *testing.T) {
-	eng := New(6, 5)
+	eng := emptyGridEngine(6, 5)
 	kh := newNormalKeyHandler()
 	_ = kh.Feed(&eng, "g")
 	if r := kh.Feed(&eng, "x"); r != ParseInvalid {
@@ -28,7 +36,7 @@ func TestNormalKeyHandlerInvalidThenRetry(t *testing.T) {
 }
 
 func TestKeyPressLastKeyCaptured(t *testing.T) {
-	eng := New(6, 5)
+	eng := emptyGridEngine(6, 5)
 	eng.KeyPress("z")
 	if eng.LastKeyCaptured() {
 		t.Fatal("unknown key should not capture")
@@ -40,7 +48,7 @@ func TestKeyPressLastKeyCaptured(t *testing.T) {
 }
 
 func TestKeyPressGGIncompleteCaptures(t *testing.T) {
-	eng := New(6, 5)
+	eng := emptyGridEngine(6, 5)
 	eng.KeyPress("g")
 	if !eng.LastKeyCaptured() {
 		t.Fatal("incomplete gg prefix should capture")

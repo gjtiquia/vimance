@@ -171,6 +171,9 @@
   }
 }
 @layer utilities {
+  .fixed {
+    position: fixed;
+  }
   .start {
     inset-inline-start: var(--spacing);
   }

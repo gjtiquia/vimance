@@ -41,6 +41,8 @@ func (l *EngineEventListener) OnModeChanged(mode engine.Mode, insertPosition eng
 	appendEngineEvent("engine.OnModeChanged", map[string]any{
 		"mode":             mode,
 		"insertPosition": insertPosition,
+		"x":                eng.CursorX(),
+		"y":                eng.CursorY(),
 	})
 }
 
@@ -54,7 +56,7 @@ func (l *EngineEventListener) OnCursorMoved(x, y int) {
 func main() {
 	fmt.Println("go: running...")
 
-	eng = engine.New(6, 5)
+	eng = engine.New(&engine.StubDataSource{})
 	eng.AddListener(&EngineEventListener{})
 
 	rpcAsync := js.NewFunc(onReceiveJsonRpc)
@@ -121,6 +123,15 @@ func routeJsonRpcRequest(request jsonrpc.Request) jsonrpc.Response {
 
 	case "setCursorAndEdit":
 		return handleSetCursorAndEdit(request)
+
+	case "getGrid":
+		return handleGetGrid(request)
+
+	case "setCellValue":
+		return handleSetCellValue(request)
+
+	case "saveBuffer":
+		return handleSaveBuffer(request)
 
 	default:
 		res := jsonrpc.NewMethodNotFoundError(request)
@@ -202,6 +213,36 @@ func handleSetCursorAndEdit(request jsonrpc.Request) jsonrpc.Response {
 	eng.SetCursorAndEdit(x, y)
 	flushEventsToJs()
 
+	return jsonrpc.NewSuccessResponse(request.Id)
+}
+
+func handleGetGrid(request jsonrpc.Request) jsonrpc.Response {
+	return jsonrpc.NewResponse(map[string]any{
+		"cols":    eng.Cols(),
+		"rows":    eng.Rows(),
+		"cells":   eng.CellsSnapshot(),
+		"cursorX": eng.CursorX(),
+		"cursorY": eng.CursorY(),
+	}, request.Id)
+}
+
+func handleSetCellValue(request jsonrpc.Request) jsonrpc.Response {
+	x, okX := request.GetParamInt("x")
+	y, okY := request.GetParamInt("y")
+	val, okVal := request.GetParamString("value")
+	if !okX || !okY || !okVal {
+		return jsonrpc.NewInvalidParamsError(request.Id)
+	}
+	if !eng.SetCellValue(x, y, val) {
+		return jsonrpc.NewInvalidParamsError(request.Id)
+	}
+	return jsonrpc.NewSuccessResponse(request.Id)
+}
+
+func handleSaveBuffer(request jsonrpc.Request) jsonrpc.Response {
+	if err := eng.SaveBuffer(); err != nil {
+		return jsonrpc.NewServerError(err.Error(), request.Id)
+	}
 	return jsonrpc.NewSuccessResponse(request.Id)
 }
 

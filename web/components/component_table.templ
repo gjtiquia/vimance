@@ -8,6 +8,15 @@ templ TableComponent(headers []string, rowCount int) {
 	</table>
 }
 
+// TableComponentShell is an empty table shell; the browser fills tbody from the engine via getGrid RPC after WASM loads.
+// Row 0 is the header row (bold); all body cells are td so cursor/movement logic stays uniform.
+templ TableComponentShell() {
+	<table data-table class="table-fixed border-collapse border border-stone-50/25 text-sm mb-2 w-full max-w-3xl">
+		<tbody data-table-tbody></tbody>
+		@TableCellTemplates()
+	</table>
+}
+
 templ TableHead(headers []string) {
 	<thead>
 		<tr>

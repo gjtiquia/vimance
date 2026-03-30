@@ -1,3 +1,11 @@
+import { sendRpcSync } from "./wasm";
+
+const CELL_BASE =
+    "border border-stone-50/25 px-2 py-1 h-8 min-w-0 truncate ";
+const HEADER_CELL = CELL_BASE + "text-left font-bold text-stone-50/70";
+const TD_NORMAL = CELL_BASE + "bg-stone-50/30";
+const TD_DEFAULT = CELL_BASE;
+
 init();
 
 export function init() {
@@ -20,6 +28,106 @@ export function init() {
             handler(table, params);
         });
     });
+}
+
+/** Call after WASM is running. Fills the table from engine state (getGrid). */
+export function hydrateTableFromEngine(): void {
+    const tables = document.body.querySelectorAll("[data-table]");
+    const response = sendRpcSync("getGrid", {});
+    if (response.error || !response.result) {
+        console.error("js: table: getGrid failed", response.error);
+        return;
+    }
+    const result = response.result as {
+        cells: string[][];
+        cursorX: number;
+        cursorY: number;
+    };
+    const { cells, cursorX, cursorY } = result;
+    if (!Array.isArray(cells) || cells.length === 0) {
+        console.error("js: table: getGrid returned empty cells");
+        return;
+    }
+
+    tables.forEach((element) => {
+        const table = element as HTMLTableElement;
+        const tbody = table.querySelector("[data-table-tbody]");
+        if (!tbody) {
+            console.error("js: table: no [data-table-tbody]");
+            return;
+        }
+        tbody.replaceChildren();
+
+        for (let y = 0; y < cells.length; y++) {
+            const row = cells[y];
+            const tr = document.createElement("tr");
+            tr.setAttribute("data-row-y", String(y));
+            for (let x = 0; x < row.length; x++) {
+                const variant =
+                    x === cursorX && y === cursorY ? "normal" : "default";
+                const td = createDataCell(
+                    table,
+                    x,
+                    y,
+                    row[x] ?? "",
+                    variant,
+                    y === 0,
+                );
+                tr.appendChild(td);
+            }
+            tbody.appendChild(tr);
+        }
+    });
+}
+
+function cellClassName(
+    variant: "normal" | "default",
+    isHeaderRow: boolean,
+): string {
+    if (isHeaderRow) {
+        return variant === "normal"
+            ? HEADER_CELL + " bg-stone-50/30"
+            : HEADER_CELL;
+    }
+    return variant === "normal" ? TD_NORMAL : TD_DEFAULT;
+}
+
+function createDataCell(
+    table: HTMLTableElement,
+    x: number,
+    y: number,
+    value: string,
+    variant: "normal" | "default",
+    isHeaderRow: boolean,
+): HTMLTableCellElement {
+    const template = table.querySelector(
+        `template[data-cell-template="${variant}"]`,
+    ) as HTMLTemplateElement | null;
+    if (!template?.content.firstElementChild) {
+        const td = document.createElement("td");
+        td.setAttribute("data-cell-variant", variant);
+        td.setAttribute("data-cell-x", String(x));
+        td.setAttribute("data-cell-y", String(y));
+        td.className = cellClassName(variant, isHeaderRow);
+        td.textContent = value;
+        return td;
+    }
+
+    const td = template.content.firstElementChild.cloneNode(
+        true,
+    ) as HTMLTableCellElement;
+    td.setAttribute("data-cell-variant", variant);
+    td.setAttribute("data-cell-x", String(x));
+    td.setAttribute("data-cell-y", String(y));
+    td.className = cellClassName(variant, isHeaderRow);
+
+    const input = td.querySelector("input");
+    if (input) {
+        input.value = value;
+    } else {
+        td.textContent = value;
+    }
+    return td;
 }
 
 function getEventHandler(eventName: string) {
@@ -92,6 +200,21 @@ function handleOnModeChanged(table: HTMLTableElement, params: any) {
         const input = inputCell.querySelector("input");
         const value =
             input?.value?.trim() ?? inputCell.textContent?.trim() ?? "";
+
+        const xs = inputCell.getAttribute("data-cell-x");
+        const ys = inputCell.getAttribute("data-cell-y");
+        if (xs !== null && ys !== null) {
+            const x = parseInt(xs, 10);
+            const y = parseInt(ys, 10);
+            if (!Number.isNaN(x) && !Number.isNaN(y)) {
+                try {
+                    sendRpcSync("setCellValue", { x, y, value });
+                } catch (e) {
+                    console.error("js: table: setCellValue failed", e);
+                }
+            }
+        }
+
         replaceCell(table, inputCell, "normal", value);
     }
 }
@@ -101,7 +224,7 @@ function handleOnCursorMoved(table: HTMLTableElement, params: any) {
     const y = params.y;
 
     const targetCell = table.querySelector(
-        `td[data-cell-x="${x}"][data-cell-y="${y}"]`,
+        `[data-cell-x="${x}"][data-cell-y="${y}"]`,
     ) as HTMLTableCellElement | null;
     if (!targetCell) {
         return;
@@ -124,7 +247,7 @@ function handleOnCursorMoved(table: HTMLTableElement, params: any) {
     replaceCell(table, normalCell, "default", fromValue);
 
     const newTarget = table.querySelector(
-        `td[data-cell-x="${x}"][data-cell-y="${y}"]`,
+        `[data-cell-x="${x}"][data-cell-y="${y}"]`,
     ) as HTMLTableCellElement | null;
     if (!newTarget) {
         return;
@@ -158,12 +281,29 @@ function replaceCell(
     if (x !== null) newCell.setAttribute("data-cell-x", x);
     if (y !== null) newCell.setAttribute("data-cell-y", y);
 
+    const yNum = y !== null ? parseInt(y, 10) : -1;
+    const isHeaderRow = yNum === 0;
+    let baseClass: string;
+    if (variant === "input") {
+        baseClass = CELL_BASE;
+    } else if (isHeaderRow) {
+        baseClass =
+            variant === "normal"
+                ? HEADER_CELL + " bg-stone-50/30"
+                : HEADER_CELL;
+    } else {
+        baseClass = variant === "normal" ? TD_NORMAL : TD_DEFAULT;
+    }
+    newCell.className = baseClass;
+
     const input = newCell.querySelector("input");
     if (input) {
         input.value = value;
     } else {
         newCell.textContent = value;
     }
+
+    newCell.setAttribute("data-cell-variant", variant);
 
     oldCell.replaceWith(newCell);
     return newCell;

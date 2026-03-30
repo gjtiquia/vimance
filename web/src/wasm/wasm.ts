@@ -43,9 +43,11 @@ export async function initAsync() {
 
         console.log("js: running main.wasm...");
 
-        const exitCode = await go.run(wasm); // runs main()
+        // const exitCode = await go.run(wasm); // runs main()
+        // console.log("js: main.wasm exit code:", exitCode);
 
-        console.log("js: main.wasm exit code:", exitCode);
+        // dont await it or else it will be blocking
+        void go.run(wasm)
     } catch (err) {
         console.error("js: wasm.initAsync: error");
         console.error(err);

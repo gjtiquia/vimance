@@ -1,6 +1,6 @@
 # Vim key handler architecture
 
-**Status:** Phase 0 (sync RPC + buffered engine events) and Phase 1a–1e (trie, motions, commands, normal `KeyHandler`, `LastKeyCaptured`) are implemented. Later phases (counts, operators, text objects, keymap, visual integration) are not started yet.
+**Status:** Phase 0–1 as before. **Engine buffer:** grid lives in Go via `DataSource` (`StubDataSource` / `StaticDataSource`); TS hydrates the table from `getGrid` — see [2026-03-30-engine-buffer-datasource.md](./2026-03-30-engine-buffer-datasource.md). Counts, operators, text objects, keymap, visual integration are not started yet.
 
 ## Problem
 

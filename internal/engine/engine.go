@@ -8,6 +8,9 @@ type Engine struct {
 	cols      int
 	rows      int
 
+	cells      [][]string
+	dataSource DataSource
+
 	normalKH        *normalKeyHandler
 	lastKeyCaptured bool
 }
@@ -38,8 +41,13 @@ const (
 
 const KeyEsc string = "Escape"
 
-// New creates an engine for a grid with cols columns and rows rows (0-based indices up to cols-1, rows-1).
-func New(cols, rows int) Engine {
+// New builds an engine from DataSource.Load(). The grid must be rectangular and non-empty.
+func New(dataSource DataSource) Engine {
+	cells := cloneCells(dataSource.Load())
+	cols, rows, ok := validateRectangularGrid(cells)
+	if !ok {
+		panic("engine.New: DataSource.Load must return a non-empty rectangular grid")
+	}
 	return Engine{
 		listeners:       []EventListener{},
 		mode:            ModeNormal,
@@ -47,6 +55,8 @@ func New(cols, rows int) Engine {
 		cursorY:         0,
 		cols:            cols,
 		rows:            rows,
+		cells:           cells,
+		dataSource:      dataSource,
 		normalKH:        newNormalKeyHandler(),
 		lastKeyCaptured: false,
 	}
@@ -66,6 +76,46 @@ func (eng *Engine) CursorX() int {
 
 func (eng *Engine) CursorY() int {
 	return eng.cursorY
+}
+
+// Cols returns the number of columns in the grid.
+func (eng *Engine) Cols() int {
+	return eng.cols
+}
+
+// Rows returns the number of rows in the grid.
+func (eng *Engine) Rows() int {
+	return eng.rows
+}
+
+// CellValue returns the text in cell (x, y).
+func (eng *Engine) CellValue(x, y int) (string, bool) {
+	if x < 0 || x >= eng.cols || y < 0 || y >= eng.rows {
+		return "", false
+	}
+	return eng.cells[y][x], true
+}
+
+// SetCellValue sets cell (x, y). Returns false if out of bounds.
+func (eng *Engine) SetCellValue(x, y int, value string) bool {
+	if x < 0 || x >= eng.cols || y < 0 || y >= eng.rows {
+		return false
+	}
+	eng.cells[y][x] = value
+	return true
+}
+
+// CellsSnapshot returns a deep copy of the grid (for RPC / tests).
+func (eng *Engine) CellsSnapshot() [][]string {
+	return cloneCells(eng.cells)
+}
+
+// SaveBuffer persists the current grid via DataSource.Save (no-op for StubDataSource until you add storage).
+func (eng *Engine) SaveBuffer() error {
+	if eng.dataSource == nil {
+		return nil
+	}
+	return eng.dataSource.Save(cloneCells(eng.cells))
 }
 
 // LastKeyCaptured reports whether the last KeyPress consumed the key (motion/command, incomplete prefix, or Escape in insert/visual).

@@ -19,8 +19,7 @@ async function initAsync() {
     const result = await WebAssembly.instantiateStreaming(fetch(WASM_URL), go.importObject);
     wasm = result.instance;
     console.log("js: running main.wasm...");
-    const exitCode = await go.run(wasm);
-    console.log("js: main.wasm exit code:", exitCode);
+    go.run(wasm);
   } catch (err) {
     console.error("js: wasm.initAsync: error");
     console.error(err);
@@ -176,6 +175,10 @@ function isScrolledToBottom(el) {
 }
 
 // web/src/table.ts
+var CELL_BASE = "border border-stone-50/25 px-2 py-1 h-8 min-w-0 truncate ";
+var HEADER_CELL = CELL_BASE + "text-left font-bold text-stone-50/70";
+var TD_NORMAL = CELL_BASE + "bg-stone-50/30";
+var TD_DEFAULT = CELL_BASE;
 init3();
 function init3() {
   const tables = document.body.querySelectorAll("[data-table]");
@@ -193,6 +196,70 @@ function init3() {
       handler(table, params);
     });
   });
+}
+function hydrateTableFromEngine() {
+  const tables = document.body.querySelectorAll("[data-table]");
+  const response2 = sendRpcSync("getGrid", {});
+  if (response2.error || !response2.result) {
+    console.error("js: table: getGrid failed", response2.error);
+    return;
+  }
+  const result = response2.result;
+  const { cells, cursorX, cursorY } = result;
+  if (!Array.isArray(cells) || cells.length === 0) {
+    console.error("js: table: getGrid returned empty cells");
+    return;
+  }
+  tables.forEach((element) => {
+    const table = element;
+    const tbody = table.querySelector("[data-table-tbody]");
+    if (!tbody) {
+      console.error("js: table: no [data-table-tbody]");
+      return;
+    }
+    tbody.replaceChildren();
+    for (let y = 0;y < cells.length; y++) {
+      const row = cells[y];
+      const tr = document.createElement("tr");
+      tr.setAttribute("data-row-y", String(y));
+      for (let x = 0;x < row.length; x++) {
+        const variant = x === cursorX && y === cursorY ? "normal" : "default";
+        const td = createDataCell(table, x, y, row[x] ?? "", variant, y === 0);
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+  });
+}
+function cellClassName(variant, isHeaderRow) {
+  if (isHeaderRow) {
+    return variant === "normal" ? HEADER_CELL + " bg-stone-50/30" : HEADER_CELL;
+  }
+  return variant === "normal" ? TD_NORMAL : TD_DEFAULT;
+}
+function createDataCell(table, x, y, value, variant, isHeaderRow) {
+  const template = table.querySelector(`template[data-cell-template="${variant}"]`);
+  if (!template?.content.firstElementChild) {
+    const td2 = document.createElement("td");
+    td2.setAttribute("data-cell-variant", variant);
+    td2.setAttribute("data-cell-x", String(x));
+    td2.setAttribute("data-cell-y", String(y));
+    td2.className = cellClassName(variant, isHeaderRow);
+    td2.textContent = value;
+    return td2;
+  }
+  const td = template.content.firstElementChild.cloneNode(true);
+  td.setAttribute("data-cell-variant", variant);
+  td.setAttribute("data-cell-x", String(x));
+  td.setAttribute("data-cell-y", String(y));
+  td.className = cellClassName(variant, isHeaderRow);
+  const input = td.querySelector("input");
+  if (input) {
+    input.value = value;
+  } else {
+    td.textContent = value;
+  }
+  return td;
 }
 function getEventHandler(eventName) {
   switch (eventName) {
@@ -247,13 +314,26 @@ function handleOnModeChanged(table, params) {
     }
     const input = inputCell.querySelector("input");
     const value = input?.value?.trim() ?? inputCell.textContent?.trim() ?? "";
+    const xs = inputCell.getAttribute("data-cell-x");
+    const ys = inputCell.getAttribute("data-cell-y");
+    if (xs !== null && ys !== null) {
+      const x = parseInt(xs, 10);
+      const y = parseInt(ys, 10);
+      if (!Number.isNaN(x) && !Number.isNaN(y)) {
+        try {
+          sendRpcSync("setCellValue", { x, y, value });
+        } catch (e) {
+          console.error("js: table: setCellValue failed", e);
+        }
+      }
+    }
     replaceCell(table, inputCell, "normal", value);
   }
 }
 function handleOnCursorMoved(table, params) {
   const x = params.x;
   const y = params.y;
-  const targetCell = table.querySelector(`td[data-cell-x="${x}"][data-cell-y="${y}"]`);
+  const targetCell = table.querySelector(`[data-cell-x="${x}"][data-cell-y="${y}"]`);
   if (!targetCell) {
     return;
   }
@@ -267,7 +347,7 @@ function handleOnCursorMoved(table, params) {
   const fromValue = getCellDisplayValue(normalCell);
   const toValue = getCellDisplayValue(targetCell);
   replaceCell(table, normalCell, "default", fromValue);
-  const newTarget = table.querySelector(`td[data-cell-x="${x}"][data-cell-y="${y}"]`);
+  const newTarget = table.querySelector(`[data-cell-x="${x}"][data-cell-y="${y}"]`);
   if (!newTarget) {
     return;
   }
@@ -286,12 +366,24 @@ function replaceCell(table, oldCell, variant, value) {
     newCell.setAttribute("data-cell-x", x);
   if (y !== null)
     newCell.setAttribute("data-cell-y", y);
+  const yNum = y !== null ? parseInt(y, 10) : -1;
+  const isHeaderRow = yNum === 0;
+  let baseClass;
+  if (variant === "input") {
+    baseClass = CELL_BASE;
+  } else if (isHeaderRow) {
+    baseClass = variant === "normal" ? HEADER_CELL + " bg-stone-50/30" : HEADER_CELL;
+  } else {
+    baseClass = variant === "normal" ? TD_NORMAL : TD_DEFAULT;
+  }
+  newCell.className = baseClass;
   const input = newCell.querySelector("input");
   if (input) {
     input.value = value;
   } else {
     newCell.textContent = value;
   }
+  newCell.setAttribute("data-cell-variant", variant);
   oldCell.replaceWith(newCell);
   return newCell;
 }
@@ -411,7 +503,8 @@ function init4() {
 // web/src/index.ts
 async function initAsync2() {
   console.log("js: running...");
-  init4();
   await initAsync();
+  init4();
+  hydrateTableFromEngine();
 }
 initAsync2();

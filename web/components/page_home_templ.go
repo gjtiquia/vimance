@@ -45,7 +45,7 @@ func HomePage(version string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = TableComponent([]string{"A", "B", "C", "D", "E", "F"}, 5).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = TableComponentShell().Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
