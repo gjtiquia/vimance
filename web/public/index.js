@@ -223,6 +223,9 @@ function handleOnModeChanged(table, params) {
     if (insertPosition === "after") {
       const len = input.value.length;
       input.setSelectionRange(len, len);
+    } else if (insertPosition === "highlight") {
+      const len = input.value.length;
+      input.setSelectionRange(0, len);
     } else {
       input.setSelectionRange(0, 0);
     }

@@ -29,6 +29,8 @@ const (
 	InsertPositionNone   InsertPosition = ""
 	InsertPositionBefore InsertPosition = "before"
 	InsertPositionAfter  InsertPosition = "after"
+	// InsertPositionHighlight selects the whole cell text so typing overwrites (Enter/double-click); the value is not cleared until the user types.
+	InsertPositionHighlight InsertPosition = "highlight"
 )
 
 const KeyEsc string = "Escape"
@@ -99,8 +101,11 @@ func (eng *Engine) KeyPress(key string) {
 		case "i":
 			eng.setMode(ModeInsert, InsertPositionBefore)
 
-		case "a", "Enter":
+		case "a":
 			eng.setMode(ModeInsert, InsertPositionAfter)
+
+		case "Enter":
+			eng.setMode(ModeInsert, InsertPositionHighlight)
 
 		case "v":
 			eng.setMode(ModeVisual, InsertPositionNone)
@@ -143,7 +148,7 @@ func (eng *Engine) SetCursor(x, y int) {
 	eng.moveCursorTo(x, y)
 }
 
-// SetCursorAndEdit moves the cursor to (x, y) and enters insert mode with the caret after the cell text.
+// SetCursorAndEdit moves the cursor to (x, y) and enters insert mode with the full cell selected for overwrite (same as Enter).
 // Exits insert mode first if needed. Out-of-bounds coordinates are ignored (insert mode is still exited if active).
 func (eng *Engine) SetCursorAndEdit(x, y int) {
 	if eng.mode == ModeInsert {
@@ -153,5 +158,5 @@ func (eng *Engine) SetCursorAndEdit(x, y int) {
 		return
 	}
 	eng.moveCursorTo(x, y)
-	eng.setMode(ModeInsert, InsertPositionAfter)
+	eng.setMode(ModeInsert, InsertPositionHighlight)
 }

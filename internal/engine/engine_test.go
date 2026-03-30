@@ -229,7 +229,7 @@ func TestArrowKeysMoveCursorLikeHjkl(t *testing.T) {
 	}
 }
 
-func TestEnterEntersInsertAfterLikeA(t *testing.T) {
+func TestEnterEntersInsertWithHighlightSelection(t *testing.T) {
 	eng := engine.New(testCols, testRows)
 	listener := TestEngineEventListener{}
 	eng.AddListener(&listener)
@@ -238,8 +238,8 @@ func TestEnterEntersInsertAfterLikeA(t *testing.T) {
 	if eng.Mode() != engine.ModeInsert {
 		t.Fatalf("expected mode to be insert, got %v", eng.Mode())
 	}
-	if listener.LastInsertPosition != engine.InsertPositionAfter {
-		t.Errorf("expected insert position after for Enter, got %v", listener.LastInsertPosition)
+	if listener.LastInsertPosition != engine.InsertPositionHighlight {
+		t.Errorf("expected insert position highlight for Enter, got %v", listener.LastInsertPosition)
 	}
 }
 
@@ -328,8 +328,8 @@ func TestSetCursorAndEditMovesAndEntersInsert(t *testing.T) {
 	if eng.CursorX() != 4 || eng.CursorY() != 3 {
 		t.Errorf("expected cursor (4,3), got (%d,%d)", eng.CursorX(), eng.CursorY())
 	}
-	if listener.LastInsertPosition != engine.InsertPositionAfter {
-		t.Errorf("expected insert position after, got %v", listener.LastInsertPosition)
+	if listener.LastInsertPosition != engine.InsertPositionHighlight {
+		t.Errorf("expected insert position highlight, got %v", listener.LastInsertPosition)
 	}
 }
 
@@ -346,7 +346,7 @@ func TestSetCursorAndEditFromInsertMode(t *testing.T) {
 	if eng.CursorX() != 1 || eng.CursorY() != 2 {
 		t.Errorf("expected cursor (1,2), got (%d,%d)", eng.CursorX(), eng.CursorY())
 	}
-	if listener.LastInsertPosition != engine.InsertPositionAfter {
-		t.Errorf("expected insert position after, got %v", listener.LastInsertPosition)
+	if listener.LastInsertPosition != engine.InsertPositionHighlight {
+		t.Errorf("expected insert position highlight, got %v", listener.LastInsertPosition)
 	}
 }
