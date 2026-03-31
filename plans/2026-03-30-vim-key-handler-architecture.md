@@ -1,6 +1,6 @@
 # Vim key handler architecture
 
-**Status:** Phases 0–2 done; **Phase 3a** (linewise `dd`/`yy`/`cc`, register, `p`/`P`/`x`, `OnBufferChanged`, clipboard) — see [2026-03-30-phase3a-operators.md](./2026-03-30-phase3a-operators.md). **Engine buffer:** [2026-03-30-engine-buffer-datasource.md](./2026-03-30-engine-buffer-datasource.md). **Not started:** operator+motion (3b), undo (3c), text objects, keymap, full visual integration.
+**Status:** Phases 0–2 done; **Phase 3a** (linewise `dd`/`yy`/`cc`, register, `p`/`P`/`x`, `OnBufferChanged`, clipboard) — see [2026-03-30-phase3a-operators.md](./2026-03-30-phase3a-operators.md). **Engine buffer:** [2026-03-30-engine-buffer-datasource.md](./2026-03-30-engine-buffer-datasource.md). **Phase 3b** (operator + motion): [2026-03-30-phase3b-operator-motion.md](./2026-03-30-phase3b-operator-motion.md). **Not started:** undo (3c), text objects, keymap, full visual integration.
 
 ## Problem
 
@@ -40,7 +40,7 @@ See `.cursor/plans` overview: Go must not `AwaitGlobalPromise` during a synchron
 
 - **Phase 2:** Done — leading digit counts (`3j`, `5G`, `5gg`, etc.).
 - **Phase 3a:** Done — linewise doubled operators, register, paste, clipboard — [2026-03-30-phase3a-operators.md](./2026-03-30-phase3a-operators.md).
-- **Phase 3b:** Operator + motion (`d$`, `dj`, …).
+- **Phase 3b:** Done — operator + motion — [2026-03-30-phase3b-operator-motion.md](./2026-03-30-phase3b-operator-motion.md).
 - **Phase 3c:** Undo/redo (linear stack, then undo tree).
 - **Phase 4:** Text objects (`iw`, …).
 - **Phase 5:** `Keymap` / `:nmap`-style remapping.

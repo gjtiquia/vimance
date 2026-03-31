@@ -7,8 +7,22 @@ type MotionContext struct {
 	CountGiven bool
 }
 
-// MotionFunc applies a cursor motion.
-type MotionFunc func(eng *Engine, ctx MotionContext)
+// MotionResult is the target cell after a motion (pure, no side effects).
+type MotionResult struct {
+	TargetX int
+	TargetY int
+}
+
+// MotionFunc computes where the cursor would move without mutating the engine.
+type MotionFunc func(eng *Engine, ctx MotionContext) MotionResult
+
+// MotionInfo describes a registered motion.
+type MotionInfo struct {
+	Fn       MotionFunc
+	Linewise bool
+	// Inclusive applies to non-linewise horizontal ranges: true for $ and 0; false for h/l/w/e/b (exclusive like vim).
+	Inclusive bool
+}
 
 // MotionRegistry maps key sequences (one or more KeyPress strings) to motions.
 type MotionRegistry struct {
@@ -21,18 +35,18 @@ func NewMotionRegistry() *MotionRegistry {
 	return r
 }
 
-func (r *MotionRegistry) Insert(keys []string, fn MotionFunc) {
-	r.trie.Insert(keys, fn)
+func (r *MotionRegistry) Insert(keys []string, fn MotionFunc, linewise, inclusive bool) {
+	r.trie.Insert(keys, MotionInfo{Fn: fn, Linewise: linewise, Inclusive: inclusive})
 }
 
-// Lookup returns how keys match and the motion when Exact.
-func (r *MotionRegistry) Lookup(keys []string) (MatchResult, MotionFunc) {
+// Lookup returns how keys match and the motion info when Exact.
+func (r *MotionRegistry) Lookup(keys []string) (MatchResult, *MotionInfo) {
 	mr, v := r.trie.Match(keys)
 	if mr != MatchExact {
 		return mr, nil
 	}
-	fn, _ := v.(MotionFunc)
-	return MatchExact, fn
+	info, _ := v.(MotionInfo)
+	return MatchExact, &info
 }
 
 func clampInt(v, lo, hi int) int {
@@ -46,7 +60,7 @@ func clampInt(v, lo, hi int) int {
 }
 
 func (r *MotionRegistry) registerBuiltins() {
-	left := func(eng *Engine, ctx MotionContext) {
+	left := func(eng *Engine, ctx MotionContext) MotionResult {
 		n := ctx.Count
 		if n < 1 {
 			n = 1
@@ -55,9 +69,9 @@ func (r *MotionRegistry) registerBuiltins() {
 		if x < 0 {
 			x = 0
 		}
-		eng.moveCursorTo(x, eng.cursorY)
+		return MotionResult{TargetX: x, TargetY: eng.cursorY}
 	}
-	right := func(eng *Engine, ctx MotionContext) {
+	right := func(eng *Engine, ctx MotionContext) MotionResult {
 		n := ctx.Count
 		if n < 1 {
 			n = 1
@@ -66,9 +80,9 @@ func (r *MotionRegistry) registerBuiltins() {
 		if x >= eng.cols {
 			x = eng.cols - 1
 		}
-		eng.moveCursorTo(x, eng.cursorY)
+		return MotionResult{TargetX: x, TargetY: eng.cursorY}
 	}
-	down := func(eng *Engine, ctx MotionContext) {
+	down := func(eng *Engine, ctx MotionContext) MotionResult {
 		n := ctx.Count
 		if n < 1 {
 			n = 1
@@ -77,9 +91,9 @@ func (r *MotionRegistry) registerBuiltins() {
 		if y >= eng.rows {
 			y = eng.rows - 1
 		}
-		eng.moveCursorTo(eng.cursorX, y)
+		return MotionResult{TargetX: eng.cursorX, TargetY: y}
 	}
-	up := func(eng *Engine, ctx MotionContext) {
+	up := func(eng *Engine, ctx MotionContext) MotionResult {
 		n := ctx.Count
 		if n < 1 {
 			n = 1
@@ -88,25 +102,25 @@ func (r *MotionRegistry) registerBuiltins() {
 		if y < 0 {
 			y = 0
 		}
-		eng.moveCursorTo(eng.cursorX, y)
+		return MotionResult{TargetX: eng.cursorX, TargetY: y}
 	}
 
-	r.Insert([]string{"h"}, left)
-	r.Insert([]string{"b"}, left)
-	r.Insert([]string{"ArrowLeft"}, left)
+	r.Insert([]string{"h"}, left, false, false)
+	r.Insert([]string{"b"}, left, false, false)
+	r.Insert([]string{"ArrowLeft"}, left, false, false)
 
-	r.Insert([]string{"l"}, right)
-	r.Insert([]string{"w"}, right)
-	r.Insert([]string{"e"}, right)
-	r.Insert([]string{"ArrowRight"}, right)
+	r.Insert([]string{"l"}, right, false, false)
+	r.Insert([]string{"w"}, right, false, false)
+	r.Insert([]string{"e"}, right, false, false)
+	r.Insert([]string{"ArrowRight"}, right, false, false)
 
-	r.Insert([]string{"j"}, down)
-	r.Insert([]string{"ArrowDown"}, down)
+	r.Insert([]string{"j"}, down, true, true)
+	r.Insert([]string{"ArrowDown"}, down, true, true)
 
-	r.Insert([]string{"k"}, up)
-	r.Insert([]string{"ArrowUp"}, up)
+	r.Insert([]string{"k"}, up, true, true)
+	r.Insert([]string{"ArrowUp"}, up, true, true)
 
-	r.Insert([]string{"g", "g"}, func(eng *Engine, ctx MotionContext) {
+	r.Insert([]string{"g", "g"}, func(eng *Engine, ctx MotionContext) MotionResult {
 		var target int
 		if !ctx.CountGiven {
 			target = 0
@@ -114,10 +128,10 @@ func (r *MotionRegistry) registerBuiltins() {
 			target = ctx.Count - 1
 		}
 		target = clampInt(target, 0, eng.rows-1)
-		eng.moveCursorTo(eng.cursorX, target)
-	})
+		return MotionResult{TargetX: eng.cursorX, TargetY: target}
+	}, true, true)
 
-	r.Insert([]string{"G"}, func(eng *Engine, ctx MotionContext) {
+	r.Insert([]string{"G"}, func(eng *Engine, ctx MotionContext) MotionResult {
 		var target int
 		if !ctx.CountGiven {
 			target = eng.rows - 1
@@ -125,16 +139,16 @@ func (r *MotionRegistry) registerBuiltins() {
 			target = ctx.Count - 1
 		}
 		target = clampInt(target, 0, eng.rows-1)
-		eng.moveCursorTo(eng.cursorX, target)
-	})
+		return MotionResult{TargetX: eng.cursorX, TargetY: target}
+	}, true, true)
 
-	r.Insert([]string{"0"}, func(eng *Engine, ctx MotionContext) {
+	r.Insert([]string{"0"}, func(eng *Engine, ctx MotionContext) MotionResult {
 		_ = ctx
-		eng.moveCursorTo(0, eng.cursorY)
-	})
+		return MotionResult{TargetX: 0, TargetY: eng.cursorY}
+	}, false, true)
 
-	r.Insert([]string{"$"}, func(eng *Engine, ctx MotionContext) {
+	r.Insert([]string{"$"}, func(eng *Engine, ctx MotionContext) MotionResult {
 		_ = ctx
-		eng.moveCursorTo(eng.cols-1, eng.cursorY)
-	})
+		return MotionResult{TargetX: eng.cols - 1, TargetY: eng.cursorY}
+	}, false, true)
 }

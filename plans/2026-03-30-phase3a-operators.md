@@ -38,6 +38,6 @@ Git revert this change set. Restore `EventListener` to two methods only if rever
 
 ## Next
 
-- **Phase 3b**: Operator + motion (`d$`, `dj`, …).
+- **Phase 3b**: Done — see [2026-03-30-phase3b-operator-motion.md](./2026-03-30-phase3b-operator-motion.md).
 - **Phase 3c**: Undo/redo (linear stack first, undo tree later).
 - **Phases 4–6**: Text objects, keymap, visual mode (see main architecture doc).

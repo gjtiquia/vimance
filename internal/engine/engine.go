@@ -46,7 +46,11 @@ const (
 	InsertPositionHighlight InsertPosition = "highlight"
 )
 
-const KeyEsc string = "Escape"
+const (
+	KeyEsc        = "Escape"
+	KeyShiftTab   = "Shift+Tab"
+	KeyShiftEnter = "Shift+Enter"
+)
 
 // New builds an engine from DataSource.Load(). The grid must be rectangular and non-empty.
 func New(dataSource DataSource) Engine {
@@ -172,33 +176,128 @@ func (eng *Engine) ExecuteLinewiseDoubled(op string, ctx OperatorContext) {
 	if n < 1 {
 		n = 1
 	}
-	switch op {
-	case "d":
-		eng.linewiseDelete(n)
-	case "y":
-		eng.linewiseYank(n)
-	case "c":
-		eng.linewiseChange(n)
-	}
-}
-
-func (eng *Engine) linewiseDelete(n int) {
 	start := eng.cursorY
-	if start == 0 {
-		return // header row protected
-	}
 	end := start + n
 	if end > eng.rows {
 		end = eng.rows
 	}
-	if start >= eng.rows {
+	switch op {
+	case "d":
+		if start == 0 {
+			return
+		}
+		eng.deleteRowsRange(start, end)
+	case "y":
+		eng.yankRowsRange(start, end)
+	case "c":
+		if start == 0 {
+			return
+		}
+		eng.changeRowsRange(start, end)
+	}
+}
+
+// ExecuteOperatorWithMotion runs d/y/c after a motion (e.g. dj, d$, ygg).
+func (eng *Engine) ExecuteOperatorWithMotion(op string, minfo *MotionInfo, ctx MotionContext) {
+	if minfo == nil {
 		return
 	}
-	toCopy := eng.cells[start:end]
+	startX, startY := eng.cursorX, eng.cursorY
+	res := minfo.Fn(eng, ctx)
+	if minfo.Linewise {
+		eng.applyLinewiseOperatorMotion(op, startY, res.TargetY)
+		return
+	}
+	eng.applyNonLinewiseOperatorMotion(op, minfo, startY, startX, res.TargetX)
+}
+
+func (eng *Engine) applyLinewiseOperatorMotion(op string, startY, targetY int) {
+	minY := startY
+	maxY := targetY
+	if minY > maxY {
+		minY, maxY = maxY, minY
+	}
+	endExclusive := maxY + 1
+	switch op {
+	case "d":
+		if minY < 1 {
+			minY = 1
+		}
+		if minY >= endExclusive || minY >= eng.rows {
+			return
+		}
+		eng.deleteRowsRange(minY, endExclusive)
+	case "y":
+		if minY >= endExclusive || minY >= eng.rows {
+			return
+		}
+		eng.yankRowsRange(minY, endExclusive)
+	case "c":
+		if minY < 1 {
+			minY = 1
+		}
+		if minY >= endExclusive || minY >= eng.rows {
+			return
+		}
+		eng.changeRowsRange(minY, endExclusive)
+	}
+}
+
+func (eng *Engine) applyNonLinewiseOperatorMotion(op string, minfo *MotionInfo, y, startX, targetX int) {
+	if y < 0 || y >= eng.rows {
+		return
+	}
+	inclusive := true
+	if minfo != nil {
+		inclusive = minfo.Inclusive
+	}
+	lo, hi := cellRangeNonLinewise(startX, targetX, inclusive)
+	switch op {
+	case "d":
+		eng.deleteCellsInRowRange(y, lo, hi)
+	case "y":
+		eng.yankCellsInRowRange(y, lo, hi)
+	case "c":
+		eng.changeCellsInRowRange(y, lo, hi)
+	}
+	eng.moveCursorTo(lo, y)
+}
+
+func cellRangeNonLinewise(startX, targetX int, inclusive bool) (lo, hi int) {
+	if inclusive {
+		if startX <= targetX {
+			return startX, targetX
+		}
+		return targetX, startX
+	}
+	if targetX > startX {
+		lo = startX
+		hi = targetX - 1
+	} else if targetX < startX {
+		lo = targetX + 1
+		hi = startX
+	} else {
+		return startX, startX
+	}
+	if hi < lo {
+		return startX, startX
+	}
+	return lo, hi
+}
+
+// deleteRowsRange removes rows [startY, endY) (endY exclusive). startY must be >= 1 for header safety at call sites.
+func (eng *Engine) deleteRowsRange(startY, endY int) {
+	if startY < 1 || startY >= eng.rows || startY >= endY {
+		return
+	}
+	if endY > eng.rows {
+		endY = eng.rows
+	}
+	toCopy := eng.cells[startY:endY]
 	eng.register = Register{Cells: cloneCells(toCopy), Linewise: true}
 	eng.notifyClipboardWrite(eng.formatRegisterClipboard())
 
-	eng.cells = append(eng.cells[:start], eng.cells[end:]...)
+	eng.cells = append(eng.cells[:startY], eng.cells[endY:]...)
 	eng.rows = len(eng.cells)
 	if eng.rows == 0 {
 		panic("engine: grid became empty after delete")
@@ -217,40 +316,105 @@ func (eng *Engine) linewiseDelete(n int) {
 	eng.notifyBufferChanged()
 }
 
-func (eng *Engine) linewiseYank(n int) {
-	start := eng.cursorY
-	end := start + n
-	if end > eng.rows {
-		end = eng.rows
-	}
-	if start >= eng.rows {
+func (eng *Engine) yankRowsRange(startY, endY int) {
+	if startY >= eng.rows || startY >= endY {
 		return
 	}
-	slice := eng.cells[start:end]
+	if endY > eng.rows {
+		endY = eng.rows
+	}
+	slice := eng.cells[startY:endY]
 	eng.register = Register{Cells: cloneCells(slice), Linewise: true}
 	eng.notifyClipboardWrite(eng.formatRegisterClipboard())
 }
 
-func (eng *Engine) linewiseChange(n int) {
-	start := eng.cursorY
-	if start == 0 {
-		return // header protected
-	}
-	end := start + n
-	if end > eng.rows {
-		end = eng.rows
-	}
-	if start >= eng.rows {
+func (eng *Engine) changeRowsRange(startY, endY int) {
+	if startY >= eng.rows || startY >= endY {
 		return
 	}
-	slice := eng.cells[start:end]
+	if endY > eng.rows {
+		endY = eng.rows
+	}
+	slice := eng.cells[startY:endY]
 	eng.register = Register{Cells: cloneCells(slice), Linewise: true}
 	eng.notifyClipboardWrite(eng.formatRegisterClipboard())
 
-	for y := start; y < end; y++ {
+	for y := startY; y < endY; y++ {
 		for x := 0; x < eng.cols; x++ {
 			eng.cells[y][x] = ""
 		}
+	}
+	eng.notifyBufferChanged()
+	eng.setMode(ModeInsert, InsertPositionHighlight)
+}
+
+func (eng *Engine) deleteCellsInRowRange(y, startX, endX int) {
+	if y < 0 || y >= eng.rows {
+		return
+	}
+	if startX < 0 {
+		startX = 0
+	}
+	if endX >= eng.cols {
+		endX = eng.cols - 1
+	}
+	if startX > endX {
+		return
+	}
+	row := make([]string, endX-startX+1)
+	for i, x := 0, startX; x <= endX; i, x = i+1, x+1 {
+		row[i] = eng.cells[y][x]
+	}
+	eng.register = Register{Cells: [][]string{row}, Linewise: false}
+	eng.notifyClipboardWrite(eng.formatRegisterClipboard())
+	for x := startX; x <= endX; x++ {
+		eng.cells[y][x] = ""
+	}
+	eng.notifyBufferChanged()
+}
+
+func (eng *Engine) yankCellsInRowRange(y, startX, endX int) {
+	if y < 0 || y >= eng.rows {
+		return
+	}
+	if startX < 0 {
+		startX = 0
+	}
+	if endX >= eng.cols {
+		endX = eng.cols - 1
+	}
+	if startX > endX {
+		return
+	}
+	row := make([]string, endX-startX+1)
+	for i, x := 0, startX; x <= endX; i, x = i+1, x+1 {
+		row[i] = eng.cells[y][x]
+	}
+	eng.register = Register{Cells: [][]string{row}, Linewise: false}
+	eng.notifyClipboardWrite(eng.formatRegisterClipboard())
+}
+
+func (eng *Engine) changeCellsInRowRange(y, startX, endX int) {
+	if y < 0 || y >= eng.rows {
+		return
+	}
+	if startX < 0 {
+		startX = 0
+	}
+	if endX >= eng.cols {
+		endX = eng.cols - 1
+	}
+	if startX > endX {
+		return
+	}
+	row := make([]string, endX-startX+1)
+	for i, x := 0, startX; x <= endX; i, x = i+1, x+1 {
+		row[i] = eng.cells[y][x]
+	}
+	eng.register = Register{Cells: [][]string{row}, Linewise: false}
+	eng.notifyClipboardWrite(eng.formatRegisterClipboard())
+	for x := startX; x <= endX; x++ {
+		eng.cells[y][x] = ""
 	}
 	eng.notifyBufferChanged()
 	eng.setMode(ModeInsert, InsertPositionHighlight)
@@ -404,9 +568,19 @@ func (eng *Engine) KeyPress(key string) {
 			eng.moveCursorTo(eng.cursorX+1, eng.cursorY)
 			eng.setMode(ModeInsert, InsertPositionHighlight)
 			eng.lastKeyCaptured = true
+		case KeyShiftTab:
+			eng.setMode(ModeNormal, InsertPositionNone)
+			eng.moveCursorTo(eng.cursorX-1, eng.cursorY)
+			eng.setMode(ModeInsert, InsertPositionHighlight)
+			eng.lastKeyCaptured = true
 		case "Enter":
 			eng.setMode(ModeNormal, InsertPositionNone)
 			eng.moveCursorTo(eng.cursorX, eng.cursorY+1)
+			eng.setMode(ModeInsert, InsertPositionHighlight)
+			eng.lastKeyCaptured = true
+		case KeyShiftEnter:
+			eng.setMode(ModeNormal, InsertPositionNone)
+			eng.moveCursorTo(eng.cursorX, eng.cursorY-1)
 			eng.setMode(ModeInsert, InsertPositionHighlight)
 			eng.lastKeyCaptured = true
 		}

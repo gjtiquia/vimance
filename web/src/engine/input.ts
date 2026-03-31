@@ -31,6 +31,7 @@ export function subscribeToKeyDownEvent() {
     document.addEventListener("keydown", (e) => {
         const response = sendRpcSync("keydown", {
             key: e.key,
+            shiftKey: e.shiftKey,
         });
         if (response.error) {
             return;

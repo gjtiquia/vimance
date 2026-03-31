@@ -66,3 +66,8 @@ bun run build:wasm
 # optional: full build (assets + go), does not start the server
 bun run build
 ```
+
+## notes
+- consider hydrating on server before passing down
+- cuz also needa consider network calls, i dun think its wise to network call from with go wasm...?
+    - tho of course... can always rpc to network call js side then back... hm...

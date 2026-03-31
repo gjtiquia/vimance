@@ -173,6 +173,17 @@ func handleKeydownSync(request jsonrpc.Request) jsonrpc.Response {
 		return jsonrpc.NewInvalidParamsError(request.Id)
 	}
 
+	if shift, ok := request.GetParam("shiftKey"); ok {
+		if b, ok := shift.(bool); ok && b {
+			switch key {
+			case "Tab":
+				key = engine.KeyShiftTab
+			case "Enter":
+				key = engine.KeyShiftEnter
+			}
+		}
+	}
+
 	clearEvents()
 	eng.KeyPress(key)
 	events := drainEvents()

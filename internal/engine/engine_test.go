@@ -686,3 +686,235 @@ func TestEnterAtLastRowStaysInInsert(t *testing.T) {
 		t.Errorf("cursor should stay at last row, got y=%d", eng.CursorY())
 	}
 }
+
+func TestShiftTabInInsertModeMovesLeft(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	listener := TestEngineEventListener{}
+	eng.AddListener(&listener)
+	eng.SetCursor(2, 1)
+	eng.KeyPress("i")
+	listener.OnModeChangedCounter = 0
+	listener.OnCursorMovedCounter = 0
+
+	eng.KeyPress(engine.KeyShiftTab)
+	if eng.Mode() != engine.ModeInsert {
+		t.Fatalf("expected insert mode after Shift+Tab, got %v", eng.Mode())
+	}
+	if eng.CursorX() != 1 || eng.CursorY() != 1 {
+		t.Errorf("expected cursor (1,1) after Shift+Tab, got (%d,%d)", eng.CursorX(), eng.CursorY())
+	}
+	if listener.LastInsertPosition != engine.InsertPositionHighlight {
+		t.Errorf("expected highlight insert position, got %v", listener.LastInsertPosition)
+	}
+	if !eng.LastKeyCaptured() {
+		t.Error("Shift+Tab should be captured")
+	}
+}
+
+func TestShiftTabAtFirstColumnStaysInInsert(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCursor(0, 1)
+	eng.KeyPress("i")
+	eng.KeyPress(engine.KeyShiftTab)
+	if eng.Mode() != engine.ModeInsert {
+		t.Fatalf("expected insert mode, got %v", eng.Mode())
+	}
+	if eng.CursorX() != 0 {
+		t.Errorf("cursor should stay at first col, got x=%d", eng.CursorX())
+	}
+}
+
+func TestShiftEnterInInsertModeMovesUp(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	listener := TestEngineEventListener{}
+	eng.AddListener(&listener)
+	eng.SetCursor(2, 2)
+	eng.KeyPress("i")
+	listener.OnModeChangedCounter = 0
+	listener.OnCursorMovedCounter = 0
+
+	eng.KeyPress(engine.KeyShiftEnter)
+	if eng.Mode() != engine.ModeInsert {
+		t.Fatalf("expected insert mode after Shift+Enter, got %v", eng.Mode())
+	}
+	if eng.CursorX() != 2 || eng.CursorY() != 1 {
+		t.Errorf("expected cursor (2,1) after Shift+Enter, got (%d,%d)", eng.CursorX(), eng.CursorY())
+	}
+	if listener.LastInsertPosition != engine.InsertPositionHighlight {
+		t.Errorf("expected highlight insert position, got %v", listener.LastInsertPosition)
+	}
+	if !eng.LastKeyCaptured() {
+		t.Error("Shift+Enter should be captured")
+	}
+}
+
+func TestShiftEnterAtFirstRowStaysInInsert(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCursor(1, 0)
+	eng.KeyPress("i")
+	eng.KeyPress(engine.KeyShiftEnter)
+	if eng.Mode() != engine.ModeInsert {
+		t.Fatalf("expected insert mode, got %v", eng.Mode())
+	}
+	if eng.CursorY() != 0 {
+		t.Errorf("cursor should stay at first row, got y=%d", eng.CursorY())
+	}
+}
+
+func TestDJDeletesCurrentAndRowBelow(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCursor(0, 2)
+	eng.KeyPress("d")
+	eng.KeyPress("j")
+	if eng.Rows() != testRows-2 {
+		t.Fatalf("dj: want %d rows, got %d", testRows-2, eng.Rows())
+	}
+}
+
+func TestDKDeletesCurrentAndRowAbove(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCursor(0, 2)
+	eng.KeyPress("d")
+	eng.KeyPress("k")
+	if eng.Rows() != testRows-2 {
+		t.Fatalf("dk: want %d rows, got %d", testRows-2, eng.Rows())
+	}
+}
+
+func TestD3JDeletesFourRows(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCursor(0, 1)
+	eng.KeyPress("d")
+	eng.KeyPress("3")
+	eng.KeyPress("j")
+	if eng.Rows() != testRows-4 {
+		t.Fatalf("d3j: want %d rows, got %d", testRows-4, eng.Rows())
+	}
+}
+
+func TestDGGDeletesFromCursorToRow1ExcludingHeader(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCursor(0, 4)
+	eng.KeyPress("d")
+	eng.KeyPress("g")
+	eng.KeyPress("g")
+	if eng.Rows() != 1 {
+		t.Fatalf("dgg: want header row only, got %d rows", eng.Rows())
+	}
+}
+
+func TestDGDeletesToLastRow(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCursor(0, 1)
+	eng.KeyPress("d")
+	eng.KeyPress("G")
+	if eng.Rows() != 1 {
+		t.Fatalf("dG from row 1: want header only, got %d rows", eng.Rows())
+	}
+}
+
+func TestDollarClearsToEndOfRow(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(2, 2, "a")
+	eng.SetCellValue(3, 2, "b")
+	eng.SetCellValue(4, 2, "c")
+	eng.SetCursor(2, 2)
+	eng.KeyPress("d")
+	eng.KeyPress("$")
+	v2, _ := eng.CellValue(2, 2)
+	v3, _ := eng.CellValue(3, 2)
+	v4, _ := eng.CellValue(4, 2)
+	if v2 != "" || v3 != "" || v4 != "" {
+		t.Fatalf("d$: cells should be empty, got %q %q %q", v2, v3, v4)
+	}
+	if eng.CursorX() != 2 {
+		t.Errorf("cursor x should be 2, got %d", eng.CursorX())
+	}
+}
+
+func TestD0ClearsToStartOfRow(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(1, 2, "a")
+	eng.SetCellValue(2, 2, "b")
+	eng.SetCursor(2, 2)
+	eng.KeyPress("d")
+	eng.KeyPress("0")
+	v1, _ := eng.CellValue(1, 2)
+	v2, _ := eng.CellValue(2, 2)
+	if v1 != "" || v2 != "" {
+		t.Fatalf("d0: want empty, got %q %q", v1, v2)
+	}
+}
+
+func TestDLClearsCurrentCell(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(2, 2, "x")
+	eng.SetCursor(2, 2)
+	eng.KeyPress("d")
+	eng.KeyPress("l")
+	v, _ := eng.CellValue(2, 2)
+	if v != "" {
+		t.Errorf("dl: want empty, got %q", v)
+	}
+}
+
+func TestYJTwoRowYank(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCursor(0, 2)
+	eng.KeyPress("y")
+	eng.KeyPress("j")
+	reg := eng.RegisterSnapshot()
+	if !reg.Linewise || len(reg.Cells) != 2 {
+		t.Fatalf("yj: want 2 linewise rows, got %+v", reg)
+	}
+}
+
+func TestCJClearsTwoRowsAndInsert(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCursor(0, 2)
+	eng.KeyPress("c")
+	eng.KeyPress("j")
+	if eng.Mode() != engine.ModeInsert {
+		t.Fatalf("cj: insert mode, got %v", eng.Mode())
+	}
+	v, _ := eng.CellValue(0, 2)
+	if v != "" {
+		t.Errorf("row 2 col 0 should be cleared")
+	}
+}
+
+func TestOperatorEscapeCancelsPending(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.KeyPress("d")
+	eng.KeyPress(engine.KeyEsc)
+	if eng.Rows() != testRows {
+		t.Error("d then Escape should not delete rows")
+	}
+	if !eng.LastKeyCaptured() {
+		t.Error("Escape after d should capture")
+	}
+}
+
+func TestYankDollarToEndOfRow(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(2, 2, "a")
+	eng.SetCellValue(3, 2, "b")
+	eng.SetCursor(2, 2)
+	eng.KeyPress("y")
+	eng.KeyPress("$")
+	reg := eng.RegisterSnapshot()
+	if reg.Linewise || len(reg.Cells) != 1 || len(reg.Cells[0]) != testCols-2 {
+		t.Fatalf("y$: register shape wrong: %+v", reg)
+	}
+}
+
+func TestChangeDollarToEndInsert(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(2, 2, "a")
+	eng.SetCursor(2, 2)
+	eng.KeyPress("c")
+	eng.KeyPress("$")
+	if eng.Mode() != engine.ModeInsert {
+		t.Fatalf("c$: insert, got %v", eng.Mode())
+	}
+}
