@@ -25,5 +25,5 @@ Git revert this change set.
 
 ## Next
 
-- **Phase 3c**: Undo/redo (linear stack, then undo tree).
+- **Phase 3c**: Done — [2026-03-31-phase3c-undo-redo.md](./2026-03-31-phase3c-undo-redo.md).
 - **Phase 4+**: Text objects, keymap, visual mode.

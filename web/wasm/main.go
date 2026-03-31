@@ -184,6 +184,15 @@ func handleKeydownSync(request jsonrpc.Request) jsonrpc.Response {
 		}
 	}
 
+	if ctrl, ok := request.GetParam("ctrlKey"); ok {
+		if b, ok := ctrl.(bool); ok && b {
+			switch key {
+			case "r":
+				key = "Ctrl+r"
+			}
+		}
+	}
+
 	clearEvents()
 	eng.KeyPress(key)
 	events := drainEvents()
@@ -254,7 +263,7 @@ func handleSetCellValue(request jsonrpc.Request) jsonrpc.Response {
 	if !okX || !okY || !okVal {
 		return jsonrpc.NewInvalidParamsError(request.Id)
 	}
-	if !eng.SetCellValue(x, y, val) {
+	if !eng.SetCellValueUndoable(x, y, val) {
 		return jsonrpc.NewInvalidParamsError(request.Id)
 	}
 	return jsonrpc.NewSuccessResponse(request.Id)

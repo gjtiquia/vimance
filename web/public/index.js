@@ -427,7 +427,8 @@ function subscribeToKeyDownEvent() {
   document.addEventListener("keydown", (e) => {
     const response2 = sendRpcSync("keydown", {
       key: e.key,
-      shiftKey: e.shiftKey
+      shiftKey: e.shiftKey,
+      ctrlKey: e.ctrlKey
     });
     if (response2.error) {
       return;

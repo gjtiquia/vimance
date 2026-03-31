@@ -18,6 +18,8 @@ type Engine struct {
 
 	normalKH        *normalKeyHandler
 	lastKeyCaptured bool
+
+	undoStack UndoStack
 }
 
 type EventListener interface {
@@ -115,6 +117,95 @@ func (eng *Engine) SetCellValue(x, y int, value string) bool {
 	}
 	eng.cells[y][x] = value
 	return true
+}
+
+// SetCellValueUndoable sets a cell and records an undo step when the value changes (e.g. insert-mode saves from WASM).
+func (eng *Engine) SetCellValueUndoable(x, y int, value string) bool {
+	old, ok := eng.CellValue(x, y)
+	if !ok {
+		return false
+	}
+	if old == value {
+		return true
+	}
+	eng.pushUndoCheckpoint()
+	return eng.SetCellValue(x, y, value)
+}
+
+func (eng *Engine) snapshotCurrent() UndoEntry {
+	return UndoEntry{
+		Cells:   cloneCells(eng.cells),
+		CursorX: eng.cursorX,
+		CursorY: eng.cursorY,
+	}
+}
+
+func (eng *Engine) pushUndoCheckpoint() {
+	eng.undoStack.PushUndo(eng.snapshotCurrent())
+	eng.undoStack.ClearRedo()
+}
+
+func (eng *Engine) restoreFromEntry(e UndoEntry) {
+	eng.cells = cloneCells(e.Cells)
+	eng.rows = len(eng.cells)
+	if eng.rows == 0 {
+		panic("engine: undo restore produced empty grid")
+	}
+	eng.cols = len(eng.cells[0])
+	cx := e.CursorX
+	cy := e.CursorY
+	if cx < 0 {
+		cx = 0
+	}
+	if cy < 0 {
+		cy = 0
+	}
+	if cx >= eng.cols {
+		cx = eng.cols - 1
+	}
+	if cy >= eng.rows {
+		cy = eng.rows - 1
+	}
+	eng.cursorX = cx
+	eng.cursorY = cy
+	eng.notifyBufferChanged()
+	eng.notifyCursorMoved()
+}
+
+// Undo restores the previous grid + cursor snapshot. No-op if the undo stack is empty.
+func (eng *Engine) Undo() {
+	if eng.undoStack.UndoLen() == 0 {
+		return
+	}
+	eng.undoStack.PushRedo(eng.snapshotCurrent())
+	e, ok := eng.undoStack.PopUndo()
+	if !ok {
+		return
+	}
+	eng.restoreFromEntry(e)
+}
+
+// Redo reapplies the last undone mutation. No-op if the redo stack is empty.
+func (eng *Engine) Redo() {
+	if eng.undoStack.RedoLen() == 0 {
+		return
+	}
+	eng.undoStack.PushUndo(eng.snapshotCurrent())
+	e, ok := eng.undoStack.PopRedo()
+	if !ok {
+		return
+	}
+	eng.restoreFromEntry(e)
+}
+
+// UndoDepth returns the number of undo steps available (for tests).
+func (eng *Engine) UndoDepth() int {
+	return eng.undoStack.UndoLen()
+}
+
+// RedoDepth returns the number of redo steps available (for tests).
+func (eng *Engine) RedoDepth() int {
+	return eng.undoStack.RedoLen()
 }
 
 // CellsSnapshot returns a deep copy of the grid (for RPC / tests).
@@ -293,6 +384,7 @@ func (eng *Engine) deleteRowsRange(startY, endY int) {
 	if endY > eng.rows {
 		endY = eng.rows
 	}
+	eng.pushUndoCheckpoint()
 	toCopy := eng.cells[startY:endY]
 	eng.register = Register{Cells: cloneCells(toCopy), Linewise: true}
 	eng.notifyClipboardWrite(eng.formatRegisterClipboard())
@@ -335,6 +427,7 @@ func (eng *Engine) changeRowsRange(startY, endY int) {
 	if endY > eng.rows {
 		endY = eng.rows
 	}
+	eng.pushUndoCheckpoint()
 	slice := eng.cells[startY:endY]
 	eng.register = Register{Cells: cloneCells(slice), Linewise: true}
 	eng.notifyClipboardWrite(eng.formatRegisterClipboard())
@@ -361,6 +454,7 @@ func (eng *Engine) deleteCellsInRowRange(y, startX, endX int) {
 	if startX > endX {
 		return
 	}
+	eng.pushUndoCheckpoint()
 	row := make([]string, endX-startX+1)
 	for i, x := 0, startX; x <= endX; i, x = i+1, x+1 {
 		row[i] = eng.cells[y][x]
@@ -407,6 +501,7 @@ func (eng *Engine) changeCellsInRowRange(y, startX, endX int) {
 	if startX > endX {
 		return
 	}
+	eng.pushUndoCheckpoint()
 	row := make([]string, endX-startX+1)
 	for i, x := 0, startX; x <= endX; i, x = i+1, x+1 {
 		row[i] = eng.cells[y][x]
@@ -426,6 +521,7 @@ func (eng *Engine) DeleteCharUnderCursor() {
 	if !ok {
 		return
 	}
+	eng.pushUndoCheckpoint()
 	eng.register = Register{Cells: [][]string{{v}}, Linewise: false}
 	eng.SetCellValue(eng.cursorX, eng.cursorY, "")
 	eng.notifyBufferChanged()
@@ -437,6 +533,7 @@ func (eng *Engine) PasteAfter() {
 		if len(eng.register.Cells) == 0 {
 			return
 		}
+		eng.pushUndoCheckpoint()
 		newRows := cloneCells(eng.register.Cells)
 		insertAt := eng.cursorY + 1
 		if insertAt > eng.rows {
@@ -460,6 +557,7 @@ func (eng *Engine) PasteAfter() {
 	if len(eng.register.Cells) != 1 || len(eng.register.Cells[0]) != 1 {
 		return
 	}
+	eng.pushUndoCheckpoint()
 	v := eng.register.Cells[0][0]
 	eng.SetCellValue(eng.cursorX, eng.cursorY, v)
 	eng.notifyBufferChanged()
@@ -471,6 +569,7 @@ func (eng *Engine) PasteBefore() {
 		if len(eng.register.Cells) == 0 {
 			return
 		}
+		eng.pushUndoCheckpoint()
 		newRows := cloneCells(eng.register.Cells)
 		insertAt := eng.cursorY
 		if insertAt < 1 {
@@ -494,6 +593,7 @@ func (eng *Engine) PasteBefore() {
 	if len(eng.register.Cells) != 1 || len(eng.register.Cells[0]) != 1 {
 		return
 	}
+	eng.pushUndoCheckpoint()
 	v := eng.register.Cells[0][0]
 	eng.SetCellValue(eng.cursorX, eng.cursorY, v)
 	eng.notifyBufferChanged()

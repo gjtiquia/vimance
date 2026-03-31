@@ -58,4 +58,12 @@ func (r *SimpleCommandRegistry) registerBuiltins() {
 		_ = ctx
 		eng.PasteBefore()
 	})
+	r.Register("u", func(eng *Engine, ctx CommandContext) {
+		_ = ctx
+		eng.Undo()
+	})
+	r.Register("Ctrl+r", func(eng *Engine, ctx CommandContext) {
+		_ = ctx
+		eng.Redo()
+	})
 }

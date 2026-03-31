@@ -918,3 +918,189 @@ func TestChangeDollarToEndInsert(t *testing.T) {
 		t.Fatalf("c$: insert, got %v", eng.Mode())
 	}
 }
+
+// --- Phase 3c: undo/redo
+
+func TestUndoEmptyStackNoOp(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	before := eng.CellsSnapshot()
+	eng.KeyPress("u")
+	if eng.UndoDepth() != 0 || eng.RedoDepth() != 0 {
+		t.Fatalf("empty undo: depth undo=%d redo=%d", eng.UndoDepth(), eng.RedoDepth())
+	}
+	if len(eng.CellsSnapshot()) != len(before) {
+		t.Error("u on empty stack should not change grid")
+	}
+}
+
+func TestRedoEmptyStackNoOp(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.KeyPress("Ctrl+r")
+	if eng.RedoDepth() != 0 {
+		t.Errorf("redo depth want 0, got %d", eng.RedoDepth())
+	}
+}
+
+func TestDDUndoRestoresRow(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(0, 1, "row1")
+	eng.SetCursor(0, 1)
+	r0 := eng.Rows()
+	eng.KeyPress("d")
+	eng.KeyPress("d")
+	if eng.Rows() != r0-1 {
+		t.Fatalf("after dd want %d rows, got %d", r0-1, eng.Rows())
+	}
+	eng.KeyPress("u")
+	if eng.Rows() != r0 {
+		t.Fatalf("after u want %d rows, got %d", r0, eng.Rows())
+	}
+	v, _ := eng.CellValue(0, 1)
+	if v != "row1" {
+		t.Errorf("cell restored want row1, got %q", v)
+	}
+}
+
+func TestDDUndoRedo(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCursor(0, 1)
+	r0 := eng.Rows()
+	eng.KeyPress("d")
+	eng.KeyPress("d")
+	eng.KeyPress("u")
+	eng.KeyPress("Ctrl+r")
+	if eng.Rows() != r0-1 {
+		t.Fatalf("after redo want %d rows, got %d", r0-1, eng.Rows())
+	}
+	if eng.RedoDepth() != 0 {
+		t.Errorf("redo stack should be empty after redo, got %d", eng.RedoDepth())
+	}
+}
+
+func TestXUndoRestoresCell(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(2, 2, "hello")
+	eng.SetCursor(2, 2)
+	eng.KeyPress("x")
+	v, _ := eng.CellValue(2, 2)
+	if v != "" {
+		t.Fatalf("after x want empty, got %q", v)
+	}
+	eng.KeyPress("u")
+	v, _ = eng.CellValue(2, 2)
+	if v != "hello" {
+		t.Errorf("after u want hello, got %q", v)
+	}
+}
+
+func TestPUndoRemovesPastedRow(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(0, 1, "a")
+	eng.SetCursor(0, 1)
+	eng.KeyPress("y")
+	eng.KeyPress("y")
+	rAfterYank := eng.Rows()
+	eng.KeyPress("p")
+	if eng.Rows() != rAfterYank+1 {
+		t.Fatalf("paste should add row, got rows=%d", eng.Rows())
+	}
+	eng.KeyPress("u")
+	if eng.Rows() != rAfterYank {
+		t.Fatalf("u should remove pasted row, got rows=%d", eng.Rows())
+	}
+}
+
+func Test3DDUndoRestoresThreeRows(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCursor(0, 1)
+	r0 := eng.Rows()
+	eng.KeyPress("3")
+	eng.KeyPress("d")
+	eng.KeyPress("d")
+	if eng.Rows() != r0-3 {
+		t.Fatalf("3dd want %d rows, got %d", r0-3, eng.Rows())
+	}
+	eng.KeyPress("u")
+	if eng.Rows() != r0 {
+		t.Fatalf("u want %d rows, got %d", r0, eng.Rows())
+	}
+}
+
+func TestDDTwiceUndoOnce(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCursor(0, 1)
+	r0 := eng.Rows()
+	eng.KeyPress("d")
+	eng.KeyPress("d")
+	eng.KeyPress("d")
+	eng.KeyPress("d")
+	if eng.Rows() != r0-2 {
+		t.Fatalf("two dd want %d rows", r0-2)
+	}
+	eng.KeyPress("u")
+	if eng.Rows() != r0-1 {
+		t.Fatalf("one u want %d rows, got %d", r0-1, eng.Rows())
+	}
+}
+
+func TestUndoThenMutationClearsRedo(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCursor(0, 1)
+	eng.KeyPress("d")
+	eng.KeyPress("d")
+	eng.KeyPress("u")
+	if eng.RedoDepth() != 1 {
+		t.Fatalf("want redo=1, got %d", eng.RedoDepth())
+	}
+	eng.KeyPress("d")
+	eng.KeyPress("d")
+	if eng.RedoDepth() != 0 {
+		t.Errorf("new dd should clear redo, got redo=%d", eng.RedoDepth())
+	}
+}
+
+func TestYYDoesNotPushUndo(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCursor(0, 1)
+	eng.KeyPress("y")
+	eng.KeyPress("y")
+	if eng.UndoDepth() != 0 {
+		t.Errorf("yy should not add undo, got depth=%d", eng.UndoDepth())
+	}
+}
+
+func TestSetCellValueUndoableThenUndo(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(1, 1, "old")
+	if !eng.SetCellValueUndoable(1, 1, "new") {
+		t.Fatal("SetCellValueUndoable failed")
+	}
+	v, _ := eng.CellValue(1, 1)
+	if v != "new" {
+		t.Fatalf("want new, got %q", v)
+	}
+	eng.KeyPress("u")
+	v, _ = eng.CellValue(1, 1)
+	if v != "old" {
+		t.Errorf("u want old, got %q", v)
+	}
+}
+
+func TestUndoRedoFiresOnBufferChanged(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCursor(0, 1)
+	listener := TestEngineEventListener{}
+	eng.AddListener(&listener)
+	eng.KeyPress("d")
+	eng.KeyPress("d")
+	n1 := listener.OnBufferChangedCounter
+	eng.KeyPress("u")
+	if listener.OnBufferChangedCounter <= n1 {
+		t.Error("u should fire OnBufferChanged")
+	}
+	n2 := listener.OnBufferChangedCounter
+	eng.KeyPress("Ctrl+r")
+	if listener.OnBufferChangedCounter <= n2 {
+		t.Error("redo should fire OnBufferChanged")
+	}
+}

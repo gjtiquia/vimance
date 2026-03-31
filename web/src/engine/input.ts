@@ -32,6 +32,7 @@ export function subscribeToKeyDownEvent() {
         const response = sendRpcSync("keydown", {
             key: e.key,
             shiftKey: e.shiftKey,
+            ctrlKey: e.ctrlKey,
         });
         if (response.error) {
             return;
