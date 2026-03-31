@@ -1,6 +1,6 @@
 # Vim key handler architecture
 
-**Status:** Phases 0–2 done; **Phase 3a** — [2026-03-30-phase3a-operators.md](./2026-03-30-phase3a-operators.md). **Engine buffer:** [2026-03-30-engine-buffer-datasource.md](./2026-03-30-engine-buffer-datasource.md). **Phase 3b:** [2026-03-30-phase3b-operator-motion.md](./2026-03-30-phase3b-operator-motion.md). **Phase 3c** (undo/redo): [2026-03-31-phase3c-undo-redo.md](./2026-03-31-phase3c-undo-redo.md). **Not started:** text objects, keymap, full visual integration.
+**Status:** Phases 0–2 done; **Phase 3a** — [2026-03-30-phase3a-operators.md](./2026-03-30-phase3a-operators.md). **Engine buffer:** [2026-03-30-engine-buffer-datasource.md](./2026-03-30-engine-buffer-datasource.md). **Phase 3b:** [2026-03-30-phase3b-operator-motion.md](./2026-03-30-phase3b-operator-motion.md). **Phase 3c:** [2026-03-31-phase3c-undo-redo.md](./2026-03-31-phase3c-undo-redo.md). **Phase 4** (text objects): [2026-03-31-phase4-text-objects.md](./2026-03-31-phase4-text-objects.md). **Not started:** keymap, full visual integration.
 
 ## Problem
 
@@ -22,7 +22,7 @@ Normal-mode input was a flat `switch` on single keys in `Engine.KeyPress`, which
 [count] operator [count] motion | text-object
 ```
 
-**Counts (Phase 2):** Leading digits (`3j`, `5G`, `5gg`, `10l`, …). Lone `0` is still the “first column” motion; other digits form a count until the next command. `G` without a count goes to the last row; with a count, to that 1-based line. **Not yet:** operators, text objects, keymaps.
+**Counts (Phase 2):** Leading digits (`3j`, `5G`, `5gg`, `10l`, …). Lone `0` is still the “first column” motion; other digits form a count until the next command. `G` without a count goes to the last row; with a count, to that 1-based line. **Phases 3–4:** operators and text objects (`diw`, …). **Not yet:** keymaps.
 
 ## Sync RPC rationale
 
@@ -32,7 +32,7 @@ See `.cursor/plans` overview: Go must not `AwaitGlobalPromise` during a synchron
 
 | Area | Files |
 |------|--------|
-| Engine | `internal/engine/trie.go`, `keybuffer.go`, `motion.go`, `command.go`, `keyhandler.go`, `engine.go` |
+| Engine | `internal/engine/trie.go`, `keybuffer.go`, `motion.go`, `textobject.go`, `command.go`, `keyhandler.go`, `engine.go` |
 | WASM | `web/wasm/main.go` |
 | TS | `web/src/wasm/rpc.ts`, `web/src/engine/input.ts` |
 
@@ -42,6 +42,6 @@ See `.cursor/plans` overview: Go must not `AwaitGlobalPromise` during a synchron
 - **Phase 3a:** Done — linewise doubled operators, register, paste, clipboard — [2026-03-30-phase3a-operators.md](./2026-03-30-phase3a-operators.md).
 - **Phase 3b:** Done — operator + motion — [2026-03-30-phase3b-operator-motion.md](./2026-03-30-phase3b-operator-motion.md).
 - **Phase 3c:** Done — undo/redo (linear stack) — [2026-03-31-phase3c-undo-redo.md](./2026-03-31-phase3c-undo-redo.md). Undo tree TBD.
-- **Phase 4:** Text objects (`iw`, …).
+- **Phase 4:** Done — text objects — [2026-03-31-phase4-text-objects.md](./2026-03-31-phase4-text-objects.md).
 - **Phase 5:** `Keymap` / `:nmap`-style remapping.
 - **Phase 6:** Visual mode motions as selection extend/shrink.

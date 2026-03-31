@@ -42,7 +42,7 @@ Git revert this change set.
 
 ## Next
 
-- **Phase 4:** Text objects (`iw`, …)
+- **Phase 4:** Done — [2026-03-31-phase4-text-objects.md](./2026-03-31-phase4-text-objects.md)
 - **Phase 5:** Keymap / remapping
 - **Phase 6:** Visual mode
 - **Future:** Undo tree (branching history)

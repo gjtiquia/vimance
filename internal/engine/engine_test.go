@@ -1104,3 +1104,153 @@ func TestUndoRedoFiresOnBufferChanged(t *testing.T) {
 		t.Error("redo should fire OnBufferChanged")
 	}
 }
+
+// --- Phase 4: text objects (iw / aw on current cell)
+
+func TestCIWClearsCellAndInsert(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(2, 2, "cell")
+	eng.SetCursor(2, 2)
+	eng.KeyPress("c")
+	eng.KeyPress("i")
+	eng.KeyPress("w")
+	if eng.Mode() != engine.ModeInsert {
+		t.Fatalf("ciw want insert, got %v", eng.Mode())
+	}
+	v, _ := eng.CellValue(2, 2)
+	if v != "" {
+		t.Errorf("cell should be cleared, got %q", v)
+	}
+	reg := eng.RegisterSnapshot()
+	if reg.Linewise || len(reg.Cells) != 1 || len(reg.Cells[0]) != 1 || reg.Cells[0][0] != "cell" {
+		t.Fatalf("register want non-linewise [cell], got %+v", reg)
+	}
+}
+
+func TestDIWClearsCellNormal(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(2, 2, "x")
+	eng.SetCursor(2, 2)
+	eng.KeyPress("d")
+	eng.KeyPress("i")
+	eng.KeyPress("w")
+	if eng.Mode() != engine.ModeNormal {
+		t.Fatalf("diw want normal, got %v", eng.Mode())
+	}
+	v, _ := eng.CellValue(2, 2)
+	if v != "" {
+		t.Errorf("want empty, got %q", v)
+	}
+}
+
+func TestYIWYanksCellUnchanged(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(1, 2, "keep")
+	eng.SetCursor(1, 2)
+	eng.KeyPress("y")
+	eng.KeyPress("i")
+	eng.KeyPress("w")
+	v, _ := eng.CellValue(1, 2)
+	if v != "keep" {
+		t.Errorf("cell unchanged want keep, got %q", v)
+	}
+	reg := eng.RegisterSnapshot()
+	if reg.Linewise || len(reg.Cells) != 1 || len(reg.Cells[0]) != 1 || reg.Cells[0][0] != "keep" {
+		t.Fatalf("yiw register wrong: %+v", reg)
+	}
+}
+
+func TestCAWSameAsCIW(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(0, 1, "a")
+	eng.SetCursor(0, 1)
+	eng.KeyPress("c")
+	eng.KeyPress("a")
+	eng.KeyPress("w")
+	if eng.Mode() != engine.ModeInsert {
+		t.Fatal("caw should enter insert")
+	}
+	v, _ := eng.CellValue(0, 1)
+	if v != "" {
+		t.Errorf("caw should clear cell, got %q", v)
+	}
+}
+
+func TestDAWSameAsDIW(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(3, 3, "b")
+	eng.SetCursor(3, 3)
+	eng.KeyPress("d")
+	eng.KeyPress("a")
+	eng.KeyPress("w")
+	v, _ := eng.CellValue(3, 3)
+	if v != "" {
+		t.Errorf("daw want empty, got %q", v)
+	}
+}
+
+func TestYAWSameAsYIW(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(2, 1, "z")
+	eng.SetCursor(2, 1)
+	eng.KeyPress("y")
+	eng.KeyPress("a")
+	eng.KeyPress("w")
+	v, _ := eng.CellValue(2, 1)
+	if v != "z" {
+		t.Errorf("yaw cell unchanged want z, got %q", v)
+	}
+}
+
+func TestDIWEmptyCell(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCursor(2, 2)
+	eng.KeyPress("d")
+	eng.KeyPress("i")
+	eng.KeyPress("w")
+	reg := eng.RegisterSnapshot()
+	if !reg.Linewise && len(reg.Cells) == 1 && len(reg.Cells[0]) == 1 && reg.Cells[0][0] == "" {
+		// ok
+	} else {
+		t.Fatalf("diw empty cell register: %+v", reg)
+	}
+}
+
+func TestCIWUndo(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(1, 1, "undo-me")
+	eng.SetCursor(1, 1)
+	eng.KeyPress("c")
+	eng.KeyPress("i")
+	eng.KeyPress("w")
+	eng.KeyPress(engine.KeyEsc)
+	eng.KeyPress("u")
+	v, _ := eng.CellValue(1, 1)
+	if v != "undo-me" {
+		t.Errorf("u after ciw want undo-me, got %q", v)
+	}
+}
+
+func TestDIThenEscapeCancelsWithoutMutation(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(0, 2, "stay")
+	eng.SetCursor(0, 2)
+	eng.KeyPress("d")
+	eng.KeyPress("i")
+	eng.KeyPress(engine.KeyEsc)
+	v, _ := eng.CellValue(0, 2)
+	if v != "stay" {
+		t.Errorf("cell should stay, got %q", v)
+	}
+	if eng.Mode() != engine.ModeNormal {
+		t.Errorf("want normal after Escape, got %v", eng.Mode())
+	}
+}
+
+func TestStandaloneIEntersInsert(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.KeyPress("i")
+	if eng.Mode() != engine.ModeInsert {
+		t.Fatalf("i alone want insert, got %v", eng.Mode())
+	}
+}

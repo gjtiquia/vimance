@@ -302,6 +302,20 @@ func (eng *Engine) ExecuteOperatorWithMotion(op string, minfo *MotionInfo, ctx M
 	eng.applyNonLinewiseOperatorMotion(op, minfo, startY, startX, res.TargetX)
 }
 
+// ExecuteOperatorWithTextObject runs d/y/c after a text object (e.g. diw, ciw, yiw).
+func (eng *Engine) ExecuteOperatorWithTextObject(op string, r TextObjectRange) {
+	switch op {
+	case "d":
+		eng.deleteCellsInRowRange(r.Y, r.StartX, r.EndX)
+		eng.moveCursorTo(r.StartX, r.Y)
+	case "y":
+		eng.yankCellsInRowRange(r.Y, r.StartX, r.EndX)
+	case "c":
+		eng.changeCellsInRowRange(r.Y, r.StartX, r.EndX)
+		eng.moveCursorTo(r.StartX, r.Y)
+	}
+}
+
 func (eng *Engine) applyLinewiseOperatorMotion(op string, startY, targetY int) {
 	minY := startY
 	maxY := targetY

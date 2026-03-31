@@ -18,7 +18,8 @@ const (
 type normalKeyHandler struct {
 	motions   *MotionRegistry
 	commands  *SimpleCommandRegistry
-	operators *OperatorRegistry
+	operators   *OperatorRegistry
+	textObjects *TextObjectRegistry
 
 	countDigits string
 
@@ -32,6 +33,8 @@ type normalKeyHandler struct {
 
 	pendingOpMotion []string
 	opCount2Digits  string
+
+	pendingTextObjectPrefix []string
 }
 
 func newNormalKeyHandler() *normalKeyHandler {
@@ -39,6 +42,7 @@ func newNormalKeyHandler() *normalKeyHandler {
 		motions:        NewMotionRegistry(),
 		commands:       NewSimpleCommandRegistry(),
 		operators:      NewOperatorRegistry(),
+		textObjects:    NewTextObjectRegistry(),
 		pendingOpCount: 1,
 	}
 }
@@ -157,6 +161,9 @@ func (kh *normalKeyHandler) feedWithOperatorPending(eng *Engine, key string) Par
 		kh.clearOperatorPending()
 		return ParseExecuted
 	}
+	if len(kh.pendingTextObjectPrefix) > 0 {
+		return kh.feedWithOperatorPendingTextObject(eng, key)
+	}
 	if len(kh.pendingOpMotion) > 0 {
 		return kh.feedWithOperatorPendingMotion(eng, key)
 	}
@@ -187,6 +194,19 @@ func (kh *normalKeyHandler) feedWithOperatorPending(eng *Engine, key string) Par
 		return ParseExecuted
 	}
 
+	tomr, toinfo := kh.textObjects.Lookup([]string{key})
+	switch tomr {
+	case MatchPrefix:
+		kh.pendingTextObjectPrefix = append(kh.pendingTextObjectPrefix[:0], key)
+		return ParseIncomplete
+	case MatchExact:
+		op := kh.pendingOp
+		r := toinfo.Fn(eng)
+		kh.clearOperatorPending()
+		eng.ExecuteOperatorWithTextObject(op, r)
+		return ParseExecuted
+	}
+
 	mr, minfo := kh.motions.Lookup([]string{key})
 	switch mr {
 	case MatchExact:
@@ -202,6 +222,34 @@ func (kh *normalKeyHandler) feedWithOperatorPending(eng *Engine, key string) Par
 		kh.clearOperatorPending()
 		return kh.Feed(eng, key)
 	default:
+		kh.clearOperatorPending()
+		return ParseInvalid
+	}
+}
+
+func (kh *normalKeyHandler) feedWithOperatorPendingTextObject(eng *Engine, key string) ParseResult {
+	if key == KeyEsc {
+		kh.pendingTextObjectPrefix = kh.pendingTextObjectPrefix[:0]
+		kh.clearOperatorPending()
+		return ParseExecuted
+	}
+	kh.pendingTextObjectPrefix = append(kh.pendingTextObjectPrefix, key)
+	tomr, toinfo := kh.textObjects.Lookup(kh.pendingTextObjectPrefix)
+	switch tomr {
+	case MatchExact:
+		op := kh.pendingOp
+		r := toinfo.Fn(eng)
+		kh.clearOperatorPending()
+		eng.ExecuteOperatorWithTextObject(op, r)
+		return ParseExecuted
+	case MatchPrefix:
+		return ParseIncomplete
+	case MatchNone:
+		kh.pendingTextObjectPrefix = kh.pendingTextObjectPrefix[:0]
+		kh.clearOperatorPending()
+		return kh.Feed(eng, key)
+	default:
+		kh.pendingTextObjectPrefix = kh.pendingTextObjectPrefix[:0]
 		kh.clearOperatorPending()
 		return ParseInvalid
 	}
@@ -242,6 +290,7 @@ func (kh *normalKeyHandler) clearOperatorPending() {
 	kh.pendingOpCountGiven = false
 	kh.pendingOpMotion = kh.pendingOpMotion[:0]
 	kh.opCount2Digits = ""
+	kh.pendingTextObjectPrefix = kh.pendingTextObjectPrefix[:0]
 }
 
 func (kh *normalKeyHandler) motionContextForOperator() MotionContext {
