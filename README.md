@@ -71,3 +71,5 @@ bun run build
 - consider hydrating on server before passing down
 - cuz also needa consider network calls, i dun think its wise to network call from with go wasm...?
     - tho of course... can always rpc to network call js side then back... hm...
+- also gotta fix "ciw" can edit header row
+    - should have some fundamental architectural thing that guarantees header rows CANNOT be edited!
