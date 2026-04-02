@@ -179,6 +179,7 @@ var CELL_BASE = "border border-stone-50/25 px-2 py-1 h-8 min-w-0 truncate ";
 var HEADER_CELL = CELL_BASE + "text-left font-bold text-stone-50/70";
 var TD_NORMAL = CELL_BASE + "bg-stone-50/30";
 var TD_DEFAULT = CELL_BASE;
+var TD_VISUAL = CELL_BASE + "bg-blue-50/10 text-stone-50/70";
 init3();
 function init3() {
   const tables = document.body.querySelectorAll("[data-table]");
@@ -271,6 +272,8 @@ function getEventHandler(eventName) {
       return handleOnBufferChanged;
     case "OnClipboardWrite":
       return handleOnClipboardWrite;
+    case "OnSelectionChanged":
+      return handleOnSelectionChanged;
     default:
       return null;
   }
@@ -312,6 +315,10 @@ function handleOnModeChanged(table, params) {
       input.setSelectionRange(0, 0);
     }
   } else if (mode === "n") {
+    table.querySelectorAll("[data-cell-variant='visual']").forEach((el) => {
+      const cell = el;
+      replaceCell(table, cell, "default", getCellDisplayValue(cell));
+    });
     const inputCell = table.querySelector("[data-cell-variant='input']");
     if (!inputCell) {
       return;
@@ -336,6 +343,30 @@ function handleOnModeChanged(table, params) {
 }
 function handleOnBufferChanged(table, _params) {
   hydrateTableFromEngine();
+}
+function handleOnSelectionChanged(table, params) {
+  table.querySelectorAll("[data-cell-variant='visual']").forEach((el) => {
+    const cell = el;
+    replaceCell(table, cell, "default", getCellDisplayValue(cell));
+  });
+  const sx = params.startX;
+  const sy = params.startY;
+  const ex = params.endX;
+  const ey = params.endY;
+  const cursorX = params.cursorX;
+  const cursorY = params.cursorY;
+  for (let y = sy;y <= ey; y++) {
+    for (let x = sx;x <= ex; x++) {
+      const cell = table.querySelector(`[data-cell-x="${x}"][data-cell-y="${y}"]`);
+      if (cell && cell.getAttribute("data-cell-variant") !== "input") {
+        replaceCell(table, cell, "visual", getCellDisplayValue(cell));
+      }
+    }
+  }
+  const cursorCell = table.querySelector(`[data-cell-x="${cursorX}"][data-cell-y="${cursorY}"]`);
+  if (cursorCell) {
+    replaceCell(table, cursorCell, "normal", getCellDisplayValue(cursorCell));
+  }
 }
 function handleOnClipboardWrite(_table, params) {
   const text = params.text ?? "";
@@ -386,6 +417,8 @@ function replaceCell(table, oldCell, variant, value) {
   let baseClass;
   if (variant === "input") {
     baseClass = CELL_BASE;
+  } else if (variant === "visual") {
+    baseClass = isHeaderRow ? HEADER_CELL + " bg-blue-50/10 text-stone-50/70" : TD_VISUAL;
   } else if (isHeaderRow) {
     baseClass = variant === "normal" ? HEADER_CELL + " bg-stone-50/30" : HEADER_CELL;
   } else {

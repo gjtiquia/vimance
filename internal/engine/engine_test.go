@@ -18,14 +18,18 @@ func newTestEngine(cols, rows int) engine.Engine {
 }
 
 type TestEngineEventListener struct {
-	OnModeChangedCounter      int
-	OnCursorMovedCounter      int
-	OnBufferChangedCounter    int
-	OnClipboardWriteCounter   int
-	LastMode                  engine.Mode
-	LastInsertPosition        engine.InsertPosition
-	LastCursorX, LastCursorY  int
-	LastClipboardText         string
+	OnModeChangedCounter        int
+	OnCursorMovedCounter        int
+	OnBufferChangedCounter      int
+	OnClipboardWriteCounter     int
+	OnSelectionChangedCounter   int
+	LastMode                    engine.Mode
+	LastInsertPosition          engine.InsertPosition
+	LastCursorX, LastCursorY    int
+	LastClipboardText           string
+	LastSelStartX, LastSelStartY int
+	LastSelEndX, LastSelEndY     int
+	LastSelCursorX, LastSelCursorY int
 }
 
 func (l *TestEngineEventListener) OnModeChanged(mode engine.Mode, insertPosition engine.InsertPosition) {
@@ -47,6 +51,13 @@ func (l *TestEngineEventListener) OnBufferChanged() {
 func (l *TestEngineEventListener) OnClipboardWrite(text string) {
 	l.OnClipboardWriteCounter++
 	l.LastClipboardText = text
+}
+
+func (l *TestEngineEventListener) OnSelectionChanged(startX, startY, endX, endY, cursorX, cursorY int) {
+	l.OnSelectionChangedCounter++
+	l.LastSelStartX, l.LastSelStartY = startX, startY
+	l.LastSelEndX, l.LastSelEndY = endX, endY
+	l.LastSelCursorX, l.LastSelCursorY = cursorX, cursorY
 }
 
 func TestNewWithStubDataSourceDimensions(t *testing.T) {
@@ -1406,5 +1417,311 @@ func TestJKMotionUnchangedWithoutImap(t *testing.T) {
 	eng.KeyPress("j")
 	if eng.CursorY() != 2 {
 		t.Errorf("j want row 2, got %d", eng.CursorY())
+	}
+}
+
+// --- Phase 6: visual mode (v, V, Ctrl+v)
+
+func TestVisualVEnterExit(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.KeyPress("v")
+	if eng.Mode() != engine.ModeVisual {
+		t.Fatalf("want ModeVisual, got %v", eng.Mode())
+	}
+	eng.KeyPress(engine.KeyEsc)
+	if eng.Mode() != engine.ModeNormal {
+		t.Fatalf("want normal, got %v", eng.Mode())
+	}
+}
+
+func TestVisualLineEnterExit(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.KeyPress("V")
+	if eng.Mode() != engine.ModeVisualLine {
+		t.Fatalf("want ModeVisualLine, got %v", eng.Mode())
+	}
+	eng.KeyPress(engine.KeyEsc)
+	if eng.Mode() != engine.ModeNormal {
+		t.Fatalf("want normal, got %v", eng.Mode())
+	}
+}
+
+func TestVisualBlockEnterExit(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.KeyPress("Ctrl+v")
+	if eng.Mode() != engine.ModeVisualBlock {
+		t.Fatalf("want ModeVisualBlock, got %v", eng.Mode())
+	}
+	eng.KeyPress(engine.KeyEsc)
+	if eng.Mode() != engine.ModeNormal {
+		t.Fatalf("want normal, got %v", eng.Mode())
+	}
+}
+
+func TestVisualToggleVOff(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.KeyPress("v")
+	eng.KeyPress("v")
+	if eng.Mode() != engine.ModeNormal {
+		t.Fatalf("v v should exit, got %v", eng.Mode())
+	}
+}
+
+func TestVisualSwitchVToVLine(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCursor(2, 2)
+	eng.KeyPress("v")
+	eng.KeyPress("V")
+	if eng.Mode() != engine.ModeVisualLine {
+		t.Fatalf("want ModeVisualLine, got %v", eng.Mode())
+	}
+	sx, sy, ex, ey := eng.GetVisualSelection()
+	if sx != 0 || ex != testCols-1 || sy != 2 || ey != 2 {
+		t.Errorf("V line selection want full row at y=2, got (%d,%d)-(%d,%d)", sx, sy, ex, ey)
+	}
+}
+
+func TestVisualSelectionAfterMotion(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	listener := TestEngineEventListener{}
+	eng.AddListener(&listener)
+	eng.KeyPress("v")
+	eng.KeyPress("j")
+	sx, sy, ex, ey := eng.GetVisualSelection()
+	if sx != 0 || ex != 0 || sy != 0 || ey != 1 {
+		t.Errorf("v j want col 0 rows 0-1, got (%d,%d)-(%d,%d)", sx, sy, ex, ey)
+	}
+	if listener.OnSelectionChangedCounter < 2 {
+		t.Errorf("want OnSelectionChanged on enter + motion, got %d", listener.OnSelectionChangedCounter)
+	}
+}
+
+func TestVisualVLineSelectionFullWidth(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.KeyPress("V")
+	sx, sy, ex, ey := eng.GetVisualSelection()
+	if sx != 0 || ex != testCols-1 || sy != 0 || ey != 0 {
+		t.Errorf("V want full width row 0, got (%d,%d)-(%d,%d)", sx, sy, ex, ey)
+	}
+}
+
+func TestVisualCount3J(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.KeyPress("v")
+	eng.KeyPress("3")
+	eng.KeyPress("j")
+	_, sy, _, ey := eng.GetVisualSelection()
+	if sy != 0 || ey != 3 {
+		t.Errorf("v3j want rows 0-3, got %d-%d", sy, ey)
+	}
+}
+
+func TestVisualOSwap(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.KeyPress("v")
+	eng.KeyPress("j")
+	eng.KeyPress("o")
+	if eng.CursorX() != 0 || eng.CursorY() != 0 {
+		t.Errorf("after o cursor should be at anchor (0,0), got (%d,%d)", eng.CursorX(), eng.CursorY())
+	}
+	sx, sy, ex, ey := eng.GetVisualSelection()
+	if sx != 0 || ex != 0 || sy != 0 || ey != 1 {
+		t.Errorf("selection unchanged, got (%d,%d)-(%d,%d)", sx, sy, ex, ey)
+	}
+}
+
+func TestVisualDDeletesRect(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(0, 1, "a")
+	eng.SetCellValue(1, 1, "b")
+	eng.SetCellValue(0, 2, "c")
+	eng.SetCellValue(1, 2, "d")
+	eng.SetCursor(0, 1)
+	eng.KeyPress("v")
+	eng.KeyPress("l")
+	eng.KeyPress("j")
+	eng.KeyPress("d")
+	if eng.Mode() != engine.ModeNormal {
+		t.Fatalf("want normal after d, got %v", eng.Mode())
+	}
+	for _, xy := range [][2]int{{0, 1}, {1, 1}, {0, 2}, {1, 2}} {
+		if v, _ := eng.CellValue(xy[0], xy[1]); v != "" {
+			t.Errorf("(%d,%d) should be empty, got %q", xy[0], xy[1], v)
+		}
+	}
+	reg := eng.RegisterSnapshot()
+	if reg.Linewise || len(reg.Cells) != 2 {
+		t.Fatalf("register want 2 rows non-linewise, got %+v", reg)
+	}
+}
+
+func TestVisualDOnHeaderRowDoesNotMutate(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	for x := 0; x < 5; x++ {
+		eng.SetCellValue(x, 0, string(rune('A'+x)))
+	}
+	eng.SetCursor(0, 0)
+	eng.KeyPress("v")
+	for range 4 {
+		eng.KeyPress("l")
+	}
+	eng.KeyPress("d")
+	if eng.Mode() != engine.ModeNormal {
+		t.Fatalf("want normal, got %v", eng.Mode())
+	}
+	for x := 0; x < 5; x++ {
+		want := string(rune('A' + x))
+		if v, _ := eng.CellValue(x, 0); v != want {
+			t.Errorf("col %d header should stay %q, got %q", x, want, v)
+		}
+	}
+	reg := eng.RegisterSnapshot()
+	if len(reg.Cells) != 0 {
+		t.Errorf("header-only delete should not populate register, got %+v", reg)
+	}
+}
+
+func TestVisualDSpanningHeaderAndDataRows(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(0, 0, "hdr")
+	eng.SetCellValue(0, 1, "data")
+	eng.SetCursor(0, 0)
+	eng.KeyPress("v")
+	eng.KeyPress("j")
+	eng.KeyPress("d")
+	if v, _ := eng.CellValue(0, 0); v != "hdr" {
+		t.Errorf("header (0,0) want hdr, got %q", v)
+	}
+	if v, _ := eng.CellValue(0, 1); v != "" {
+		t.Errorf("(0,1) should be cleared, got %q", v)
+	}
+	reg := eng.RegisterSnapshot()
+	if reg.Linewise || len(reg.Cells) != 1 || len(reg.Cells[0]) != 1 || reg.Cells[0][0] != "data" {
+		t.Fatalf("register want one row [data], got %+v", reg)
+	}
+}
+
+func TestVisualCHeaderOnlyReturnsToNormal(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(0, 0, "H")
+	eng.SetCursor(0, 0)
+	eng.KeyPress("v")
+	eng.KeyPress("c")
+	if eng.Mode() != engine.ModeNormal {
+		t.Fatalf("vc on header-only should exit to normal, got %v", eng.Mode())
+	}
+	if v, _ := eng.CellValue(0, 0); v != "H" {
+		t.Errorf("header unchanged, got %q", v)
+	}
+}
+
+func TestVisualYNoMutation(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(1, 1, "keep")
+	eng.SetCursor(1, 1)
+	eng.KeyPress("v")
+	eng.KeyPress("y")
+	if eng.Mode() != engine.ModeNormal {
+		t.Fatalf("want normal, got %v", eng.Mode())
+	}
+	v, _ := eng.CellValue(1, 1)
+	if v != "keep" {
+		t.Errorf("cell unchanged, got %q", v)
+	}
+}
+
+func TestVisualXAsDelete(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(2, 2, "gone")
+	eng.SetCursor(2, 2)
+	eng.KeyPress("v")
+	eng.KeyPress("x")
+	v, _ := eng.CellValue(2, 2)
+	if v != "" {
+		t.Errorf("x should clear, got %q", v)
+	}
+}
+
+func TestVisualCEntersInsert(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(1, 1, "x")
+	eng.SetCursor(1, 1)
+	eng.KeyPress("v")
+	eng.KeyPress("c")
+	if eng.Mode() != engine.ModeInsert {
+		t.Fatalf("vc want insert, got %v", eng.Mode())
+	}
+	v, _ := eng.CellValue(1, 1)
+	if v != "" {
+		t.Errorf("cell cleared, got %q", v)
+	}
+}
+
+func TestVisualVLineDeleteSkipsHeader(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(0, 0, "H")
+	eng.SetCellValue(0, 1, "r1")
+	eng.SetCellValue(0, 2, "r2")
+	eng.SetCursor(0, 0)
+	eng.KeyPress("V")
+	eng.KeyPress("j")
+	eng.KeyPress("j")
+	eng.KeyPress("d")
+	if v, _ := eng.CellValue(0, 0); v != "H" {
+		t.Errorf("header should remain, got %q", v)
+	}
+	if eng.Rows() != 3 {
+		t.Errorf("want 3 rows (deleted 2 body rows), got %d", eng.Rows())
+	}
+}
+
+func TestVisualUndoAfterD(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(1, 1, "u")
+	eng.SetCursor(1, 1)
+	eng.KeyPress("v")
+	eng.KeyPress("d")
+	eng.KeyPress("u")
+	v, _ := eng.CellValue(1, 1)
+	if v != "u" {
+		t.Errorf("undo want u, got %q", v)
+	}
+}
+
+func TestGVRestoresVisual(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCursor(1, 2)
+	eng.KeyPress("v")
+	eng.KeyPress("l")
+	eng.KeyPress(engine.KeyEsc)
+	eng.KeyPress("g")
+	eng.KeyPress("v")
+	if eng.Mode() != engine.ModeVisual {
+		t.Fatalf("gv want visual, got %v", eng.Mode())
+	}
+	if eng.CursorX() != 2 || eng.CursorY() != 2 {
+		t.Errorf("gv want cursor (2,2), got (%d,%d)", eng.CursorX(), eng.CursorY())
+	}
+}
+
+func TestGVNoPriorVisual(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.KeyPress("g")
+	eng.KeyPress("v")
+	if eng.Mode() != engine.ModeNormal {
+		t.Errorf("gv with no prior visual should stay normal, got %v", eng.Mode())
+	}
+}
+
+func TestVmapInVisualSubModes(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.Vmap("q", "<Escape>")
+	eng.KeyPress("V")
+	if eng.Mode() != engine.ModeVisualLine {
+		t.Fatal("want visual line")
+	}
+	eng.KeyPress("q")
+	if eng.Mode() != engine.ModeNormal {
+		t.Errorf("Vmap q want normal, got %v", eng.Mode())
 	}
 }

@@ -1,6 +1,6 @@
 # Vim key handler architecture
 
-**Status:** Phases 0–2 done; **Phase 3a** — [2026-03-30-phase3a-operators.md](./2026-03-30-phase3a-operators.md). **Engine buffer:** [2026-03-30-engine-buffer-datasource.md](./2026-03-30-engine-buffer-datasource.md). **Phase 3b:** [2026-03-30-phase3b-operator-motion.md](./2026-03-30-phase3b-operator-motion.md). **Phase 3c:** [2026-03-31-phase3c-undo-redo.md](./2026-03-31-phase3c-undo-redo.md). **Phase 4:** [2026-03-31-phase4-text-objects.md](./2026-03-31-phase4-text-objects.md). **Phase 5** (keymap): [2026-03-31-phase5-keymap.md](./2026-03-31-phase5-keymap.md). **Not started:** full visual integration.
+**Status:** Phases 0–5 done. **Phase 6** (visual mode): [2026-04-03-phase6-visual-mode.md](./2026-04-03-phase6-visual-mode.md). **Engine buffer:** [2026-03-30-engine-buffer-datasource.md](./2026-03-30-engine-buffer-datasource.md). Earlier phases: [2026-03-30-phase3a-operators.md](./2026-03-30-phase3a-operators.md), [2026-03-30-phase3b-operator-motion.md](./2026-03-30-phase3b-operator-motion.md), [2026-03-31-phase3c-undo-redo.md](./2026-03-31-phase3c-undo-redo.md), [2026-03-31-phase4-text-objects.md](./2026-03-31-phase4-text-objects.md), [2026-03-31-phase5-keymap.md](./2026-03-31-phase5-keymap.md).
 
 ## Problem
 
@@ -32,7 +32,7 @@ See `.cursor/plans` overview: Go must not `AwaitGlobalPromise` during a synchron
 
 | Area | Files |
 |------|--------|
-| Engine | `internal/engine/trie.go`, `keybuffer.go`, `motion.go`, `textobject.go`, `keymap.go`, `command.go`, `keyhandler.go`, `engine.go` |
+| Engine | `internal/engine/trie.go`, `keybuffer.go`, `motion.go`, `textobject.go`, `keymap.go`, `visualkeyhandler.go`, `command.go`, `keyhandler.go`, `engine.go` |
 | WASM | `web/wasm/main.go` |
 | TS | `web/src/wasm/rpc.ts`, `web/src/engine/input.ts` |
 
@@ -44,4 +44,4 @@ See `.cursor/plans` overview: Go must not `AwaitGlobalPromise` during a synchron
 - **Phase 3c:** Done — undo/redo (linear stack) — [2026-03-31-phase3c-undo-redo.md](./2026-03-31-phase3c-undo-redo.md). Undo tree TBD.
 - **Phase 4:** Done — text objects — [2026-03-31-phase4-text-objects.md](./2026-03-31-phase4-text-objects.md).
 - **Phase 5:** Done — keymap / remapping (Go API) — [2026-03-31-phase5-keymap.md](./2026-03-31-phase5-keymap.md).
-- **Phase 6:** Visual mode motions as selection extend/shrink.
+- **Phase 6:** Done — visual mode (`v` / `V` / `Ctrl+v`), selection + operators + `gv` + `OnSelectionChanged` — [2026-04-03-phase6-visual-mode.md](./2026-04-03-phase6-visual-mode.md).

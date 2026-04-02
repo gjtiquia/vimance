@@ -5,6 +5,7 @@ const CELL_BASE =
 const HEADER_CELL = CELL_BASE + "text-left font-bold text-stone-50/70";
 const TD_NORMAL = CELL_BASE + "bg-stone-50/30";
 const TD_DEFAULT = CELL_BASE;
+const TD_VISUAL = CELL_BASE + "bg-blue-50/10 text-stone-50/70";
 
 init();
 
@@ -144,6 +145,9 @@ function getEventHandler(eventName: string) {
         case "OnClipboardWrite":
             return handleOnClipboardWrite;
 
+        case "OnSelectionChanged":
+            return handleOnSelectionChanged;
+
         default:
             return null;
     }
@@ -196,6 +200,11 @@ function handleOnModeChanged(table: HTMLTableElement, params: any) {
             input.setSelectionRange(0, 0);
         }
     } else if (mode === "n") {
+        table.querySelectorAll("[data-cell-variant='visual']").forEach((el) => {
+            const cell = el as HTMLTableCellElement;
+            replaceCell(table, cell, "default", getCellDisplayValue(cell));
+        });
+
         const inputCell = table.querySelector(
             "[data-cell-variant='input']",
         ) as HTMLTableCellElement | null;
@@ -228,6 +237,46 @@ function handleOnModeChanged(table: HTMLTableElement, params: any) {
 function handleOnBufferChanged(table: HTMLTableElement, _params: unknown) {
     void table;
     hydrateTableFromEngine();
+}
+
+function handleOnSelectionChanged(table: HTMLTableElement, params: any) {
+    table.querySelectorAll("[data-cell-variant='visual']").forEach((el) => {
+        const cell = el as HTMLTableCellElement;
+        replaceCell(table, cell, "default", getCellDisplayValue(cell));
+    });
+
+    const sx = params.startX as number;
+    const sy = params.startY as number;
+    const ex = params.endX as number;
+    const ey = params.endY as number;
+    const cursorX = params.cursorX as number;
+    const cursorY = params.cursorY as number;
+
+    for (let y = sy; y <= ey; y++) {
+        for (let x = sx; x <= ex; x++) {
+            const cell = table.querySelector(
+                `[data-cell-x="${x}"][data-cell-y="${y}"]`,
+            ) as HTMLTableCellElement | null;
+            if (
+                cell &&
+                cell.getAttribute("data-cell-variant") !== "input"
+            ) {
+                replaceCell(table, cell, "visual", getCellDisplayValue(cell));
+            }
+        }
+    }
+
+    const cursorCell = table.querySelector(
+        `[data-cell-x="${cursorX}"][data-cell-y="${cursorY}"]`,
+    ) as HTMLTableCellElement | null;
+    if (cursorCell) {
+        replaceCell(
+            table,
+            cursorCell,
+            "normal",
+            getCellDisplayValue(cursorCell),
+        );
+    }
 }
 
 function handleOnClipboardWrite(_table: HTMLTableElement, params: { text?: string }) {
@@ -306,6 +355,10 @@ function replaceCell(
     let baseClass: string;
     if (variant === "input") {
         baseClass = CELL_BASE;
+    } else if (variant === "visual") {
+        baseClass = isHeaderRow
+            ? HEADER_CELL + " bg-blue-50/10 text-stone-50/70"
+            : TD_VISUAL;
     } else if (isHeaderRow) {
         baseClass =
             variant === "normal"

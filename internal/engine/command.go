@@ -44,7 +44,15 @@ func (r *SimpleCommandRegistry) registerBuiltins() {
 	})
 	r.Register("v", func(eng *Engine, ctx CommandContext) {
 		_ = ctx
-		eng.setMode(ModeVisual, InsertPositionNone)
+		eng.enterVisualMode(ModeVisual)
+	})
+	r.Register("V", func(eng *Engine, ctx CommandContext) {
+		_ = ctx
+		eng.enterVisualMode(ModeVisualLine)
+	})
+	r.Register("Ctrl+v", func(eng *Engine, ctx CommandContext) {
+		_ = ctx
+		eng.enterVisualMode(ModeVisualBlock)
 	})
 	r.Register("x", func(eng *Engine, ctx CommandContext) {
 		_ = ctx

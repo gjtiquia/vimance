@@ -144,6 +144,13 @@ func (kh *normalKeyHandler) feedWithPending(eng *Engine, key string) ParseResult
 	case MatchPrefix:
 		return ParseIncomplete
 	case MatchNone:
+		if len(kh.pending) == 2 && kh.pending[0] == "g" && kh.pending[1] == "v" {
+			kh.pending = kh.pending[:0]
+			kh.pendingMotionCtx = MotionContext{}
+			kh.hasPendingMotionCtx = false
+			eng.RestoreLastVisualSelection()
+			return ParseExecuted
+		}
 		kh.pending = kh.pending[:0]
 		kh.pendingMotionCtx = MotionContext{}
 		kh.hasPendingMotionCtx = false

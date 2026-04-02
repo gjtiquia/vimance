@@ -17,9 +17,19 @@ type Engine struct {
 	clipboardDelimiter string
 
 	normalKH        *normalKeyHandler
+	visualKH        *visualKeyHandler
 	lastKeyCaptured bool
 
 	undoStack UndoStack
+
+	visualAnchorX int
+	visualAnchorY int
+
+	lastVisualAnchorX int
+	lastVisualAnchorY int
+	lastVisualCursorX int
+	lastVisualCursorY int
+	lastVisualMode    Mode
 
 	normalKeymap  KeymapTable
 	insertKeymap  KeymapTable
@@ -33,14 +43,17 @@ type EventListener interface {
 	OnCursorMoved(x, y int)
 	OnBufferChanged()
 	OnClipboardWrite(text string)
+	OnSelectionChanged(startX, startY, endX, endY, cursorX, cursorY int)
 }
 
 type Mode string
 
 const (
-	ModeNormal Mode = "n"
-	ModeInsert Mode = "i"
-	ModeVisual Mode = "v"
+	ModeNormal      Mode = "n"
+	ModeInsert      Mode = "i"
+	ModeVisual      Mode = "v"
+	ModeVisualLine  Mode = "V"
+	ModeVisualBlock Mode = "vb"
 )
 
 // InsertPosition is a hint for where the insert caret should start when entering insert mode.
@@ -67,6 +80,7 @@ func New(dataSource DataSource) Engine {
 	if !ok {
 		panic("engine.New: DataSource.Load must return a non-empty rectangular grid")
 	}
+	nh := newNormalKeyHandler()
 	return Engine{
 		listeners:            []EventListener{},
 		mode:                 ModeNormal,
@@ -77,7 +91,8 @@ func New(dataSource DataSource) Engine {
 		cells:                cells,
 		dataSource:           dataSource,
 		clipboardDelimiter:   " ",
-		normalKH:             newNormalKeyHandler(),
+		normalKH:             nh,
+		visualKH:             newVisualKeyHandler(nh.motions, nh.operators),
 		lastKeyCaptured:      false,
 	}
 }
@@ -265,6 +280,282 @@ func (eng *Engine) formatRegisterClipboard() string {
 		lines[i] = strings.Join(row, d)
 	}
 	return strings.Join(lines, "\n")
+}
+
+func (eng *Engine) isVisualMode() bool {
+	switch eng.mode {
+	case ModeVisual, ModeVisualLine, ModeVisualBlock:
+		return true
+	default:
+		return false
+	}
+}
+
+func (eng *Engine) isVisualLinewise() bool {
+	return eng.mode == ModeVisualLine
+}
+
+// snapshotLastVisualForGV stores anchor/cursor/mode for gv re-selection.
+func (eng *Engine) snapshotLastVisualForGV() {
+	eng.lastVisualAnchorX = eng.visualAnchorX
+	eng.lastVisualAnchorY = eng.visualAnchorY
+	eng.lastVisualCursorX = eng.cursorX
+	eng.lastVisualCursorY = eng.cursorY
+	eng.lastVisualMode = eng.mode
+}
+
+// enterVisualMode sets anchor at the cursor and enters the given visual sub-mode.
+func (eng *Engine) enterVisualMode(mode Mode) {
+	eng.visualAnchorX = eng.cursorX
+	eng.visualAnchorY = eng.cursorY
+	eng.setMode(mode, InsertPositionNone)
+	eng.notifySelectionChanged()
+}
+
+// exitVisualMode saves last-visual state for gv and returns to normal mode.
+func (eng *Engine) exitVisualMode() {
+	eng.snapshotLastVisualForGV()
+	eng.setMode(ModeNormal, InsertPositionNone)
+}
+
+// RestoreLastVisualSelection re-enters visual mode with the last gv snapshot (no-op if none).
+func (eng *Engine) RestoreLastVisualSelection() {
+	if eng.lastVisualMode == "" {
+		return
+	}
+	eng.visualAnchorX = eng.lastVisualAnchorX
+	eng.visualAnchorY = eng.lastVisualAnchorY
+	eng.moveCursorTo(eng.lastVisualCursorX, eng.lastVisualCursorY)
+	eng.setMode(eng.lastVisualMode, InsertPositionNone)
+	eng.notifySelectionChanged()
+}
+
+// GetVisualSelection returns inclusive bounds of the current visual selection.
+func (eng *Engine) GetVisualSelection() (startX, startY, endX, endY int) {
+	if eng.mode == ModeVisualLine {
+		startX = 0
+		endX = eng.cols - 1
+		minY, maxY := eng.visualAnchorY, eng.cursorY
+		if minY > maxY {
+			minY, maxY = maxY, minY
+		}
+		return startX, minY, endX, maxY
+	}
+	ax, ay := eng.visualAnchorX, eng.visualAnchorY
+	cx, cy := eng.cursorX, eng.cursorY
+	minX, maxX := ax, cx
+	if minX > maxX {
+		minX, maxX = maxX, minX
+	}
+	minY, maxY := ay, cy
+	if minY > maxY {
+		minY, maxY = maxY, minY
+	}
+	return minX, minY, maxX, maxY
+}
+
+func (eng *Engine) notifySelectionChanged() {
+	if !eng.isVisualMode() {
+		return
+	}
+	sx, sy, ex, ey := eng.GetVisualSelection()
+	for _, listener := range eng.listeners {
+		listener.OnSelectionChanged(sx, sy, ex, ey, eng.cursorX, eng.cursorY)
+	}
+}
+
+// ExecuteVisualOperator runs d/y/c (or x as d) on the current visual selection, then leaves visual mode
+// (or enters insert after change).
+func (eng *Engine) ExecuteVisualOperator(op string) {
+	if op == "x" {
+		op = "d"
+	}
+	eng.snapshotLastVisualForGV()
+	var wentInsert bool
+	if eng.isVisualLinewise() {
+		wentInsert = eng.executeVisualLinewiseOp(op)
+	} else {
+		wentInsert = eng.executeVisualCellwiseOp(op)
+	}
+	if wentInsert {
+		eng.visualKH.ResetPending()
+		return
+	}
+	eng.setMode(ModeNormal, InsertPositionNone)
+}
+
+func (eng *Engine) executeVisualCellwiseOp(op string) bool {
+	sx, sy, ex, ey := eng.GetVisualSelection()
+	switch op {
+	case "d":
+		eng.deleteRect(sx, sy, ex, ey)
+		return false
+	case "y":
+		eng.yankRect(sx, sy, ex, ey)
+		return false
+	case "c":
+		return eng.changeRect(sx, sy, ex, ey)
+	default:
+		return false
+	}
+}
+
+func (eng *Engine) executeVisualLinewiseOp(op string) bool {
+	_, minY, _, maxY := eng.GetVisualSelection()
+	switch op {
+	case "d":
+		startY := minY
+		if startY < 1 {
+			startY = 1
+		}
+		if startY > maxY {
+			return false
+		}
+		eng.deleteRowsRange(startY, maxY+1)
+		return false
+	case "y":
+		eng.yankRowsRange(minY, maxY+1)
+		return false
+	case "c":
+		startY := minY
+		if startY < 1 {
+			startY = 1
+		}
+		if startY > maxY {
+			return false
+		}
+		eng.changeRowsRange(startY, maxY+1)
+		return true
+	default:
+		return false
+	}
+}
+
+func (eng *Engine) deleteRect(startX, startY, endX, endY int) {
+	if startX > endX || startY > endY {
+		return
+	}
+	if startX < 0 {
+		startX = 0
+	}
+	if endX >= eng.cols {
+		endX = eng.cols - 1
+	}
+	if startY < 0 {
+		startY = 0
+	}
+	if endY >= eng.rows {
+		endY = eng.rows - 1
+	}
+	if startX > endX || startY > endY {
+		return
+	}
+	mutStartY := startY
+	if mutStartY < 1 {
+		mutStartY = 1
+	}
+	if mutStartY > endY {
+		return
+	}
+	eng.pushUndoCheckpoint()
+	rows := make([][]string, 0, endY-mutStartY+1)
+	for y := mutStartY; y <= endY; y++ {
+		row := make([]string, endX-startX+1)
+		for i, x := 0, startX; x <= endX; i, x = i+1, x+1 {
+			row[i] = eng.cells[y][x]
+		}
+		rows = append(rows, row)
+	}
+	eng.register = Register{Cells: rows, Linewise: false}
+	eng.notifyClipboardWrite(eng.formatRegisterClipboard())
+	for y := mutStartY; y <= endY; y++ {
+		for x := startX; x <= endX; x++ {
+			eng.cells[y][x] = ""
+		}
+	}
+	eng.moveCursorTo(startX, mutStartY)
+	eng.notifyBufferChanged()
+}
+
+func (eng *Engine) yankRect(startX, startY, endX, endY int) {
+	if startX > endX || startY > endY {
+		return
+	}
+	if startX < 0 {
+		startX = 0
+	}
+	if endX >= eng.cols {
+		endX = eng.cols - 1
+	}
+	if startY < 0 {
+		startY = 0
+	}
+	if endY >= eng.rows {
+		endY = eng.rows - 1
+	}
+	if startX > endX || startY > endY {
+		return
+	}
+	rows := make([][]string, 0, endY-startY+1)
+	for y := startY; y <= endY; y++ {
+		row := make([]string, endX-startX+1)
+		for i, x := 0, startX; x <= endX; i, x = i+1, x+1 {
+			row[i] = eng.cells[y][x]
+		}
+		rows = append(rows, row)
+	}
+	eng.register = Register{Cells: rows, Linewise: false}
+	eng.notifyClipboardWrite(eng.formatRegisterClipboard())
+}
+
+// changeRect clears non-header cells in the rectangle and enters insert mode.
+// Returns false if the selection was header-only (no mutation, no mode change).
+func (eng *Engine) changeRect(startX, startY, endX, endY int) bool {
+	if startX > endX || startY > endY {
+		return false
+	}
+	if startX < 0 {
+		startX = 0
+	}
+	if endX >= eng.cols {
+		endX = eng.cols - 1
+	}
+	if startY < 0 {
+		startY = 0
+	}
+	if endY >= eng.rows {
+		endY = eng.rows - 1
+	}
+	if startX > endX || startY > endY {
+		return false
+	}
+	mutStartY := startY
+	if mutStartY < 1 {
+		mutStartY = 1
+	}
+	if mutStartY > endY {
+		return false
+	}
+	eng.pushUndoCheckpoint()
+	rows := make([][]string, 0, endY-mutStartY+1)
+	for y := mutStartY; y <= endY; y++ {
+		row := make([]string, endX-startX+1)
+		for i, x := 0, startX; x <= endX; i, x = i+1, x+1 {
+			row[i] = eng.cells[y][x]
+		}
+		rows = append(rows, row)
+	}
+	eng.register = Register{Cells: rows, Linewise: false}
+	eng.notifyClipboardWrite(eng.formatRegisterClipboard())
+	for y := mutStartY; y <= endY; y++ {
+		for x := startX; x <= endX; x++ {
+			eng.cells[y][x] = ""
+		}
+	}
+	eng.notifyBufferChanged()
+	eng.moveCursorTo(startX, mutStartY)
+	eng.setMode(ModeInsert, InsertPositionHighlight)
+	return true
 }
 
 // ExecuteLinewiseDoubled runs dd, yy, or cc (second key matched the operator).
@@ -638,6 +929,9 @@ func spliceRowsAt(cells [][]string, at int, insert [][]string) [][]string {
 func (eng *Engine) setMode(mode Mode, insertPosition InsertPosition) {
 	if eng.mode != mode {
 		eng.normalKH.ResetPending()
+		if eng.visualKH != nil {
+			eng.visualKH.ResetPending()
+		}
 		eng.keymapPending = eng.keymapPending[:0]
 	}
 	eng.mode = mode
@@ -725,7 +1019,7 @@ func (eng *Engine) keymapTableForMode() *KeymapTable {
 		return &eng.normalKeymap
 	case ModeInsert:
 		return &eng.insertKeymap
-	case ModeVisual:
+	case ModeVisual, ModeVisualLine, ModeVisualBlock:
 		return &eng.visualKeymap
 	default:
 		return &eng.normalKeymap
@@ -785,9 +1079,9 @@ func (eng *Engine) feedKeyMode(key string) {
 			eng.lastKeyCaptured = true
 		}
 
-	case ModeVisual:
-		if key == KeyEsc {
-			eng.setMode(ModeNormal, InsertPositionNone)
+	case ModeVisual, ModeVisualLine, ModeVisualBlock:
+		r := eng.visualKH.Feed(eng, key)
+		if r != ParseInvalid {
 			eng.lastKeyCaptured = true
 		}
 	}
@@ -843,7 +1137,7 @@ func (eng *Engine) Unmap(mode Mode, lhs string) bool {
 		return eng.normalKeymap.Delete(lk)
 	case ModeInsert:
 		return eng.insertKeymap.Delete(lk)
-	case ModeVisual:
+	case ModeVisual, ModeVisualLine, ModeVisualBlock:
 		return eng.visualKeymap.Delete(lk)
 	default:
 		return false
@@ -860,6 +1154,9 @@ func (eng *Engine) SetCursor(x, y int) {
 		}
 		eng.setMode(ModeNormal, InsertPositionNone)
 	}
+	if eng.isVisualMode() {
+		eng.exitVisualMode()
+	}
 	eng.normalKH.ResetPending()
 	eng.keymapPending = eng.keymapPending[:0]
 	eng.moveCursorTo(x, y)
@@ -870,6 +1167,9 @@ func (eng *Engine) SetCursor(x, y int) {
 func (eng *Engine) SetCursorAndEdit(x, y int) {
 	if eng.mode == ModeInsert {
 		eng.setMode(ModeNormal, InsertPositionNone)
+	}
+	if eng.isVisualMode() {
+		eng.exitVisualMode()
 	}
 	eng.normalKH.ResetPending()
 	eng.keymapPending = eng.keymapPending[:0]

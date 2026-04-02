@@ -63,6 +63,14 @@ func (l *EngineEventListener) OnClipboardWrite(text string) {
 	})
 }
 
+func (l *EngineEventListener) OnSelectionChanged(startX, startY, endX, endY, cursorX, cursorY int) {
+	appendEngineEvent("engine.OnSelectionChanged", map[string]any{
+		"startX": startX, "startY": startY,
+		"endX": endX, "endY": endY,
+		"cursorX": cursorX, "cursorY": cursorY,
+	})
+}
+
 func main() {
 	fmt.Println("go: running...")
 
@@ -189,6 +197,8 @@ func handleKeydownSync(request jsonrpc.Request) jsonrpc.Response {
 			switch key {
 			case "r":
 				key = "Ctrl+r"
+			case "v":
+				key = "Ctrl+v"
 			}
 		}
 	}
