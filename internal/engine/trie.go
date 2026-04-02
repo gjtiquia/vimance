@@ -73,3 +73,26 @@ func (t *Trie) Match(keys []string) (MatchResult, any) {
 	}
 	return MatchNone, nil
 }
+
+// Delete clears the value at keys. Returns false if the path does not exist or had no value.
+func (t *Trie) Delete(keys []string) bool {
+	if len(keys) == 0 || t.root == nil {
+		return false
+	}
+	node := t.root
+	for _, k := range keys {
+		if node.children == nil {
+			return false
+		}
+		next, ok := node.children[k]
+		if !ok {
+			return false
+		}
+		node = next
+	}
+	if node.value == nil {
+		return false
+	}
+	node.value = nil
+	return true
+}

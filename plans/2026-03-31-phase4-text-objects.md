@@ -23,5 +23,5 @@ Git revert this change set.
 
 ## Next
 
-- **Phase 5:** Keymap / remapping — [2026-03-30-vim-key-handler-architecture.md](./2026-03-30-vim-key-handler-architecture.md)
+- **Phase 5:** Done — [2026-03-31-phase5-keymap.md](./2026-03-31-phase5-keymap.md)
 - **Phase 6:** Visual mode

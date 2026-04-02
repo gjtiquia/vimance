@@ -1254,3 +1254,157 @@ func TestStandaloneIEntersInsert(t *testing.T) {
 		t.Fatalf("i alone want insert, got %v", eng.Mode())
 	}
 }
+
+// --- Phase 5: keymap / remapping
+
+func TestNnoremapXDeletesRow(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.Nnoremap("X", "dd")
+	eng.SetCursor(0, 1)
+	r0 := eng.Rows()
+	eng.KeyPress("X")
+	if eng.Rows() != r0-1 {
+		t.Fatalf("X want %d rows, got %d", r0-1, eng.Rows())
+	}
+}
+
+func TestNmapQDIW(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.Nmap("Q", "diw")
+	eng.SetCellValue(2, 2, "gone")
+	eng.SetCursor(2, 2)
+	eng.KeyPress("Q")
+	v, _ := eng.CellValue(2, 2)
+	if v != "" {
+		t.Errorf("Q diw want empty, got %q", v)
+	}
+}
+
+func TestNnoremapHL(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.Nnoremap("H", "0")
+	eng.Nnoremap("L", "$")
+	eng.SetCursor(3, 2)
+	eng.KeyPress("H")
+	if eng.CursorX() != 0 {
+		t.Errorf("H want col 0, got %d", eng.CursorX())
+	}
+	eng.KeyPress("L")
+	if eng.CursorX() != testCols-1 {
+		t.Errorf("L want last col, got %d", eng.CursorX())
+	}
+}
+
+func TestNmapRecursiveABToDD(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.Nmap("A", "B")
+	eng.Nmap("B", "dd")
+	eng.SetCursor(0, 1)
+	r0 := eng.Rows()
+	eng.KeyPress("A")
+	if eng.Rows() != r0-1 {
+		t.Errorf("recursive A want delete row, rows=%d", eng.Rows())
+	}
+}
+
+func TestNnoremapADoesNotExpandB(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.Nnoremap("A", "B")
+	eng.Nmap("B", "dd")
+	eng.SetCursor(0, 1)
+	r0 := eng.Rows()
+	eng.KeyPress("A")
+	if eng.Rows() != r0 {
+		t.Errorf("nnoremap A to B should not run B's map, rows=%d want %d", eng.Rows(), r0)
+	}
+}
+
+func TestNmapZZTerminates(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.Nmap("z", "z")
+	eng.KeyPress("z")
+	// If this returns, recursion guard worked.
+}
+
+func TestNnoremapGXDD(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.Nnoremap("gx", "dd")
+	eng.SetCursor(0, 1)
+	r0 := eng.Rows()
+	eng.KeyPress("g")
+	eng.KeyPress("x")
+	if eng.Rows() != r0-1 {
+		t.Errorf("gx want delete row, got rows=%d", eng.Rows())
+	}
+}
+
+func TestGGMotionAfterGXKeymapDrain(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.Nnoremap("gx", "dd")
+	eng.SetCursor(0, 2)
+	eng.KeyPress("g")
+	eng.KeyPress("g")
+	if eng.CursorY() != 0 {
+		t.Errorf("gg want row 0, got %d", eng.CursorY())
+	}
+}
+
+func TestInoremapJKToEscape(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.Inoremap("jk", "<Escape>")
+	eng.KeyPress("i")
+	if eng.Mode() != engine.ModeInsert {
+		t.Fatal("want insert")
+	}
+	eng.KeyPress("j")
+	eng.KeyPress("k")
+	if eng.Mode() != engine.ModeNormal {
+		t.Errorf("jk want normal, got %v", eng.Mode())
+	}
+}
+
+func TestInoremapTabToEscape(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.Inoremap("<Tab>", "<Escape>")
+	eng.KeyPress("i")
+	eng.KeyPress("Tab")
+	if eng.Mode() != engine.ModeNormal {
+		t.Errorf("Tab imap want normal, got %v", eng.Mode())
+	}
+}
+
+func TestVmapQuitsVisual(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.Vmap("q", "<Escape>")
+	eng.KeyPress("v")
+	if eng.Mode() != engine.ModeVisual {
+		t.Fatal("want visual")
+	}
+	eng.KeyPress("q")
+	if eng.Mode() != engine.ModeNormal {
+		t.Errorf("q want normal, got %v", eng.Mode())
+	}
+}
+
+func TestUnmapRemovesBinding(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.Nmap("X", "dd")
+	eng.SetCursor(0, 1)
+	r0 := eng.Rows()
+	if !eng.Unmap(engine.ModeNormal, "X") {
+		t.Fatal("Unmap")
+	}
+	eng.KeyPress("X")
+	if eng.Rows() != r0 {
+		t.Errorf("after unmap X should not delete, rows=%d", eng.Rows())
+	}
+}
+
+func TestJKMotionUnchangedWithoutImap(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCursor(0, 1)
+	eng.KeyPress("j")
+	if eng.CursorY() != 2 {
+		t.Errorf("j want row 2, got %d", eng.CursorY())
+	}
+}

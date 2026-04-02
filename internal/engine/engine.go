@@ -20,6 +20,12 @@ type Engine struct {
 	lastKeyCaptured bool
 
 	undoStack UndoStack
+
+	normalKeymap  KeymapTable
+	insertKeymap  KeymapTable
+	visualKeymap  KeymapTable
+	keymapPending []string
+	keymapDepth   int
 }
 
 type EventListener interface {
@@ -632,6 +638,7 @@ func spliceRowsAt(cells [][]string, at int, insert [][]string) [][]string {
 func (eng *Engine) setMode(mode Mode, insertPosition InsertPosition) {
 	if eng.mode != mode {
 		eng.normalKH.ResetPending()
+		eng.keymapPending = eng.keymapPending[:0]
 	}
 	eng.mode = mode
 
@@ -663,7 +670,86 @@ func (eng *Engine) moveCursorTo(x, y int) bool {
 
 func (eng *Engine) KeyPress(key string) {
 	eng.lastKeyCaptured = false
+	eng.keymapDepth = 0
+	eng.feedKey(key, true)
+}
 
+func (eng *Engine) feedKey(key string, checkKeymap bool) {
+	if len(eng.keymapPending) > 0 {
+		table := eng.keymapTableForMode()
+		eng.keymapPending = append(eng.keymapPending, key)
+		mr, entry := table.Lookup(eng.keymapPending)
+		switch mr {
+		case MatchExact:
+			eng.keymapPending = eng.keymapPending[:0]
+			eng.expandMapping(entry)
+			return
+		case MatchPrefix:
+			eng.lastKeyCaptured = true
+			return
+		case MatchNone:
+			pending := append([]string(nil), eng.keymapPending...)
+			eng.keymapPending = eng.keymapPending[:0]
+			for i := 0; i < len(pending); i++ {
+				eng.feedKey(pending[i], false)
+			}
+			return
+		default:
+			eng.keymapPending = eng.keymapPending[:0]
+			return
+		}
+	}
+
+	if checkKeymap {
+		table := eng.keymapTableForMode()
+		mr, entry := table.Lookup([]string{key})
+		switch mr {
+		case MatchExact:
+			eng.expandMapping(entry)
+			return
+		case MatchPrefix:
+			eng.keymapPending = append(eng.keymapPending[:0], key)
+			eng.lastKeyCaptured = true
+			return
+		case MatchNone:
+			// fall through to mode handler
+		}
+	}
+
+	eng.feedKeyMode(key)
+}
+
+func (eng *Engine) keymapTableForMode() *KeymapTable {
+	switch eng.mode {
+	case ModeNormal:
+		return &eng.normalKeymap
+	case ModeInsert:
+		return &eng.insertKeymap
+	case ModeVisual:
+		return &eng.visualKeymap
+	default:
+		return &eng.normalKeymap
+	}
+}
+
+func (eng *Engine) expandMapping(entry *KeymapEntry) {
+	if entry == nil {
+		return
+	}
+	if eng.keymapDepth >= maxKeymapDepth {
+		for _, k := range entry.RHS {
+			eng.feedKey(k, false)
+		}
+		return
+	}
+	eng.keymapDepth++
+	for _, k := range entry.RHS {
+		eng.feedKey(k, entry.Recursive)
+	}
+	eng.keymapDepth--
+}
+
+func (eng *Engine) feedKeyMode(key string) {
 	switch eng.mode {
 
 	case ModeNormal:
@@ -707,6 +793,63 @@ func (eng *Engine) KeyPress(key string) {
 	}
 }
 
+// Nmap registers a recursive normal-mode mapping (RHS may trigger other maps).
+func (eng *Engine) Nmap(lhs, rhs string) {
+	eng.mapKeys(&eng.normalKeymap, lhs, rhs, true)
+}
+
+// Nnoremap registers a non-recursive normal-mode mapping.
+func (eng *Engine) Nnoremap(lhs, rhs string) {
+	eng.mapKeys(&eng.normalKeymap, lhs, rhs, false)
+}
+
+// Imap registers a recursive insert-mode mapping.
+func (eng *Engine) Imap(lhs, rhs string) {
+	eng.mapKeys(&eng.insertKeymap, lhs, rhs, true)
+}
+
+// Inoremap registers a non-recursive insert-mode mapping.
+func (eng *Engine) Inoremap(lhs, rhs string) {
+	eng.mapKeys(&eng.insertKeymap, lhs, rhs, false)
+}
+
+// Vmap registers a recursive visual-mode mapping.
+func (eng *Engine) Vmap(lhs, rhs string) {
+	eng.mapKeys(&eng.visualKeymap, lhs, rhs, true)
+}
+
+// Vnoremap registers a non-recursive visual-mode mapping.
+func (eng *Engine) Vnoremap(lhs, rhs string) {
+	eng.mapKeys(&eng.visualKeymap, lhs, rhs, false)
+}
+
+func (eng *Engine) mapKeys(table *KeymapTable, lhs, rhs string, recursive bool) {
+	lk := ParseKeys(lhs)
+	rk := ParseKeys(rhs)
+	if len(lk) == 0 {
+		return
+	}
+	table.Set(lk, rk, recursive)
+}
+
+// Unmap removes a mapping for the given mode. Returns false if no mapping existed.
+func (eng *Engine) Unmap(mode Mode, lhs string) bool {
+	lk := ParseKeys(lhs)
+	if len(lk) == 0 {
+		return false
+	}
+	switch mode {
+	case ModeNormal:
+		return eng.normalKeymap.Delete(lk)
+	case ModeInsert:
+		return eng.insertKeymap.Delete(lk)
+	case ModeVisual:
+		return eng.visualKeymap.Delete(lk)
+	default:
+		return false
+	}
+}
+
 // SetCursor moves the cursor to (x, y). If the engine is in insert mode, it switches to normal first
 // (unless the target cell is already the current cell — then the call is a no-op so redundant pointer
 // events do not exit insert mode). Out-of-bounds coordinates are ignored.
@@ -718,6 +861,7 @@ func (eng *Engine) SetCursor(x, y int) {
 		eng.setMode(ModeNormal, InsertPositionNone)
 	}
 	eng.normalKH.ResetPending()
+	eng.keymapPending = eng.keymapPending[:0]
 	eng.moveCursorTo(x, y)
 }
 
@@ -728,6 +872,7 @@ func (eng *Engine) SetCursorAndEdit(x, y int) {
 		eng.setMode(ModeNormal, InsertPositionNone)
 	}
 	eng.normalKH.ResetPending()
+	eng.keymapPending = eng.keymapPending[:0]
 	if x < 0 || x >= eng.cols || y < 0 || y >= eng.rows {
 		return
 	}
