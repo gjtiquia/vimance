@@ -624,6 +624,153 @@ func TestPasteAfterXReplacesCell(t *testing.T) {
 	}
 }
 
+func TestPasteRectSingleRowVlllyThenP(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	for i := 0; i < 4; i++ {
+		eng.SetCellValue(i, 1, string(rune('A'+i)))
+	}
+	eng.SetCursor(0, 1)
+	eng.KeyPress("v")
+	eng.KeyPress("l")
+	eng.KeyPress("l")
+	eng.KeyPress("l")
+	eng.KeyPress("y")
+	eng.SetCursor(0, 3)
+	eng.KeyPress("p")
+	for i := 0; i < 4; i++ {
+		v, _ := eng.CellValue(i, 3)
+		want := string(rune('A' + i))
+		if v != want {
+			t.Errorf("cell (%d,3): want %q, got %q", i, want, v)
+		}
+	}
+}
+
+func TestPasteRectMultiRow(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	// Rectangle (0,1)-(2,2): 2 rows x 3 cols
+	want := [][]string{{"a1", "b1", "c1"}, {"a2", "b2", "c2"}}
+	for y := 1; y <= 2; y++ {
+		for x := 0; x <= 2; x++ {
+			eng.SetCellValue(x, y, want[y-1][x])
+		}
+	}
+	eng.SetCursor(0, 1)
+	eng.KeyPress("v")
+	eng.KeyPress("j")
+	eng.KeyPress("l")
+	eng.KeyPress("l")
+	eng.KeyPress("y")
+	// Paste at row 3 so 2 register rows land on rows 3 and 4 (grid has rows 0..4)
+	eng.SetCursor(0, 3)
+	eng.KeyPress("p")
+	reg := eng.RegisterSnapshot()
+	if len(reg.Cells) != 2 || len(reg.Cells[0]) != 3 {
+		t.Fatalf("register shape: %+v", reg.Cells)
+	}
+	for ry := 0; ry < 2; ry++ {
+		for rx := 0; rx < 3; rx++ {
+			got, _ := eng.CellValue(rx, 3+ry)
+			if got != want[ry][rx] {
+				t.Errorf("(%d,%d): got %q want %q", rx, 3+ry, got, want[ry][rx])
+			}
+		}
+	}
+}
+
+func TestPasteRectClampRight(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	for i := 0; i < 4; i++ {
+		eng.SetCellValue(i, 1, string(rune('W'+i)))
+	}
+	eng.SetCursor(0, 1)
+	eng.KeyPress("v")
+	eng.KeyPress("l")
+	eng.KeyPress("l")
+	eng.KeyPress("l")
+	eng.KeyPress("y")
+	// Cols 3,4,5 only (3 cells); 4th cell clamped away
+	eng.SetCursor(3, 3)
+	eng.KeyPress("p")
+	for i := 0; i < 3; i++ {
+		want := string(rune('W' + i))
+		v, _ := eng.CellValue(3+i, 3)
+		if v != want {
+			t.Errorf("(%d,3): want %q, got %q", 3+i, want, v)
+		}
+	}
+}
+
+func TestPasteRectClampBottom(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(0, 1, "r0")
+	eng.SetCellValue(0, 2, "r1")
+	eng.SetCursor(0, 1)
+	eng.KeyPress("v")
+	eng.KeyPress("j")
+	eng.KeyPress("y")
+	eng.SetCursor(0, 3)
+	eng.KeyPress("p")
+	// Rows 3 and 4 receive r0 and r1; row 5 would be third row of register — none
+	v, _ := eng.CellValue(0, 3)
+	if v != "r0" {
+		t.Errorf("(0,3): want r0, got %q", v)
+	}
+	v, _ = eng.CellValue(0, 4)
+	if v != "r1" {
+		t.Errorf("(0,4): want r1, got %q", v)
+	}
+}
+
+func TestPasteRectSkipsHeaderRow(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(0, 0, "HEADER")
+	for i := 0; i < 3; i++ {
+		eng.SetCellValue(i, 1, string(rune('A'+i)))
+	}
+	eng.SetCursor(0, 1)
+	eng.KeyPress("v")
+	eng.KeyPress("l")
+	eng.KeyPress("l")
+	eng.KeyPress("y")
+	for i := 0; i < 3; i++ {
+		eng.SetCellValue(i, 1, "wiped")
+	}
+	eng.SetCursor(0, 0)
+	eng.KeyPress("p")
+	h, _ := eng.CellValue(0, 0)
+	if h != "HEADER" {
+		t.Errorf("header should be unchanged, got %q", h)
+	}
+	for i := 0; i < 3; i++ {
+		want := string(rune('A' + i))
+		v, _ := eng.CellValue(i, 1)
+		if v != want {
+			t.Errorf("(%d,1) after paste from header want %q, got %q", i, want, v)
+		}
+	}
+}
+
+func TestPasteRectUndo(t *testing.T) {
+	eng := newTestEngine(testCols, testRows)
+	eng.SetCellValue(0, 1, "src")
+	eng.SetCellValue(0, 3, "dest")
+	eng.SetCursor(0, 1)
+	eng.KeyPress("v")
+	eng.KeyPress("y")
+	eng.SetCursor(0, 3)
+	eng.KeyPress("p")
+	v, _ := eng.CellValue(0, 3)
+	if v != "src" {
+		t.Fatalf("after paste want src, got %q", v)
+	}
+	eng.KeyPress("u")
+	v, _ = eng.CellValue(0, 3)
+	if v != "dest" {
+		t.Errorf("after undo want dest, got %q", v)
+	}
+}
+
 func TestTabInInsertModeMovesRight(t *testing.T) {
 	eng := newTestEngine(testCols, testRows)
 	listener := TestEngineEventListener{}

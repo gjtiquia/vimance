@@ -838,6 +838,48 @@ func (eng *Engine) DeleteCharUnderCursor() {
 	eng.notifyBufferChanged()
 }
 
+// pasteRect overlays non-linewise register cells onto the grid at (startX, startY).
+// Rows are clamped to the grid; column index may be negative (cells skipped). Header row 0 is never
+// written: the overlay is anchored at startY, but if startY < 1 the first pasted row maps to grid row 1.
+func (eng *Engine) pasteRect(startX, startY int) {
+	reg := eng.register.Cells
+	if len(reg) == 0 {
+		return
+	}
+	eng.pushUndoCheckpoint()
+	anchorY := startY
+	if anchorY < 1 {
+		anchorY = 1
+	}
+	for ry, row := range reg {
+		ty := anchorY + ry
+		if ty >= eng.rows {
+			break
+		}
+		for rx, val := range row {
+			tx := startX + rx
+			if tx < 0 {
+				continue
+			}
+			if tx >= eng.cols {
+				break
+			}
+			eng.cells[ty][tx] = val
+		}
+	}
+	cy := startY
+	if cy < 1 {
+		cy = 1
+	}
+	if startX < 0 {
+		startX = 0
+	} else if startX >= eng.cols {
+		startX = eng.cols - 1
+	}
+	eng.moveCursorTo(startX, cy)
+	eng.notifyBufferChanged()
+}
+
 // PasteAfter puts register contents at or below the cursor (linewise or character).
 func (eng *Engine) PasteAfter() {
 	if eng.register.Linewise {
@@ -865,13 +907,10 @@ func (eng *Engine) PasteAfter() {
 		eng.notifyBufferChanged()
 		return
 	}
-	if len(eng.register.Cells) != 1 || len(eng.register.Cells[0]) != 1 {
+	if len(eng.register.Cells) == 0 {
 		return
 	}
-	eng.pushUndoCheckpoint()
-	v := eng.register.Cells[0][0]
-	eng.SetCellValue(eng.cursorX, eng.cursorY, v)
-	eng.notifyBufferChanged()
+	eng.pasteRect(eng.cursorX, eng.cursorY)
 }
 
 // PasteBefore puts register contents above the cursor (linewise) or replaces current cell (non-linewise).
@@ -901,13 +940,10 @@ func (eng *Engine) PasteBefore() {
 		eng.notifyBufferChanged()
 		return
 	}
-	if len(eng.register.Cells) != 1 || len(eng.register.Cells[0]) != 1 {
+	if len(eng.register.Cells) == 0 {
 		return
 	}
-	eng.pushUndoCheckpoint()
-	v := eng.register.Cells[0][0]
-	eng.SetCellValue(eng.cursorX, eng.cursorY, v)
-	eng.notifyBufferChanged()
+	eng.pasteRect(eng.cursorX, eng.cursorY)
 }
 
 func spliceRowsAt(cells [][]string, at int, insert [][]string) [][]string {

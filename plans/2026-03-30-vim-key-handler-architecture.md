@@ -45,3 +45,4 @@ See `.cursor/plans` overview: Go must not `AwaitGlobalPromise` during a synchron
 - **Phase 4:** Done — text objects — [2026-03-31-phase4-text-objects.md](./2026-03-31-phase4-text-objects.md).
 - **Phase 5:** Done — keymap / remapping (Go API) — [2026-03-31-phase5-keymap.md](./2026-03-31-phase5-keymap.md).
 - **Phase 6:** Done — visual mode (`v` / `V` / `Ctrl+v`), selection + operators + `gv` + `OnSelectionChanged` — [2026-04-03-phase6-visual-mode.md](./2026-04-03-phase6-visual-mode.md).
+- **Rectangular paste:** Done — non-linewise multi-cell register (`v` yank) pastes as a rectangle at the cursor via `p` / `P`, clamped to grid bounds; header row is not overwritten (overlay anchors at row 1 when pasting from row 0).
