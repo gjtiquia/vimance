@@ -46,14 +46,7 @@ func NewModel() Model {
 	header := "(this is a title)\n"
 	history := []string{header}
 
-	// initial input type
-	userInputType := InputTypeList
-	// userInputType := InputTypeText
-
 	userTextInput := textinput.New()
-	if userInputType == InputTypeText {
-		userTextInput.Focus() // will only accept user input if in focus
-	}
 
 	// TODO : this should be sub command and also updates the keybinds dynamically
 	// TODO : https://github.com/charmbracelet/bubbletea/blob/main/examples/help/main.go
@@ -66,12 +59,15 @@ func NewModel() Model {
 		"hello-6",
 	})
 
-	return Model{
+	m := Model{
 		history:       history,
-		userInputType: userInputType,
 		userTextInput: userTextInput,
 		userListInput: userListInput,
 	}
+
+	m = m.EnterListInput()
+	// m = m.EnterTextInput()
+	return m
 }
 
 // tea.Model INTERFACE

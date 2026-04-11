@@ -1,6 +1,17 @@
 package main
 
-import tea "charm.land/bubbletea/v2"
+import (
+	"strings"
+
+	tea "charm.land/bubbletea/v2"
+)
+
+func (m Model) EnterTextInput() Model {
+	m.userInputType = InputTypeText
+	m.userTextInput.SetValue("")
+	m.userTextInput.Focus()
+	return m
+}
 
 func (m Model) UpdateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -15,12 +26,19 @@ func (m Model) UpdateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "enter":
-			textinputRender := m.userTextInput.Prompt + m.userTextInput.Value() + "\n"
+			value := strings.TrimSpace(m.userTextInput.Value())
+			if value == "" {
+				break
+			}
+
+			// blur focus after enter
+			m.userTextInput.Blur()
+
+			textinputRender := m.userTextInput.Prompt + value + "\n"
 			m.history = append(m.history, textinputRender)
-			m.userTextInput.SetValue("") // TODO : this should be on enter
 
 			// TODO : for now, swap between
-			m.userInputType = InputTypeList
+			return m.EnterListInput(), nil
 		}
 	}
 

@@ -66,6 +66,13 @@ func (d ListItemDelegate) Render(w io.Writer, m list.Model, index int, listItem 
 	fmt.Fprint(w, str)
 }
 
+func (m Model) EnterListInput() Model {
+	m.userInputType = InputTypeList
+	m.userListInput.ResetSelected()
+	m.userListInput.ResetFilter()
+	return m
+}
+
 func (m Model) UpdateListInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
@@ -86,13 +93,8 @@ func (m Model) UpdateListInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 			itemRender := m.userTextInput.Prompt + string(item) + "\n"
 			m.history = append(m.history, itemRender)
 
-			// TODO : change to cmd...?
-			m.userListInput.ResetSelected()
-			m.userListInput.ResetFilter()
-
 			// TODO : for now, swap between
-			m.userInputType = InputTypeText
-			m.userTextInput.Focus() // TODO : this should be an OnEnter thing
+			return m.EnterTextInput(), nil
 		}
 	}
 
