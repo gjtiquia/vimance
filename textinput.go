@@ -38,7 +38,7 @@ func (m Model) UpdateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.history = append(m.history, textinputRender)
 
 			// TODO : for now, swap between
-			return m.EnterListInput(), nil
+			return m.EnterListInput()
 		}
 	}
 

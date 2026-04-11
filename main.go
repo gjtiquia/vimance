@@ -47,14 +47,7 @@ func NewModel() Model {
 	history := []string{header}
 
 	userTextInput := textinput.New()
-
-	// TODO : this should be sub command and also updates the keybinds dynamically
-	// TODO : https://github.com/charmbracelet/bubbletea/blob/main/examples/help/main.go
-	userListInput := NewUnstyledList([]list.Item{
-		NewListItem("create", "create a new record", "c", "new", "n"),
-		NewListItem("query", "query existing records", "q", "list", "ls", "l"),
-		NewListItem("test", "test", "t", "e"),
-	})
+	userListInput := NewUnstyledList()
 
 	m := Model{
 		history:       history,
@@ -62,7 +55,7 @@ func NewModel() Model {
 		userListInput: userListInput,
 	}
 
-	m = m.EnterListInput()
+	m, _ = m.EnterListInput()
 	// m = m.EnterTextInput()
 	return m
 }

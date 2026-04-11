@@ -11,8 +11,41 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-func NewUnstyledList(items []list.Item) list.Model {
+func NewUnstyledList() list.Model {
 	const listWidth = 20 // arbitrary
+
+	l := list.New(make([]list.Item, 0), ListItemDelegate{}, listWidth, 0)
+	l.Styles = list.Styles{} // reset styling (see list.DefaultStyles)
+
+	l.Title = "commands:"
+	l.Styles.TitleBar = lipgloss.NewStyle().Padding(1, 0) // (y, x)
+
+	l.SetShowStatusBar(false) // shows item count
+
+	l.FilterInput.Prompt = "type command: "
+
+	// l.SetShowPagination(false) // we will make sure all is shown anyways
+	// l.SetShowHelp(false)
+
+	l.Help.ShowAll = true
+	l.KeyMap = CustomKeyMap()
+
+	return l
+}
+
+func (m Model) EnterListInput() (Model, tea.Cmd){
+	m.userInputType = InputTypeList
+
+	m.userListInput.ResetSelected()
+	m.userListInput.ResetFilter()
+
+	items := []list.Item{
+		NewListItem("create", "create a new record", "c", "new", "n"),
+		NewListItem("query", "query existing records", "q", "list", "ls", "l"),
+		NewListItem("test", "test", "t", "e"),
+	}
+
+	cmd := m.userListInput.SetItems(items)
 
 	// title bar 3
 	// status bar
@@ -20,39 +53,13 @@ func NewUnstyledList(items []list.Item) list.Model {
 	// pagination dot
 	// help = 1 + expanded buffer 3
 	listHeight := len(items) + 3 + 2 + 1 + 3
-
-	l := list.New(items, ListItemDelegate{}, listWidth, listHeight)
-	l.Styles = list.Styles{} // reset styling (see list.DefaultStyles)
-
-	l.Title = "commands:"
-	l.Styles.TitleBar = lipgloss.NewStyle().Padding(1, 0) // (y, x)
-
-	l.SetShowStatusBar(false) // shows item count
-	// l.SetShowPagination(false) // we will make sure all is shown anyways
-	// l.SetShowHelp(false)
-
-	// show all by default
-	l.Help.ShowAll = true
-	// TODO : should... customize this...?
-	// TODO : see list.KeyMap
-
-	l.KeyMap = CustomKeyMap()
-
-	l.FilterInput.Prompt = "type command: "
-
-	return l
-}
-
-func (m Model) EnterListInput() Model {
-	m.userInputType = InputTypeList
-
-	m.userListInput.ResetSelected()
+	m.userListInput.SetHeight(listHeight)
 
 	// enter filtering immediately
 	m.userListInput.SetFilterText("")
 	m.userListInput.SetFilterState(list.Filtering)
 
-	return m
+	return m, cmd
 }
 
 func (m Model) UpdateListInput(msg tea.Msg) (tea.Model, tea.Cmd) {
