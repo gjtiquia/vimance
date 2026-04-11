@@ -56,16 +56,28 @@ func (m Model) EnterListInput() Model {
 }
 
 func (m Model) UpdateListInput(msg tea.Msg) (tea.Model, tea.Cmd) {
+	isFiltering := m.userListInput.FilterState() == list.Filtering
+
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		switch msg.String() {
 
 		case "esc":
-			if m.userListInput.FilterState() == list.Filtering {
+			if isFiltering {
 				// this is still needed for the case of empty filter text
 				m.userListInput.SetFilterState(list.FilterApplied)
 			} else {
 				return m, tea.Quit
+			}
+
+		case "up":
+			if isFiltering {
+				m.userListInput.CursorUp()
+			}
+
+		case "down":
+			if isFiltering {
+				m.userListInput.CursorDown()
 			}
 
 		case "enter":
