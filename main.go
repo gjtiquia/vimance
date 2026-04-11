@@ -37,6 +37,7 @@ const (
 // everything else is just deciding how to store state
 type Model struct {
 	history       []string
+	inputChain    []string
 	userInputType InputType
 	userTextInput textinput.Model
 	userListInput list.Model

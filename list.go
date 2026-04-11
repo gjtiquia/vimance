@@ -33,7 +33,7 @@ func NewUnstyledList() list.Model {
 	return l
 }
 
-func (m Model) EnterListInput() (Model, tea.Cmd){
+func (m Model) EnterListInput() (Model, tea.Cmd) {
 	m.userInputType = InputTypeList
 
 	m.userListInput.ResetSelected()
@@ -98,8 +98,10 @@ func (m Model) UpdateListInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 				itemRender := m.userTextInput.Prompt + string(item.title) + "\n"
 				m.history = append(m.history, itemRender)
 
-				// TODO : for now, swap between
-				return m.EnterTextInput(), nil
+				m.inputChain = append(m.inputChain, item.title)
+
+				// re-enter for sub commands
+				return m.EnterListInput()
 			}
 		}
 	}
