@@ -74,7 +74,16 @@ func (m Model) UpdateListInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "enter":
-			// TODO : should get the current selection
+			item := m.userListInput.Items()[m.userListInput.GlobalIndex()].(ListItem)
+
+			itemRender := m.userTextInput.Prompt + string(item) + "\n"
+			m.history = append(m.history, itemRender)
+
+			// TODO : reset index...?
+
+			// TODO : for now, swap between
+			m.userInputType = InputTypeText
+			m.userTextInput.Focus() // TODO : this should be an OnEnter thing
 		}
 	}
 

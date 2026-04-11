@@ -55,14 +55,15 @@ func NewModel() Model {
 		userTextInput.Focus() // will only accept user input if in focus
 	}
 
+	// TODO : this should be sub command and also updates the keybinds dynamically
+	// TODO : https://github.com/charmbracelet/bubbletea/blob/main/examples/help/main.go
 	userListInput := NewUnstyledList([]string{
-		"hi",
-		"hi",
-		"hi",
-		"hi",
-		"hi",
-		"hi",
-		"hi",
+		"hello-1",
+		"hello-2",
+		"hello-3",
+		"hello-4",
+		"hello-5",
+		"hello-6",
 	})
 
 	return Model{

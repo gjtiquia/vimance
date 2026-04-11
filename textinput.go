@@ -17,7 +17,10 @@ func (m Model) UpdateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			textinputRender := m.userTextInput.Prompt + m.userTextInput.Value() + "\n"
 			m.history = append(m.history, textinputRender)
-			m.userTextInput.SetValue("")
+			m.userTextInput.SetValue("") // TODO : this should be on enter
+
+			// TODO : for now, swap between
+			m.userInputType = InputTypeList
 		}
 	}
 
