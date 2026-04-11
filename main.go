@@ -1,6 +1,7 @@
 package main
 
 import (
+	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"fmt"
 )
@@ -12,11 +13,13 @@ func main() {
 	finalModel, err := p.Run()
 	if err != nil {
 		fmt.Printf("error: %v", err)
-		return;
+		return
 	}
 
-	finalView := finalModel.View().Content;
+	// dont clear screen
+	finalView := finalModel.View().Content
 	fmt.Println(finalView)
+
 	fmt.Println("\nexiting gracefully...")
 }
 
@@ -26,38 +29,43 @@ func main() {
 // - View: how to render based on the model
 // everything else is just deciding how to store state
 type model struct {
-	choices  []string
-	cursor   int
-	selected map[int]struct{} // using map like a set of chosen indices
+	history   []string
+	textInput textinput.Model
 }
 
 func createModel() model {
+	ti := textinput.New()
+	ti.Focus() // must focus or else will not accept any user input
+
 	return model{
-		choices:  []string{"first", "second", "third"},
-		selected: make(map[int]struct{}),
+		history:   make([]string, 0),
+		textInput: ti,
 	}
 }
 
 func (m model) Init() tea.Cmd {
 	// initial command to run
-	return nil
+	return textinput.Blink
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		switch msg.String() {
-		case "ctrl+c", "q":
+		case "ctrl+c":
 			return m, tea.Quit
 		}
 	}
 
-	return m, nil
+	m.textInput, cmd = m.textInput.Update(msg)
+	return m, cmd
 }
 
 func (m model) View() tea.View {
 
-	s := "hello bubbletea"
+	s := m.textInput.View()
 
 	// pass in a string to create a view
 	return tea.NewView(s)
