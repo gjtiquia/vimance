@@ -1,3 +1,10 @@
+
+> i feel like the project right now, is in a state where it is so focused on "productive keybinds", that there is nothing but keybinds right now
+> will try experimenting building from another direction, rather that starting with vim + tables then add finance, we first do the finance then add vim tables later
+> first have a workflow that actually works first, then optimize the workflow with vim keys
+
+---
+
 # vimance
 
 a vim-centric finance workflow
