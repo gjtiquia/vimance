@@ -7,20 +7,16 @@ import (
 )
 
 func main() {
-	initialModel := createModel()
-	p := tea.NewProgram(initialModel)
+	m := createModel()
+	p := tea.NewProgram(m)
 
-	finalModel, err := p.Run()
+	_, err := p.Run()
 	if err != nil {
 		fmt.Printf("error: %v", err)
 		return
 	}
 
-	// dont clear screen
-	finalView := finalModel.View().Content
-	fmt.Println(finalView)
-
-	fmt.Println("\nexiting gracefully...")
+	fmt.Println("[exiting gracefully...]")
 }
 
 // tea.Model interface super simple: Init, Update, View
@@ -31,6 +27,7 @@ func main() {
 type model struct {
 	history   []string
 	textInput textinput.Model
+	quitting  bool
 }
 
 func createModel() model {
@@ -45,7 +42,7 @@ func createModel() model {
 
 func (m model) Init() tea.Cmd {
 	// initial command to run
-	return textinput.Blink
+	return textinput.Blink // starts the blink timer
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -54,7 +51,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		switch msg.String() {
-		case "ctrl+c":
+		case "ctrl+c", "esc":
+			m.quitting = true
 			return m, tea.Quit
 		}
 	}
@@ -65,7 +63,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() tea.View {
 
-	s := m.textInput.View()
+	s := "(this is a title)\n"
+
+	if !m.quitting {
+		s += m.textInput.View()
+	} else {
+		s += m.textInput.Prompt + m.textInput.Value() + "\n" // must add newline or else bubbletea wont render it if its the last line
+	}
 
 	// pass in a string to create a view
 	return tea.NewView(s)
