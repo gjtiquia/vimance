@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
+	"strings"
+
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
-	"fmt"
 )
 
 func main() {
@@ -34,8 +36,11 @@ func createModel() model {
 	ti := textinput.New()
 	ti.Focus() // must focus or else will not accept any user input
 
+	s := "(this is a title)\n"
+	h := []string{s}
+
 	return model{
-		history:   make([]string, 0),
+		history:   h,
 		textInput: ti,
 	}
 }
@@ -51,9 +56,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		switch msg.String() {
+
 		case "ctrl+c", "esc":
 			m.quitting = true
 			return m, tea.Quit
+
+		case "enter":
+			textinputRender := m.textInput.Prompt + m.textInput.Value() + "\n"
+			m.history = append(m.history, textinputRender)
+			m.textInput.SetValue("")
 		}
 	}
 
@@ -63,14 +74,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() tea.View {
 
-	s := "(this is a title)\n"
+	var sb strings.Builder
 
-	if !m.quitting {
-		s += m.textInput.View()
-	} else {
-		s += m.textInput.Prompt + m.textInput.Value() + "\n" // must add newline or else bubbletea wont render it if its the last line
+	for _, s := range m.history {
+		sb.WriteString(s)
 	}
 
+	sb.WriteString(m.textInput.View())
+
 	// pass in a string to create a view
-	return tea.NewView(s)
+	return tea.NewView(sb.String())
 }
