@@ -23,7 +23,7 @@ func NewUnstyledList(items []string) list.Model {
 	// pagination newline
 	// pagination dot
 	// help = 1 + expanded buffer 3
-	listHeight := len(options) + 3 + 4
+	listHeight := len(options) + 3 + 1 + 3
 
 	l := list.New(options, ListItemDelegate{}, listWidth, listHeight)
 	l.Title = "Commands:"
@@ -31,6 +31,9 @@ func NewUnstyledList(items []string) list.Model {
 	l.SetShowStatusBar(false) // shows item count
 	// l.SetShowPagination(false) // we will make sure all is shown anyways
 	// l.SetShowHelp(false)
+
+	// show all by default
+	l.Help.ShowAll = true
 
 	return l
 }
@@ -74,12 +77,18 @@ func (m Model) UpdateListInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "enter":
+			if m.userListInput.FilterState() == list.Filtering {
+				break
+			}
+
 			item := m.userListInput.Items()[m.userListInput.GlobalIndex()].(ListItem)
 
 			itemRender := m.userTextInput.Prompt + string(item) + "\n"
 			m.history = append(m.history, itemRender)
 
-			// TODO : reset index...?
+			// TODO : change to cmd...?
+			m.userListInput.ResetSelected()
+			m.userListInput.ResetFilter()
 
 			// TODO : for now, swap between
 			m.userInputType = InputTypeText
