@@ -43,20 +43,17 @@ type Model struct {
 }
 
 func NewModel() Model {
-	header := "(this is a title)\n"
+	header := "vimance\n"
 	history := []string{header}
 
 	userTextInput := textinput.New()
 
 	// TODO : this should be sub command and also updates the keybinds dynamically
 	// TODO : https://github.com/charmbracelet/bubbletea/blob/main/examples/help/main.go
-	userListInput := NewUnstyledList([]string{
-		"hello-1",
-		"hello-2",
-		"hello-3",
-		"hello-4",
-		"hello-5",
-		"hello-6",
+	userListInput := NewUnstyledList([]list.Item{
+		NewListItem("create", "create a new record", "c", "new", "n"),
+		NewListItem("query", "query existing records", "q", "list", "ls", "l"),
+		NewListItem("test", "test", "t", "e"),
 	})
 
 	m := Model{
@@ -100,7 +97,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // tea.Model INTERFACE
 func (m Model) View() tea.View {
-
 	var sb strings.Builder
 
 	for _, s := range m.history {
