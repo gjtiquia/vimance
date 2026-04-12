@@ -15,11 +15,13 @@ type RecordModel struct {
 	DateMonthInput textinput.Model
 	DateDayInput   textinput.Model
 
-	// TODO :
-	// - tags 
+	TagsInput TagsModel
+
+	// TODO
+	// - tags
 	//   - here i would already need to implement my own list! might as well haha, but not a generic one yet
 	//   - can consider... "tag templates" where one can define a set of tags that are commonly used together
-	// - currency 
+	// - currency
 	//   - likely this will re-use the tags list, but is constrained to one only
 	//   - but with the amount of custom stuff in the tags, likely... no need to reuse yet
 	// - amount
@@ -48,10 +50,13 @@ func NewRecordModel() RecordModel {
 	dayInput.CharLimit = 2
 	dayInput.SetWidth(2)
 
+	tagsInput := NewTagsModel()
+
 	return RecordModel{
 		DateYearInput:  yearInput,
 		DateMonthInput: monthInput,
 		DateDayInput:   dayInput,
+		TagsInput:      tagsInput,
 	}
 }
 
@@ -68,9 +73,7 @@ func (m Model) UpdateRecordInput(msg tea.Msg) (Model, tea.Cmd) {
 }
 
 func (m RecordModel) Update(msg tea.Msg) (RecordModel, tea.Cmd) {
-
-	// TODO : switch focus on tab / shift tab / enter
-	// TODO : or even... escape to normal mode and vim keys
+	// TODO : escape to normal mode and vim keys
 	// TODO : to support normal mode, the input prompt should change as well so we know what is hovered (different from simply what is in input mode)
 
 	switch msg := msg.(type) {
@@ -100,6 +103,7 @@ func (m RecordModel) Update(msg tea.Msg) (RecordModel, tea.Cmd) {
 					m.DateDayInput.SetValue(m.DateDayInput.Placeholder)
 				}
 				m.DateDayInput.Blur()
+				m.TagsInput.Focus()
 				break
 			}
 
@@ -134,7 +138,10 @@ func (m RecordModel) Update(msg tea.Msg) (RecordModel, tea.Cmd) {
 	var dayCmd tea.Cmd
 	m.DateDayInput, dayCmd = m.DateDayInput.Update(msg)
 
-	return m, tea.Batch(yearCmd, monthCmd, dayCmd)
+	var tagsCmd tea.Cmd
+	m.TagsInput, tagsCmd = m.TagsInput.Update(msg)
+
+	return m, tea.Batch(yearCmd, monthCmd, dayCmd, tagsCmd)
 }
 
 func (m RecordModel) View() string {
@@ -144,5 +151,7 @@ func (m RecordModel) View() string {
 	sb.WriteString(m.DateMonthInput.View())
 	sb.WriteString("\n")
 	sb.WriteString(m.DateDayInput.View())
+	sb.WriteString("\n")
+	sb.WriteString(m.TagsInput.View())
 	return sb.String()
 }

@@ -38,6 +38,7 @@ type Model struct {
 	textInput   textinput.Model
 	listInput   list.Model
 	recordInput RecordModel
+	tagsInput   TagsModel
 }
 
 func NewModel() Model {

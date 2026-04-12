@@ -19,6 +19,9 @@
 go run .
 ```
 
+## ideas
+- tag templates? commonly used group of tags together (or perhaps a whole record template itself)
+
 ## db notes
 
 - sqlite for simplicity
@@ -54,8 +57,9 @@ records
 tags
 // create a view active_tags that filters out deleted records
 - id
-- name // force unique
-- notes // required, but can be empty string
+- name // force unique, perhaps enforce lowercase and no space to avoid duplicates
+- description // required, but can be empty string, will be shown in filter view
+- notes // required, but can be empty string, will not be shown in filter view
 - created_at // utc int
 - created_by // foreign key
 - updated_at // utc int
@@ -67,6 +71,14 @@ records_tags
 - // composite primary key from record_id and tag_id
 - record_id // foreign key // ON DELETE CASCADE, will be cleaned on hard delete
 - tag_id // foreign key // ON DELETE CASCADE, will be cleaned on hard delete
+- created_at // utc int
+- created_by // foreign key
+- updated_at // utc int
+- updated_by // foreign key
+
+pinned_tabs
+- tab_id // primary key referencing tabs, ON DELETE CASCADE, will be cleaned on hard delete
+- position // for ordering pinned tabs
 - created_at // utc int
 - created_by // foreign key
 - updated_at // utc int
