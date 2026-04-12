@@ -73,9 +73,6 @@ func (m Model) UpdateRecordInput(msg tea.Msg) (Model, tea.Cmd) {
 }
 
 func (m RecordModel) Update(msg tea.Msg) (RecordModel, tea.Cmd) {
-	// TODO : escape to normal mode and vim keys
-	// TODO : to support normal mode, the input prompt should change as well so we know what is hovered (different from simply what is in input mode)
-
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -103,7 +100,7 @@ func (m RecordModel) Update(msg tea.Msg) (RecordModel, tea.Cmd) {
 					m.DateDayInput.SetValue(m.DateDayInput.Placeholder)
 				}
 				m.DateDayInput.Blur()
-				m.TagsInput.Focus()
+				m.TagsInput.SearchInput.Focus()
 				break
 			}
 
@@ -125,8 +122,13 @@ func (m RecordModel) Update(msg tea.Msg) (RecordModel, tea.Cmd) {
 				m.DateDayInput.Focus()
 				break
 			}
-		}
 
+			if m.TagsInput.SearchInput.Focused() {
+				m.TagsInput.SearchInput.Blur()
+				m.DateDayInput.Focus()
+				break
+			}
+		}
 	}
 
 	var yearCmd tea.Cmd

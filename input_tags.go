@@ -39,10 +39,6 @@ func NewTagsModel() TagsModel {
 	}
 }
 
-func (m TagsModel) Focus() tea.Cmd {
-	return m.SearchInput.Focus()
-}
-
 func (m TagsModel) Update(msg tea.Msg) (TagsModel, tea.Cmd) {
 
 	// TODO : other msg handling
