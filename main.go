@@ -19,7 +19,7 @@ func main() {
 		return
 	}
 
-	fmt.Println("[exiting gracefully...]")
+	fmt.Println("\n[exiting gracefully...]")
 }
 
 type InputType string

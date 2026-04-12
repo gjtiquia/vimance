@@ -27,8 +27,7 @@ func NewUnstyledList() list.Model {
 	l.FilterInput.Prompt = "type command: "
 
 	// l.SetShowPagination(false) // we will make sure all is shown anyways
-	// l.SetShowHelp(false)
-
+	l.SetShowHelp(false) // TODO : we can rewrite this list in the future anyways
 	l.Help.ShowAll = true
 	l.KeyMap = CustomKeyMap()
 

@@ -66,14 +66,58 @@ func (m RecordModel) Update(msg tea.Msg) (RecordModel, tea.Cmd) {
 
 	// TODO : switch focus on tab / shift tab / enter
 	// TODO : or even... escape to normal mode and vim keys
+	// TODO : to support normal mode, the input prompt should change as well so we know what is hovered (different from simply what is in input mode)
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "tab", "enter":
-			// TODO :
-			return m, nil
+			if m.DateYearInput.Focused() {
+				if m.DateYearInput.Value() == "" {
+					m.DateYearInput.SetValue(m.DateYearInput.Placeholder)
+				}
+				m.DateYearInput.Blur()
+				m.DateMonthInput.Focus()
+				break
+			}
+
+			if m.DateMonthInput.Focused() {
+				if m.DateMonthInput.Value() == "" {
+					m.DateMonthInput.SetValue(m.DateMonthInput.Placeholder)
+				}
+				m.DateMonthInput.Blur()
+				m.DateDayInput.Focus()
+				break
+			}
+
+			if m.DateDayInput.Focused() {
+				if m.DateDayInput.Value() == "" {
+					m.DateDayInput.SetValue(m.DateDayInput.Placeholder)
+				}
+				m.DateDayInput.Blur()
+				break
+			}
+
+		case "shift+tab":
+			if m.DateDayInput.Focused() {
+				m.DateDayInput.Blur()
+				m.DateMonthInput.Focus()
+				break
+			}
+
+			if m.DateMonthInput.Focused() {
+				m.DateMonthInput.Blur()
+				m.DateYearInput.Focus()
+				break
+			}
+
+			if m.DateYearInput.Focused() {
+				m.DateYearInput.Blur()
+				m.DateDayInput.Focus()
+				break
+			}
 		}
+
 	}
 
 	var yearCmd tea.Cmd
