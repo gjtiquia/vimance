@@ -2,6 +2,7 @@ package main
 
 import (
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
@@ -15,31 +16,35 @@ type RecordModel struct {
 	DateDayInput   textinput.Model
 
 	// TODO :
-	// - tags
-	// - currency
+	// - tags 
+	//   - here i would already need to implement my own list! might as well haha, but not a generic one yet
+	//   - can consider... "tag templates" where one can define a set of tags that are commonly used together
+	// - currency 
+	//   - likely this will re-use the tags list, but is constrained to one only
+	//   - but with the amount of custom stuff in the tags, likely... no need to reuse yet
 	// - amount
 	// - notes
 }
 
-// TODO : maybe can add "category" support in the future, but its independent of the records, its more of a "collection of tags", but i think "queries" can handle that tho
+// TODO : maybe can add "category" support in the future, but its independent of the records, its more of a "collection of tags", but i think "queries" can handle that tho, or perhaps one can even just add a "tag" that is used as a category, cuz we can technically support belonging in more than one category
 
 func NewRecordModel() RecordModel {
 
 	yearInput := textinput.New()
 	yearInput.Prompt = "Year: "
-	yearInput.Placeholder = "2026" // TODO : this should auto-default to today's date
+	yearInput.Placeholder = time.Now().Format("2006")
 	yearInput.CharLimit = 4
 	yearInput.SetWidth(4) // required or else placeholder gets truncated to width(0) + 1 = 1 char
 
 	monthInput := textinput.New()
 	monthInput.Prompt = "Month: "
-	monthInput.Placeholder = "04" // TODO : this should auto-default to today's date
+	monthInput.Placeholder = time.Now().Format("01")
 	monthInput.CharLimit = 2
 	monthInput.SetWidth(2)
 
 	dayInput := textinput.New()
 	dayInput.Prompt = "Day: "
-	dayInput.Placeholder = "12" // TODO : this should auto-default to today's date
+	dayInput.Placeholder = time.Now().Format("02")
 	dayInput.CharLimit = 2
 	dayInput.SetWidth(2)
 
