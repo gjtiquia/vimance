@@ -36,10 +36,10 @@ func NewUnstyledList() list.Model {
 }
 
 func (m Model) EnterListInput() (Model, tea.Cmd) {
-	m.userInputType = InputTypeList
+	m.inputType = InputTypeList
 
-	m.userListInput.ResetSelected()
-	m.userListInput.ResetFilter()
+	m.listInput.ResetSelected()
+	m.listInput.ResetFilter()
 
 	items := []list.Item{
 		NewListItem("create", "create a new record", "c", "new", "n"),
@@ -47,7 +47,7 @@ func (m Model) EnterListInput() (Model, tea.Cmd) {
 		NewListItem("test", "test", "t", "e"),
 	}
 
-	cmd := m.userListInput.SetItems(items)
+	cmd := m.listInput.SetItems(items)
 
 	// title bar 3
 	// status bar
@@ -55,17 +55,17 @@ func (m Model) EnterListInput() (Model, tea.Cmd) {
 	// pagination dot
 	// help = 1 + expanded buffer 3
 	listHeight := len(items) + 3 + 2 + 1 + 3
-	m.userListInput.SetHeight(listHeight)
+	m.listInput.SetHeight(listHeight)
 
 	// enter filtering immediately
-	m.userListInput.SetFilterText("")
-	m.userListInput.SetFilterState(list.Filtering)
+	m.listInput.SetFilterText("")
+	m.listInput.SetFilterState(list.Filtering)
 
 	return m, cmd
 }
 
 func (m Model) UpdateListInput(msg tea.Msg) (tea.Model, tea.Cmd) {
-	isFiltering := m.userListInput.FilterState() == list.Filtering
+	isFiltering := m.listInput.FilterState() == list.Filtering
 
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
@@ -74,33 +74,41 @@ func (m Model) UpdateListInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc":
 			if isFiltering {
 				// this is still needed for the case of empty filter text
-				m.userListInput.SetFilterState(list.FilterApplied)
+				m.listInput.SetFilterState(list.FilterApplied)
+
+				// TODO : not sure why this doesnt work, probably would be better to create my own list component rather than fighting with the defaults
+				m.listInput.Help.ShowAll = true
 			} else {
 				return m, tea.Quit
 			}
 
 		case "up":
 			if isFiltering {
-				m.userListInput.CursorUp()
+				m.listInput.CursorUp()
 			}
 
 		case "down":
 			if isFiltering {
-				m.userListInput.CursorDown()
+				m.listInput.CursorDown()
 			}
 
 		case "enter":
 			// always submit even if in filtering state
 
-			visibleItems := m.userListInput.VisibleItems()
-			visibleIndex := m.userListInput.Index()
+			visibleItems := m.listInput.VisibleItems()
+			visibleIndex := m.listInput.Index()
 			if len(visibleItems) > 0 {
 				item := visibleItems[visibleIndex].(ListItem)
 
-				itemRender := m.userTextInput.Prompt + string(item.title) + "\n"
+				itemRender := m.textInput.Prompt + string(item.title) + "\n"
 				m.history = append(m.history, itemRender)
 
 				m.inputChain = append(m.inputChain, item.title)
+
+				// TODO : not sure if there is a more elegant way to do this
+				if item.title == "create" {
+					return m.EnterRecordInput()
+				}
 
 				// re-enter for sub commands
 				return m.EnterListInput()
@@ -109,7 +117,7 @@ func (m Model) UpdateListInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
-	m.userListInput, cmd = m.userListInput.Update(msg)
+	m.listInput, cmd = m.listInput.Update(msg)
 	return m, cmd
 }
 
@@ -155,12 +163,12 @@ func CustomKeyMap() list.KeyMap {
 	return list.KeyMap{
 		// Browsing.
 		CursorUp: key.NewBinding(
-			key.WithKeys("up", "k"),
-			key.WithHelp("↑/k", "up"),
+			key.WithKeys("up", "k", "shift+tab"),
+			key.WithHelp("↑/shift+tab/k", "up"),
 		),
 		CursorDown: key.NewBinding(
-			key.WithKeys("down", "j"),
-			key.WithHelp("↓/j", "down"),
+			key.WithKeys("down", "j", "tab"),
+			key.WithHelp("↓/tab/j", "down"),
 		),
 
 		PrevPage: key.NewBinding(

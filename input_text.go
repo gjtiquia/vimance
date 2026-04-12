@@ -9,9 +9,9 @@ import (
 const InputTypeText InputType = "text"
 
 func (m Model) EnterTextInput() Model {
-	m.userInputType = InputTypeText
-	m.userTextInput.SetValue("")
-	m.userTextInput.Focus()
+	m.inputType = InputTypeText
+	m.textInput.SetValue("")
+	m.textInput.Focus()
 	return m
 }
 
@@ -21,22 +21,22 @@ func (m Model) UpdateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 
 		case "esc", "q":
-			if m.userTextInput.Focused() {
-				m.userTextInput.Blur()
+			if m.textInput.Focused() {
+				m.textInput.Blur()
 			} else {
 				return m, tea.Quit
 			}
 
 		case "enter":
-			value := strings.TrimSpace(m.userTextInput.Value())
+			value := strings.TrimSpace(m.textInput.Value())
 			if value == "" {
 				break
 			}
 
 			// blur focus after enter
-			m.userTextInput.Blur()
+			m.textInput.Blur()
 
-			textinputRender := m.userTextInput.Prompt + value + "\n"
+			textinputRender := m.textInput.Prompt + value + "\n"
 			m.history = append(m.history, textinputRender)
 
 			// TODO : for now, swap between
@@ -45,6 +45,6 @@ func (m Model) UpdateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
-	m.userTextInput, cmd = m.userTextInput.Update(msg)
+	m.textInput, cmd = m.textInput.Update(msg)
 	return m, cmd
 }

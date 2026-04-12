@@ -32,24 +32,27 @@ const InputTypeNone InputType = "none"
 // - View: how to render based on the Model
 // everything else is just deciding how to store state
 type Model struct {
-	history       []string
-	inputChain    []string
-	userInputType InputType
-	userTextInput textinput.Model
-	userListInput list.Model
+	history     []string
+	inputChain  []string
+	inputType   InputType
+	textInput   textinput.Model
+	listInput   list.Model
+	recordInput RecordModel
 }
 
 func NewModel() Model {
 	header := "vimance\n"
 	history := []string{header}
 
-	userTextInput := textinput.New()
-	userListInput := NewUnstyledList()
+	textInput := textinput.New()
+	listInput := NewUnstyledList()
+	recordInput := NewRecordModel()
 
 	m := Model{
-		history:       history,
-		userTextInput: userTextInput,
-		userListInput: userListInput,
+		history:   history,
+		textInput: textInput,
+		listInput: listInput,
+		recordInput: recordInput,
 	}
 
 	m, _ = m.EnterListInput()
@@ -58,7 +61,7 @@ func NewModel() Model {
 
 // tea.Model INTERFACE
 func (m Model) Init() tea.Cmd {
-	if m.userInputType == InputTypeText {
+	if m.inputType == InputTypeText {
 		return textinput.Blink // starts the blink timer
 	}
 	return nil
@@ -74,11 +77,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	switch m.userInputType {
+	switch m.inputType {
 	case InputTypeText:
 		return m.UpdateTextInput(msg)
 	case InputTypeList:
 		return m.UpdateListInput(msg)
+	case InputTypeRecord:
+		return m.UpdateRecordInput(msg)
 	}
 
 	return m, nil
@@ -92,11 +97,13 @@ func (m Model) View() tea.View {
 		sb.WriteString(s)
 	}
 
-	switch m.userInputType {
+	switch m.inputType {
 	case InputTypeText:
-		sb.WriteString(m.userTextInput.View())
+		sb.WriteString(m.textInput.View())
 	case InputTypeList:
-		sb.WriteString(m.userListInput.View())
+		sb.WriteString(m.listInput.View())
+	case InputTypeRecord:
+		sb.WriteString(m.recordInput.View())
 	}
 
 	// pass in a string to create a view
