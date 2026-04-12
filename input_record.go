@@ -13,6 +13,12 @@ type RecordModel struct {
 	DateYearInput  textinput.Model
 	DateMonthInput textinput.Model
 	DateDayInput   textinput.Model
+
+	// TODO :
+	// - tags
+	// - currency
+	// - amount
+	// - notes
 }
 
 func NewRecordModel() RecordModel {
@@ -20,14 +26,20 @@ func NewRecordModel() RecordModel {
 	yearInput := textinput.New()
 	yearInput.Prompt = "Year: "
 	yearInput.Placeholder = "2026" // TODO : this should auto-default to today's date
+	yearInput.CharLimit = 4
+	yearInput.SetWidth(4) // required or else placeholder gets truncated to width(0) + 1 = 1 char
 
 	monthInput := textinput.New()
 	monthInput.Prompt = "Month: "
 	monthInput.Placeholder = "04" // TODO : this should auto-default to today's date
+	monthInput.CharLimit = 2
+	monthInput.SetWidth(2)
 
 	dayInput := textinput.New()
 	dayInput.Prompt = "Day: "
 	dayInput.Placeholder = "12" // TODO : this should auto-default to today's date
+	dayInput.CharLimit = 2
+	dayInput.SetWidth(2)
 
 	return RecordModel{
 		DateYearInput:  yearInput,
@@ -57,7 +69,7 @@ func (m RecordModel) Update(msg tea.Msg) (RecordModel, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "tab", "enter":
-			// TODO : 
+			// TODO :
 			return m, nil
 		}
 	}

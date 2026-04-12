@@ -49,9 +49,9 @@ func NewModel() Model {
 	recordInput := NewRecordModel()
 
 	m := Model{
-		history:   history,
-		textInput: textInput,
-		listInput: listInput,
+		history:     history,
+		textInput:   textInput,
+		listInput:   listInput,
 		recordInput: recordInput,
 	}
 
