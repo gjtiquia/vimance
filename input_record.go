@@ -21,6 +21,8 @@ type RecordModel struct {
 	// - notes
 }
 
+// TODO : maybe can add "category" support in the future, but its independent of the records, its more of a "collection of tags", but i think "queries" can handle that tho
+
 func NewRecordModel() RecordModel {
 
 	yearInput := textinput.New()
