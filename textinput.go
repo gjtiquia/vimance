@@ -6,6 +6,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
+const InputTypeText InputType = "text"
+
 func (m Model) EnterTextInput() Model {
 	m.userInputType = InputTypeText
 	m.userTextInput.SetValue("")

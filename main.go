@@ -22,13 +22,9 @@ func main() {
 	fmt.Println("[exiting gracefully...]")
 }
 
-type InputType int
+type InputType string
 
-const (
-	InputTypeNone InputType = iota
-	InputTypeText
-	InputTypeList
-)
+const InputTypeNone InputType = "none"
 
 // tea.Model interface super simple: Init, Update, View
 // - Init: what command to run on init
@@ -57,7 +53,6 @@ func NewModel() Model {
 	}
 
 	m, _ = m.EnterListInput()
-	// m = m.EnterTextInput()
 	return m
 }
 

@@ -11,6 +11,8 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
+const InputTypeList InputType = "list"
+
 func NewUnstyledList() list.Model {
 	const listWidth = 20 // arbitrary
 
