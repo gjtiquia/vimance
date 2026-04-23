@@ -176,13 +176,13 @@ sql:
 
 ## Implementation Steps
 
-1. [ ] Install goose and sqlc
-2. [ ] Create directory structure (`db/migrations`, `db/queries`, `internal/db`)
-3. [ ] Create initial migration file with full schema
-4. [ ] Create `sqlc.yaml` config
-5. [ ] Create query files in `db/queries/` for CRUD operations
-6. [ ] Run sqlc to generate Go code
-7. [ ] Add auto-migrate logic to `main.go`
+1. [x] Install goose and sqlc
+2. [x] Create directory structure (`db/migrations`, `db/queries`, `internal/db`)
+3. [x] Create initial migration file with full schema
+4. [x] Create `sqlc.yaml` config
+5. [x] Create query files in `db/queries/` for CRUD operations
+6. [x] Run sqlc to generate Go code
+7. [x] Add auto-migrate logic to `main.go`
 
 ## Decisions Made
 
