@@ -1,19 +1,34 @@
 package main
 
 import (
+	"database/sql"
+	"embed"
 	"fmt"
 	"strings"
 
 	"charm.land/bubbles/v2/list"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	"github.com/gjtiquia/vimance/internal/db"
+	"github.com/pressly/goose/v3"
+	_ "modernc.org/sqlite"
 )
 
+//go:embed db/migrations/*.sql
+var migrations embed.FS
+
 func main() {
-	m := NewModel()
+	database, err := initDB("vimance.db")
+	if err != nil {
+		fmt.Printf("error initializing database: %v\n", err)
+		return
+	}
+	defer database.Close()
+
+	m := NewModel(database)
 	p := tea.NewProgram(m)
 
-	_, err := p.Run()
+	_, err = p.Run()
 	if err != nil {
 		fmt.Printf("error: %v", err)
 		return
@@ -22,16 +37,31 @@ func main() {
 	fmt.Println("\n[exiting gracefully...]")
 }
 
+func initDB(dataSourceName string) (*sql.DB, error) {
+	database, err := sql.Open("sqlite", dataSourceName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
+
+	goose.SetBaseFS(migrations)
+	if err := goose.SetDialect("sqlite3"); err != nil {
+		return nil, fmt.Errorf("failed to set goose dialect: %w", err)
+	}
+
+	if err := goose.Up(database, "db/migrations"); err != nil {
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
+	}
+
+	return database, nil
+}
+
 type InputType string
 
 const InputTypeNone InputType = "none"
 
-// tea.Model interface super simple: Init, Update, View
-// - Init: what command to run on init
-// - Update: how the Model updates on message
-// - View: how to render based on the Model
-// everything else is just deciding how to store state
 type Model struct {
+	database    *sql.DB
+	queries     *db.Queries
 	history     []string
 	inputChain  []string
 	inputType   InputType
@@ -41,7 +71,7 @@ type Model struct {
 	tagsInput   TagsModel
 }
 
-func NewModel() Model {
+func NewModel(database *sql.DB) Model {
 	header := "vimance\n"
 	history := []string{header}
 
@@ -50,6 +80,8 @@ func NewModel() Model {
 	recordInput := NewRecordModel()
 
 	m := Model{
+		database:    database,
+		queries:     db.New(database),
 		history:     history,
 		textInput:   textInput,
 		listInput:   listInput,
@@ -60,15 +92,13 @@ func NewModel() Model {
 	return m
 }
 
-// tea.Model INTERFACE
 func (m Model) Init() tea.Cmd {
 	if m.inputType == InputTypeText {
-		return textinput.Blink // starts the blink timer
+		return textinput.Blink
 	}
 	return nil
 }
 
-// tea.Model INTERFACE
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
@@ -90,7 +120,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// tea.Model INTERFACE
 func (m Model) View() tea.View {
 	var sb strings.Builder
 
@@ -107,6 +136,5 @@ func (m Model) View() tea.View {
 		sb.WriteString(m.recordInput.View())
 	}
 
-	// pass in a string to create a view
 	return tea.NewView(sb.String())
 }
