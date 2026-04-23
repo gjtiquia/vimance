@@ -182,8 +182,7 @@ sql:
 4. [ ] Create `sqlc.yaml` config
 5. [ ] Create query files in `db/queries/` for CRUD operations
 6. [ ] Run sqlc to generate Go code
-7. [ ] Add `internal/db` to `.gitignore` (generated code)
-8. [ ] Add auto-migrate logic to `main.go`
+7. [ ] Add auto-migrate logic to `main.go`
 
 ## Decisions Made
 
@@ -207,6 +206,10 @@ db/
     ├── records.sql
     └── records_tags.sql
 sqlc.yaml
-.gitignore (update)
 main.go (update - add auto-migrate on startup)
 ```
+
+## Notes
+
+- Generated code in `internal/db` will be committed to the repo (no .gitignore needed)
+- No Makefile for now - keep it minimal, add later if needed

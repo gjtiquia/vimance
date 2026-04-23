@@ -12,3 +12,4 @@ the README.md should always be kept minimal, and respect the original style of t
 - commit often, with good commit messages, so i can easily follow along and understand your thought process, and also so i can easily revert if something goes wrong
 - when possible, use TDD (use your own discretion on whether TDD is suitable for the task or not)
 - long running often assumes that i am able to have a working prototype to test when i get back, so aim towards something that is functional
+- keep going and use your judgment, dont stop to ask for clarification during long running
