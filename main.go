@@ -9,7 +9,7 @@ import (
 	"charm.land/bubbles/v2/list"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
-	"github.com/gjtiquia/vimance/internal/db"
+	"github.com/gjtiquia/vimance/internal/service"
 	"github.com/pressly/goose/v3"
 	_ "modernc.org/sqlite"
 )
@@ -61,7 +61,7 @@ const InputTypeNone InputType = "none"
 
 type Model struct {
 	database    *sql.DB
-	queries     *db.Queries
+	service     *service.Service
 	history     []string
 	inputChain  []string
 	inputType   InputType
@@ -81,7 +81,7 @@ func NewModel(database *sql.DB) Model {
 
 	m := Model{
 		database:    database,
-		queries:     db.New(database),
+		service:     service.New(database),
 		history:     history,
 		textInput:   textInput,
 		listInput:   listInput,
