@@ -4,6 +4,10 @@ always read the README.md first to anchor yourself to the big picture and the us
 
 the README.md should always be kept minimal, and respect the original style of the README
 
+## skills
+
+always use the /caveman skill
+
 ## planning rules
 - when in doubt, ask for clarification, dont assume
 
