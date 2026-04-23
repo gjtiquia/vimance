@@ -8,6 +8,11 @@ the README.md should always be kept minimal, and respect the original style of t
 
 always use the /caveman skill
 
+## philosophy
+- simplicity > complexity
+- grug brain
+- code readability
+
 ## planning rules
 - when in doubt, ask for clarification, dont assume
 
