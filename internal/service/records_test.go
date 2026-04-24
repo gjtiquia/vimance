@@ -212,3 +212,23 @@ func TestAddRemoveRecordTag(t *testing.T) {
 		t.Errorf("expected 0 tags, got %d", len(tags))
 	}
 }
+
+func TestDuplicateRecordTag(t *testing.T) {
+	s := setupTestService(t)
+
+	user, _ := s.CreateUser(t.Context(), "testuser")
+	currency, _ := s.CreateCurrency(t.Context(), "USD")
+	tag, _ := s.CreateTag(t.Context(), "food", "", "", user.ID)
+
+	record, _ := s.CreateRecord(t.Context(), "2026-01-15", 1000, currency.ID, "", user.ID)
+
+	err := s.AddRecordTag(t.Context(), record.ID, tag.ID, user.ID)
+	if err != nil {
+		t.Fatalf("failed to add record tag: %v", err)
+	}
+
+	err = s.AddRecordTag(t.Context(), record.ID, tag.ID, user.ID)
+	if err == nil {
+		t.Error("expected error when adding duplicate record-tag pair")
+	}
+}

@@ -43,6 +43,11 @@ func initDB(dataSourceName string) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
+	_, err = database.Exec("PRAGMA foreign_keys = ON")
+	if err != nil {
+		return nil, fmt.Errorf("failed to enable foreign keys: %w", err)
+	}
+
 	goose.SetBaseFS(migrations)
 	if err := goose.SetDialect("sqlite3"); err != nil {
 		return nil, fmt.Errorf("failed to set goose dialect: %w", err)

@@ -19,6 +19,8 @@ func setupTestDB(t *testing.T) *sql.DB {
 		t.Fatalf("failed to open test database: %v", err)
 	}
 
+	t.Cleanup(func() { database.Close() })
+
 	_, err = database.Exec("PRAGMA foreign_keys = ON")
 	if err != nil {
 		t.Fatalf("failed to enable foreign keys: %v", err)
@@ -45,7 +47,6 @@ func setupTestService(t *testing.T) *service.Service {
 
 func TestForeignKeyConstraints(t *testing.T) {
 	database := setupTestDB(t)
-	defer database.Close()
 
 	queries := db.New(database)
 
@@ -142,5 +143,41 @@ func TestTransactionRollback(t *testing.T) {
 	recordsAfter, _ := s.ListRecords(t.Context())
 	if len(recordsAfter) != len(recordsBefore) {
 		t.Error("transaction should have rolled back, no record should be created")
+	}
+}
+
+func TestUniqueConstraints(t *testing.T) {
+	s := setupTestService(t)
+
+	_, err := s.CreateUser(t.Context(), "testuser")
+	if err != nil {
+		t.Fatalf("failed to create first user: %v", err)
+	}
+
+	_, err = s.CreateUser(t.Context(), "testuser")
+	if err == nil {
+		t.Error("expected error when creating duplicate username")
+	}
+
+	_, err = s.CreateCurrency(t.Context(), "USD")
+	if err != nil {
+		t.Fatalf("failed to create first currency: %v", err)
+	}
+
+	_, err = s.CreateCurrency(t.Context(), "USD")
+	if err == nil {
+		t.Error("expected error when creating duplicate currency code")
+	}
+
+	user, _ := s.CreateUser(t.Context(), "anotheruser")
+
+	_, err = s.CreateTag(t.Context(), "food", "", "", user.ID)
+	if err != nil {
+		t.Fatalf("failed to create first tag: %v", err)
+	}
+
+	_, err = s.CreateTag(t.Context(), "food", "", "", user.ID)
+	if err == nil {
+		t.Error("expected error when creating duplicate tag name")
 	}
 }
