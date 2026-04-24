@@ -250,6 +250,14 @@ func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 	var notesCmd tea.Cmd
 	m.NotesInput, notesCmd = m.NotesInput.Update(msg)
 
+	if m.CurrencyInput.ShouldAdvance {
+		m.CurrencyInput.ShouldAdvance = false
+		m.CurrencyInput.SearchInput.Blur()
+		m.CurrencyInput.Mode = CurrencyModeInsert
+		m.AmountInput.Focus()
+		return m, tea.Batch(yearCmd, monthCmd, dayCmd, tagsCmd, currencyCmd, amountCmd, notesCmd)
+	}
+
 	return m, tea.Batch(yearCmd, monthCmd, dayCmd, tagsCmd, currencyCmd, amountCmd, notesCmd)
 }
 

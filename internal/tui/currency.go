@@ -24,12 +24,13 @@ const (
 )
 
 type CurrencyModel struct {
-	Selected    *CurrencyItem
-	SearchInput textinput.Model
+	Selected      *CurrencyItem
+	SearchInput   textinput.Model
 	AllCurrencies []CurrencyItem
-	CursorIndex int
-	Mode        CurrencyMode
-	service     *service.Service
+	CursorIndex   int
+	Mode          CurrencyMode
+	ShouldAdvance bool
+	service       *service.Service
 }
 
 func NewCurrencyModel(svc *service.Service) CurrencyModel {
@@ -42,6 +43,7 @@ func NewCurrencyModel(svc *service.Service) CurrencyModel {
 		AllCurrencies: make([]CurrencyItem, 0),
 		CursorIndex:   0,
 		Mode:          CurrencyModeInsert,
+		ShouldAdvance: false,
 		service:       svc,
 	}
 }
@@ -120,10 +122,12 @@ func (m CurrencyModel) Update(msg tea.Msg) (CurrencyModel, tea.Cmd) {
 				input := strings.TrimSpace(m.SearchInput.Value())
 				if input != "" {
 					m.selectCurrency(input)
+					m.ShouldAdvance = true
 				} else {
 					filtered := m.getFilteredCurrencies()
 					if len(filtered) > 0 && m.CursorIndex < len(filtered) {
 						m.selectCurrency(filtered[m.CursorIndex].Code)
+						m.ShouldAdvance = true
 					}
 				}
 				return m, nil
@@ -160,6 +164,7 @@ func (m CurrencyModel) Update(msg tea.Msg) (CurrencyModel, tea.Cmd) {
 				filtered := m.getFilteredCurrencies()
 				if len(filtered) > 0 && m.CursorIndex < len(filtered) {
 					m.selectCurrency(filtered[m.CursorIndex].Code)
+					m.ShouldAdvance = true
 				}
 				return m, nil
 			}
