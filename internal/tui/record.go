@@ -148,6 +148,8 @@ func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 				return m, nil
 			}
 
+			return m, nil
+
 		case "shift+tab":
 			if m.NotesInput.Focused() {
 				m.NotesInput.Blur()
@@ -187,11 +189,7 @@ func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 				return m, nil
 			}
 
-			if m.DateYearInput.Focused() {
-				m.DateYearInput.Blur()
-				m.NotesInput.Focus()
-				return m, nil
-			}
+			return m, nil
 
 		case "enter":
 			if m.DateYearInput.Focused() {
