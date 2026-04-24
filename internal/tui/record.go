@@ -128,17 +128,29 @@ func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 				return m, nil
 			}
 
-			if m.TagsInput.SearchInput.Focused() || m.TagsInput.Mode == TagModeNormal {
+			if m.TagsInput.SearchInput.Focused() {
 				m.TagsInput.SearchInput.Blur()
 				m.TagsInput.Mode = TagModeInsert
 				m.CurrencyInput.SearchInput.Focus()
 				return m, nil
 			}
 
-			if m.CurrencyInput.SearchInput.Focused() || m.CurrencyInput.Mode == CurrencyModeNormal {
+			if m.TagsInput.Mode == TagModeNormal {
+				m.TagsInput.Mode = TagModeInsert
+				m.TagsInput.SearchInput.Focus()
+				return m, nil
+			}
+
+			if m.CurrencyInput.SearchInput.Focused() {
 				m.CurrencyInput.SearchInput.Blur()
 				m.CurrencyInput.Mode = CurrencyModeInsert
 				m.AmountInput.Focus()
+				return m, nil
+			}
+
+			if m.CurrencyInput.Mode == CurrencyModeNormal {
+				m.CurrencyInput.Mode = CurrencyModeInsert
+				m.CurrencyInput.SearchInput.Focus()
 				return m, nil
 			}
 
