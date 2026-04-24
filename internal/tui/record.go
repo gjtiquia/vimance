@@ -219,6 +219,12 @@ func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 				return m, nil
 			}
 
+			if m.AmountInput.Focused() {
+				m.AmountInput.Blur()
+				m.NotesInput.Focus()
+				return m, nil
+			}
+
 			if m.NotesInput.Focused() {
 				m.NotesInput.Blur()
 				m.State = RecordStateConfirm
