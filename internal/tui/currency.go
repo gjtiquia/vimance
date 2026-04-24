@@ -131,12 +131,12 @@ func (m CurrencyModel) Update(msg tea.Msg) (CurrencyModel, tea.Cmd) {
 					}
 				}
 				return m, nil
-			case "up", "k":
+			case "up":
 				if m.CursorIndex > 0 {
 					m.CursorIndex--
 				}
 				return m, nil
-			case "down", "j":
+			case "down":
 				filtered := m.getFilteredCurrencies()
 				if len(filtered) > 0 && m.CursorIndex < len(filtered)-1 {
 					m.CursorIndex++

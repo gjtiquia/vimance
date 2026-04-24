@@ -164,12 +164,12 @@ func (m TagsModel) Update(msg tea.Msg) (TagsModel, tea.Cmd) {
 					}
 				}
 				return m, nil
-			case "up", "k":
+			case "up":
 				if m.CursorIndex > 0 {
 					m.CursorIndex--
 				}
 				return m, nil
-			case "down", "j":
+			case "down":
 				filtered := m.getFilteredTags()
 				if len(filtered) > 0 && m.CursorIndex < len(filtered)-1 {
 					m.CursorIndex++
