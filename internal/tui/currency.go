@@ -149,7 +149,6 @@ func (m CurrencyModel) Update(msg tea.Msg) (CurrencyModel, tea.Cmd) {
 			switch msg.String() {
 			case "i", "a":
 				m.Mode = CurrencyModeInsert
-				m.SearchInput.Focus()
 				return m, nil
 			case "up", "k":
 				if m.CursorIndex > 0 {

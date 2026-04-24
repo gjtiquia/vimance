@@ -138,6 +138,7 @@ func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 			if m.TagsInput.Mode == TagModeNormal {
 				m.TagsInput.Mode = TagModeInsert
 				m.TagsInput.SearchInput.Focus()
+				m.CurrencyInput.SearchInput.Blur()
 				return m, nil
 			}
 
@@ -151,6 +152,7 @@ func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 			if m.CurrencyInput.Mode == CurrencyModeNormal {
 				m.CurrencyInput.Mode = CurrencyModeInsert
 				m.CurrencyInput.SearchInput.Focus()
+				m.TagsInput.SearchInput.Blur()
 				return m, nil
 			}
 
