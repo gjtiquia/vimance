@@ -142,6 +142,8 @@ func (m CurrencyModel) Update(msg tea.Msg) (CurrencyModel, tea.Cmd) {
 					m.CursorIndex++
 				}
 				return m, nil
+			case "tab":
+				return m, nil
 			}
 		case CurrencyModeNormal:
 			switch msg.String() {
@@ -166,6 +168,8 @@ func (m CurrencyModel) Update(msg tea.Msg) (CurrencyModel, tea.Cmd) {
 					m.selectCurrency(filtered[m.CursorIndex].Code)
 					m.ShouldAdvance = true
 				}
+				return m, nil
+			case "tab":
 				return m, nil
 			}
 		}

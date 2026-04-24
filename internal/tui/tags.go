@@ -178,6 +178,8 @@ func (m TagsModel) Update(msg tea.Msg) (TagsModel, tea.Cmd) {
 			case "ctrl+z":
 				m.removeLastTag()
 				return m, nil
+			case "tab":
+				return m, nil
 			}
 		case TagModeNormal:
 			switch msg.String() {
@@ -204,6 +206,8 @@ func (m TagsModel) Update(msg tea.Msg) (TagsModel, tea.Cmd) {
 				return m, nil
 			case "ctrl+z":
 				m.removeLastTag()
+				return m, nil
+			case "tab":
 				return m, nil
 			}
 		}
