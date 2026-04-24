@@ -1,6 +1,8 @@
 -- +goose Up
 -- +goose StatementBegin
 
+PRAGMA foreign_keys = ON;
+
 -- Users table
 CREATE TABLE users (
     id INTEGER PRIMARY KEY,
