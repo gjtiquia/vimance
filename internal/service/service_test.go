@@ -2,7 +2,7 @@ package service_test
 
 import (
 	"database/sql"
-	"embed"
+	"path/filepath"
 	"testing"
 
 	"github.com/gjtiquia/vimance/internal/db"
@@ -10,9 +10,6 @@ import (
 	"github.com/pressly/goose/v3"
 	_ "modernc.org/sqlite"
 )
-
-//go:embed testdata/migrations/*.sql
-var testMigrations embed.FS
 
 func setupTestDB(t *testing.T) *sql.DB {
 	t.Helper()
@@ -27,12 +24,12 @@ func setupTestDB(t *testing.T) *sql.DB {
 		t.Fatalf("failed to enable foreign keys: %v", err)
 	}
 
-	goose.SetBaseFS(testMigrations)
 	if err := goose.SetDialect("sqlite3"); err != nil {
 		t.Fatalf("failed to set goose dialect: %v", err)
 	}
 
-	if err := goose.Up(database, "testdata/migrations"); err != nil {
+	migrationsDir := filepath.Join("..", "..", "db", "migrations")
+	if err := goose.Up(database, migrationsDir); err != nil {
 		t.Fatalf("failed to run migrations: %v", err)
 	}
 
