@@ -1,4 +1,4 @@
-package main
+package tui
 
 import (
 	"fmt"
@@ -10,8 +10,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
-
-const InputTypeList InputType = "list"
 
 func NewUnstyledList() list.Model {
 	const listWidth = 20 // arbitrary

@@ -1,4 +1,4 @@
-package main
+package tui
 
 import (
 	"strings"
@@ -7,8 +7,6 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 )
-
-const InputTypeRecord InputType = "record"
 
 type RecordModel struct {
 	DateYearInput  textinput.Model
