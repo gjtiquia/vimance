@@ -185,6 +185,7 @@ func (m TagsModel) Update(msg tea.Msg) (TagsModel, tea.Cmd) {
 			switch msg.String() {
 			case "i", "a":
 				m.Mode = TagModeInsert
+				m.SearchInput.Focus()
 				return m, nil
 			case "j", "down":
 				filtered := m.getFilteredTags()
