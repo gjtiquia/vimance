@@ -157,6 +157,22 @@ func (m TagsModel) Update(msg tea.Msg) (TagsModel, tea.Cmd) {
 				input := strings.TrimSpace(m.SearchInput.Value())
 				if input != "" {
 					m.addTag(input)
+				} else {
+					filtered := m.getFilteredTags()
+					if len(filtered) > 0 && m.CursorIndex < len(filtered) {
+						m.addTag(filtered[m.CursorIndex].Name)
+					}
+				}
+				return m, nil
+			case "up", "k":
+				if m.CursorIndex > 0 {
+					m.CursorIndex--
+				}
+				return m, nil
+			case "down", "j":
+				filtered := m.getFilteredTags()
+				if len(filtered) > 0 && m.CursorIndex < len(filtered)-1 {
+					m.CursorIndex++
 				}
 				return m, nil
 			case "ctrl+z":
@@ -214,9 +230,6 @@ func (m TagsModel) View() string {
 	sb.WriteString("\n")
 
 	sb.WriteString(m.SearchInput.View())
-	if m.Mode == TagModeNormal {
-		sb.WriteString(" [NORMAL]")
-	}
 	sb.WriteString("\n\n")
 
 	sb.WriteString(m.filteredTagsView())
@@ -231,7 +244,7 @@ func (m TagsModel) filteredTagsView() string {
 
 	for i, tag := range filtered {
 		cursor := " "
-		if m.Mode == TagModeNormal && i == m.CursorIndex {
+		if i == m.CursorIndex {
 			cursor = ">"
 		}
 

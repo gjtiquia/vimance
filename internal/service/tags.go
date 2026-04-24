@@ -98,3 +98,21 @@ func (s *Service) PinTag(ctx context.Context, tagID int64, createdBy int64) erro
 func (s *Service) UnpinTag(ctx context.Context, tagID int64) error {
 	return s.queries.UnpinTag(ctx, tagID)
 }
+
+func (s *Service) GetOrCreateTag(ctx context.Context, name string, createdBy int64) (db.Tag, bool, error) {
+	tag, err := s.GetTagByName(ctx, name)
+	if err == nil {
+		return tag, false, nil
+	}
+
+	if err != sql.ErrNoRows {
+		return db.Tag{}, false, err
+	}
+
+	tag, err = s.CreateTag(ctx, name, "", "", createdBy)
+	if err != nil {
+		return db.Tag{}, false, err
+	}
+
+	return tag, true, nil
+}

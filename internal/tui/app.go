@@ -74,6 +74,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case InputTypeList:
 		return m.UpdateListInput(msg)
 	case InputTypeRecord:
+		if m.recordInput.State == RecordStateSuccess {
+			if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "esc" {
+				m.recordInput = NewRecordModel(m.service)
+				return m.EnterListInput()
+			}
+		}
 		return m.UpdateRecordInput(msg)
 	}
 

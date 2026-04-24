@@ -61,3 +61,40 @@ func TestCurrencyCRUD(t *testing.T) {
 		t.Error("expected error when getting deleted currency")
 	}
 }
+
+func TestGetOrCreateCurrency(t *testing.T) {
+	s := setupTestService(t)
+
+	currency1, created1, err := s.GetOrCreateCurrency(t.Context(), "USD")
+	if err != nil {
+		t.Fatalf("failed to get or create currency: %v", err)
+	}
+	if !created1 {
+		t.Error("expected currency to be created")
+	}
+	if currency1.Code != "USD" {
+		t.Errorf("expected code 'USD', got '%s'", currency1.Code)
+	}
+
+	currency2, created2, err := s.GetOrCreateCurrency(t.Context(), "USD")
+	if err != nil {
+		t.Fatalf("failed to get or create currency: %v", err)
+	}
+	if created2 {
+		t.Error("expected currency to already exist")
+	}
+	if currency2.ID != currency1.ID {
+		t.Errorf("expected same currency ID, got %d and %d", currency1.ID, currency2.ID)
+	}
+
+	currency3, created3, err := s.GetOrCreateCurrency(t.Context(), "EUR")
+	if err != nil {
+		t.Fatalf("failed to get or create currency: %v", err)
+	}
+	if !created3 {
+		t.Error("expected currency to be created")
+	}
+	if currency3.Code != "EUR" {
+		t.Errorf("expected code 'EUR', got '%s'", currency3.Code)
+	}
+}
