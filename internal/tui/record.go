@@ -106,10 +106,8 @@ func (m *RecordModel) focusActiveField() {
 	case FieldDateDay:
 		m.DateDayInput.Focus()
 	case FieldTags:
-		m.TagsInput.Mode = TagModeInsert
 		m.TagsInput.SearchInput.Focus()
 	case FieldCurrency:
-		m.CurrencyInput.Mode = CurrencyModeInsert
 		m.CurrencyInput.SearchInput.Focus()
 	case FieldAmount:
 		m.AmountInput.Focus()
@@ -119,6 +117,17 @@ func (m *RecordModel) focusActiveField() {
 }
 
 func (m *RecordModel) setActiveField(field ActiveField) {
+	if m.ActiveField == field {
+		return
+	}
+
+	switch field {
+	case FieldTags:
+		m.TagsInput.Mode = TagModeInsert
+	case FieldCurrency:
+		m.CurrencyInput.Mode = CurrencyModeInsert
+	}
+
 	m.ActiveField = field
 	m.focusActiveField()
 }
