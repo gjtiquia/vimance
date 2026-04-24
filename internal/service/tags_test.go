@@ -104,3 +104,78 @@ func TestTagCRUD(t *testing.T) {
 		t.Error("expected error when getting hard deleted tag")
 	}
 }
+
+func TestPinnedTags(t *testing.T) {
+	s := setupTestService(t)
+
+	user, _ := s.CreateUser(t.Context(), "testuser")
+
+	tag1, _ := s.CreateTag(t.Context(), "food", "", "", user.ID)
+	tag2, _ := s.CreateTag(t.Context(), "transport", "", "", user.ID)
+	tag3, _ := s.CreateTag(t.Context(), "fun", "", "", user.ID)
+
+	pinnedBefore, err := s.ListPinnedTags(t.Context())
+	if err != nil {
+		t.Fatalf("failed to list pinned tags: %v", err)
+	}
+	if len(pinnedBefore) != 0 {
+		t.Errorf("expected 0 pinned tags, got %d", len(pinnedBefore))
+	}
+
+	err = s.PinTag(t.Context(), tag1.ID, user.ID)
+	if err != nil {
+		t.Fatalf("failed to pin tag: %v", err)
+	}
+
+	err = s.PinTag(t.Context(), tag3.ID, user.ID)
+	if err != nil {
+		t.Fatalf("failed to pin tag: %v", err)
+	}
+
+	pinned, err := s.ListPinnedTags(t.Context())
+	if err != nil {
+		t.Fatalf("failed to list pinned tags: %v", err)
+	}
+	if len(pinned) != 2 {
+		t.Errorf("expected 2 pinned tags, got %d", len(pinned))
+	}
+
+	if pinned[0].Name != "food" {
+		t.Errorf("expected first pinned tag 'food', got '%s'", pinned[0].Name)
+	}
+	if pinned[1].Name != "fun" {
+		t.Errorf("expected second pinned tag 'fun', got '%s'", pinned[1].Name)
+	}
+
+	err = s.UnpinTag(t.Context(), tag1.ID)
+	if err != nil {
+		t.Fatalf("failed to unpin tag: %v", err)
+	}
+
+	pinnedAfter, err := s.ListPinnedTags(t.Context())
+	if err != nil {
+		t.Fatalf("failed to list pinned tags: %v", err)
+	}
+	if len(pinnedAfter) != 1 {
+		t.Errorf("expected 1 pinned tag after unpin, got %d", len(pinnedAfter))
+	}
+	if pinnedAfter[0].Name != "fun" {
+		t.Errorf("expected remaining pinned tag 'fun', got '%s'", pinnedAfter[0].Name)
+	}
+
+	err = s.PinTag(t.Context(), tag2.ID, user.ID)
+	if err != nil {
+		t.Fatalf("failed to pin tag2: %v", err)
+	}
+
+	pinnedFinal, err := s.ListPinnedTags(t.Context())
+	if err != nil {
+		t.Fatalf("failed to list pinned tags: %v", err)
+	}
+	if len(pinnedFinal) != 2 {
+		t.Errorf("expected 2 pinned tags, got %d", len(pinnedFinal))
+	}
+	if pinnedFinal[1].Name != "transport" {
+		t.Errorf("expected last pinned tag 'transport', got '%s'", pinnedFinal[1].Name)
+	}
+}

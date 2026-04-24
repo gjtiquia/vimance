@@ -28,7 +28,6 @@ type Model struct {
 	textInput   textinput.Model
 	listInput   list.Model
 	recordInput RecordModel
-	tagsInput   TagsModel
 }
 
 func NewModel(database *sql.DB) Model {
@@ -37,11 +36,12 @@ func NewModel(database *sql.DB) Model {
 
 	textInput := textinput.New()
 	listInput := NewUnstyledList()
-	recordInput := NewRecordModel()
+	svc := service.New(database)
+	recordInput := NewRecordModel(svc)
 
 	m := Model{
 		database:    database,
-		service:     service.New(database),
+		service:     svc,
 		history:     history,
 		textInput:   textInput,
 		listInput:   listInput,

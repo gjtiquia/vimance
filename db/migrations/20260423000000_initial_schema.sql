@@ -66,9 +66,9 @@ CREATE TABLE records_tags (
     PRIMARY KEY (record_id, tag_id)
 );
 
--- Pinned tabs table
-CREATE TABLE pinned_tabs (
-    tab_id INTEGER PRIMARY KEY,
+-- Pinned tags table
+CREATE TABLE pinned_tags (
+    tag_id INTEGER PRIMARY KEY REFERENCES tags(id) ON DELETE CASCADE,
     position INTEGER NOT NULL,
     created_at INTEGER NOT NULL,
     created_by INTEGER NOT NULL REFERENCES users(id),
@@ -94,7 +94,7 @@ SELECT * FROM records WHERE deleted_at IS NULL;
 DROP VIEW IF EXISTS active_records;
 DROP VIEW IF EXISTS active_tags;
 DROP VIEW IF EXISTS active_users;
-DROP TABLE IF EXISTS pinned_tabs;
+DROP TABLE IF EXISTS pinned_tags;
 DROP TABLE IF EXISTS records_tags;
 DROP TABLE IF EXISTS records;
 DROP TABLE IF EXISTS tags;

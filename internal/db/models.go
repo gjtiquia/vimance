@@ -51,8 +51,8 @@ type Currency struct {
 	UpdatedAt int64
 }
 
-type PinnedTab struct {
-	TabID     int64
+type PinnedTag struct {
+	TagID     int64
 	Position  int64
 	CreatedAt int64
 	CreatedBy int64

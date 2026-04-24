@@ -52,6 +52,17 @@ func (q *Queries) CreateTag(ctx context.Context, arg CreateTagParams) (Tag, erro
 	return i, err
 }
 
+const getMaxPinnedPosition = `-- name: GetMaxPinnedPosition :one
+SELECT COALESCE(MAX(position), 0) FROM pinned_tags
+`
+
+func (q *Queries) GetMaxPinnedPosition(ctx context.Context) (interface{}, error) {
+	row := q.db.QueryRowContext(ctx, getMaxPinnedPosition)
+	var coalesce interface{}
+	err := row.Scan(&coalesce)
+	return coalesce, err
+}
+
 const getTag = `-- name: GetTag :one
 SELECT id, name, description, notes, created_at, created_by, updated_at, updated_by, deleted_at, deleted_by FROM tags WHERE id = ?
 `
@@ -143,6 +154,47 @@ func (q *Queries) ListActiveTags(ctx context.Context) ([]ActiveTag, error) {
 	return items, nil
 }
 
+const listPinnedTags = `-- name: ListPinnedTags :many
+SELECT t.id, t.name, t.description, t.notes, t.created_at, t.created_by, t.updated_at, t.updated_by, t.deleted_at, t.deleted_by FROM tags t
+JOIN pinned_tags pt ON t.id = pt.tag_id
+WHERE t.deleted_at IS NULL
+ORDER BY pt.position
+`
+
+func (q *Queries) ListPinnedTags(ctx context.Context) ([]Tag, error) {
+	rows, err := q.db.QueryContext(ctx, listPinnedTags)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Tag
+	for rows.Next() {
+		var i Tag
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Notes,
+			&i.CreatedAt,
+			&i.CreatedBy,
+			&i.UpdatedAt,
+			&i.UpdatedBy,
+			&i.DeletedAt,
+			&i.DeletedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTags = `-- name: ListTags :many
 SELECT id, name, description, notes, created_at, created_by, updated_at, updated_by, deleted_at, deleted_by FROM tags ORDER BY name
 `
@@ -179,6 +231,32 @@ func (q *Queries) ListTags(ctx context.Context) ([]Tag, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const pinTag = `-- name: PinTag :exec
+INSERT INTO pinned_tags (tag_id, position, created_at, created_by, updated_at, updated_by)
+VALUES (?, ?, ?, ?, ?, ?)
+`
+
+type PinTagParams struct {
+	TagID     int64
+	Position  int64
+	CreatedAt int64
+	CreatedBy int64
+	UpdatedAt int64
+	UpdatedBy int64
+}
+
+func (q *Queries) PinTag(ctx context.Context, arg PinTagParams) error {
+	_, err := q.db.ExecContext(ctx, pinTag,
+		arg.TagID,
+		arg.Position,
+		arg.CreatedAt,
+		arg.CreatedBy,
+		arg.UpdatedAt,
+		arg.UpdatedBy,
+	)
+	return err
 }
 
 const restoreTag = `-- name: RestoreTag :one
@@ -220,6 +298,15 @@ type SoftDeleteTagParams struct {
 
 func (q *Queries) SoftDeleteTag(ctx context.Context, arg SoftDeleteTagParams) error {
 	_, err := q.db.ExecContext(ctx, softDeleteTag, arg.DeletedAt, arg.DeletedBy, arg.ID)
+	return err
+}
+
+const unpinTag = `-- name: UnpinTag :exec
+DELETE FROM pinned_tags WHERE tag_id = ?
+`
+
+func (q *Queries) UnpinTag(ctx context.Context, tagID int64) error {
+	_, err := q.db.ExecContext(ctx, unpinTag, tagID)
 	return err
 }
 

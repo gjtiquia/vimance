@@ -44,3 +44,23 @@ func (s *Service) WithTransactionResult(fn func(*db.Queries) (db.Record, error))
 
 	return result, err
 }
+
+func (s *Service) WithTransactionResult2(fn func(*db.Queries) (db.ActiveTag, error)) (db.ActiveTag, error) {
+	var result db.ActiveTag
+
+	err := s.WithTransaction(func(q *db.Queries) error {
+		var err error
+		result, err = fn(q)
+		return err
+	})
+
+	return result, err
+}
+
+func (s *Service) DB() *sql.DB {
+	return s.database
+}
+
+func (s *Service) Queries() *db.Queries {
+	return s.queries
+}

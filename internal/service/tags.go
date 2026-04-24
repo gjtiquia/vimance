@@ -37,6 +37,10 @@ func (s *Service) ListActiveTags(ctx context.Context) ([]db.ActiveTag, error) {
 	return s.queries.ListActiveTags(ctx)
 }
 
+func (s *Service) ListPinnedTags(ctx context.Context) ([]db.Tag, error) {
+	return s.queries.ListPinnedTags(ctx)
+}
+
 func (s *Service) UpdateTag(ctx context.Context, id int64, name string, description string, notes string, updatedBy int64) (db.Tag, error) {
 	return s.queries.UpdateTag(ctx, db.UpdateTagParams{
 		ID:          id,
@@ -62,4 +66,35 @@ func (s *Service) RestoreTag(ctx context.Context, id int64) (db.Tag, error) {
 
 func (s *Service) HardDeleteTag(ctx context.Context, id int64) error {
 	return s.queries.HardDeleteTag(ctx, id)
+}
+
+func (s *Service) PinTag(ctx context.Context, tagID int64, createdBy int64) error {
+	maxPos, err := s.queries.GetMaxPinnedPosition(ctx)
+	if err != nil {
+		return err
+	}
+
+	var position int64
+	switch v := maxPos.(type) {
+	case int64:
+		position = v + 1
+	case float64:
+		position = int64(v) + 1
+	default:
+		position = 1
+	}
+
+	now := time.Now().Unix()
+	return s.queries.PinTag(ctx, db.PinTagParams{
+		TagID:     tagID,
+		Position:  position,
+		CreatedAt: now,
+		CreatedBy: createdBy,
+		UpdatedAt: now,
+		UpdatedBy: createdBy,
+	})
+}
+
+func (s *Service) UnpinTag(ctx context.Context, tagID int64) error {
+	return s.queries.UnpinTag(ctx, tagID)
 }

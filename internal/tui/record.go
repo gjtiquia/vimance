@@ -6,6 +6,7 @@ import (
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	"github.com/gjtiquia/vimance/internal/service"
 )
 
 type RecordModel struct {
@@ -28,13 +29,13 @@ type RecordModel struct {
 
 // TODO : maybe can add "category" support in the future, but its independent of the records, its more of a "collection of tags", but i think "queries" can handle that tho, or perhaps one can even just add a "tag" that is used as a category, cuz we can technically support belonging in more than one category
 
-func NewRecordModel() RecordModel {
+func NewRecordModel(svc *service.Service) RecordModel {
 
 	yearInput := textinput.New()
 	yearInput.Prompt = "Year: "
 	yearInput.Placeholder = time.Now().Format("2006")
 	yearInput.CharLimit = 4
-	yearInput.SetWidth(4) // required or else placeholder gets truncated to width(0) + 1 = 1 char
+	yearInput.SetWidth(4)
 
 	monthInput := textinput.New()
 	monthInput.Prompt = "Month: "
@@ -48,7 +49,7 @@ func NewRecordModel() RecordModel {
 	dayInput.CharLimit = 2
 	dayInput.SetWidth(2)
 
-	tagsInput := NewTagsModel()
+	tagsInput := NewTagsModel(svc)
 
 	return RecordModel{
 		DateYearInput:  yearInput,
