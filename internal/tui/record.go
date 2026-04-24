@@ -11,8 +11,21 @@ import (
 	"github.com/gjtiquia/vimance/internal/service"
 )
 
+type ActiveField int
+
+const (
+	FieldDateYear ActiveField = iota
+	FieldDateMonth
+	FieldDateDay
+	FieldTags
+	FieldCurrency
+	FieldAmount
+	FieldNotes
+)
+
 type RecordModel struct {
 	State          RecordState
+	ActiveField    ActiveField
 	DateYearInput  textinput.Model
 	DateMonthInput textinput.Model
 	DateDayInput   textinput.Model
@@ -57,8 +70,9 @@ func NewRecordModel(svc *service.Service) RecordModel {
 	notesInput := textinput.New()
 	notesInput.Prompt = "Notes: "
 
-	return RecordModel{
+	m := RecordModel{
 		State:         RecordStateEditing,
+		ActiveField:   FieldDateYear,
 		DateYearInput: yearInput,
 		DateMonthInput: monthInput,
 		DateDayInput:   dayInput,
@@ -70,11 +84,48 @@ func NewRecordModel(svc *service.Service) RecordModel {
 		SuccessModel:   NewSuccessModel(),
 		service:        svc,
 	}
+
+	m.focusActiveField()
+	return m
+}
+
+func (m *RecordModel) focusActiveField() {
+	m.DateYearInput.Blur()
+	m.DateMonthInput.Blur()
+	m.DateDayInput.Blur()
+	m.TagsInput.SearchInput.Blur()
+	m.CurrencyInput.SearchInput.Blur()
+	m.AmountInput.Blur()
+	m.NotesInput.Blur()
+
+	switch m.ActiveField {
+	case FieldDateYear:
+		m.DateYearInput.Focus()
+	case FieldDateMonth:
+		m.DateMonthInput.Focus()
+	case FieldDateDay:
+		m.DateDayInput.Focus()
+	case FieldTags:
+		m.TagsInput.Mode = TagModeInsert
+		m.TagsInput.SearchInput.Focus()
+	case FieldCurrency:
+		m.CurrencyInput.Mode = CurrencyModeInsert
+		m.CurrencyInput.SearchInput.Focus()
+	case FieldAmount:
+		m.AmountInput.Focus()
+	case FieldNotes:
+		m.NotesInput.Focus()
+	}
+}
+
+func (m *RecordModel) setActiveField(field ActiveField) {
+	m.ActiveField = field
+	m.focusActiveField()
 }
 
 func (m Model) EnterRecordInput() (Model, tea.Cmd) {
 	m.inputType = InputTypeRecord
-	m.recordInput.DateYearInput.Focus()
+	m.recordInput.setActiveField(FieldDateYear)
 	return m, nil
 }
 
@@ -101,146 +152,84 @@ func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "tab":
-			if m.DateYearInput.Focused() {
+			switch m.ActiveField {
+			case FieldDateYear:
 				if m.DateYearInput.Value() == "" {
 					m.DateYearInput.SetValue(m.DateYearInput.Placeholder)
 				}
-				m.DateYearInput.Blur()
-				m.DateMonthInput.Focus()
+				m.setActiveField(FieldDateMonth)
 				return m, nil
-			}
-
-			if m.DateMonthInput.Focused() {
+			case FieldDateMonth:
 				if m.DateMonthInput.Value() == "" {
 					m.DateMonthInput.SetValue(m.DateMonthInput.Placeholder)
 				}
-				m.DateMonthInput.Blur()
-				m.DateDayInput.Focus()
+				m.setActiveField(FieldDateDay)
 				return m, nil
-			}
-
-			if m.DateDayInput.Focused() {
+			case FieldDateDay:
 				if m.DateDayInput.Value() == "" {
 					m.DateDayInput.SetValue(m.DateDayInput.Placeholder)
 				}
-				m.DateDayInput.Blur()
-				m.TagsInput.SearchInput.Focus()
+				m.setActiveField(FieldTags)
+				return m, nil
+			case FieldTags:
+				m.setActiveField(FieldCurrency)
+				return m, nil
+			case FieldCurrency:
+				m.setActiveField(FieldAmount)
+				return m, nil
+			case FieldAmount:
+				m.setActiveField(FieldNotes)
 				return m, nil
 			}
-
-			if m.TagsInput.SearchInput.Focused() {
-				m.TagsInput.SearchInput.Blur()
-				m.TagsInput.Mode = TagModeInsert
-				m.CurrencyInput.SearchInput.Focus()
-				return m, nil
-			}
-
-			if m.TagsInput.Mode == TagModeNormal {
-				m.TagsInput.Mode = TagModeInsert
-				m.TagsInput.SearchInput.Focus()
-				m.CurrencyInput.SearchInput.Blur()
-				return m, nil
-			}
-
-			if m.CurrencyInput.SearchInput.Focused() {
-				m.CurrencyInput.SearchInput.Blur()
-				m.CurrencyInput.Mode = CurrencyModeInsert
-				m.AmountInput.Focus()
-				return m, nil
-			}
-
-			if m.CurrencyInput.Mode == CurrencyModeNormal {
-				m.CurrencyInput.Mode = CurrencyModeInsert
-				m.CurrencyInput.SearchInput.Focus()
-				m.TagsInput.SearchInput.Blur()
-				return m, nil
-			}
-
-			if m.AmountInput.Focused() {
-				m.AmountInput.Blur()
-				m.NotesInput.Focus()
-				return m, nil
-			}
-
 			return m, nil
 
 		case "shift+tab":
-			if m.NotesInput.Focused() {
-				m.NotesInput.Blur()
-				m.AmountInput.Focus()
+			switch m.ActiveField {
+			case FieldNotes:
+				m.setActiveField(FieldAmount)
+				return m, nil
+			case FieldAmount:
+				m.setActiveField(FieldCurrency)
+				return m, nil
+			case FieldCurrency:
+				m.setActiveField(FieldTags)
+				return m, nil
+			case FieldTags:
+				m.setActiveField(FieldDateDay)
+				return m, nil
+			case FieldDateDay:
+				m.setActiveField(FieldDateMonth)
+				return m, nil
+			case FieldDateMonth:
+				m.setActiveField(FieldDateYear)
 				return m, nil
 			}
-
-			if m.AmountInput.Focused() {
-				m.AmountInput.Blur()
-				m.CurrencyInput.SearchInput.Focus()
-				return m, nil
-			}
-
-			if m.CurrencyInput.SearchInput.Focused() || m.CurrencyInput.Mode == CurrencyModeNormal {
-				m.CurrencyInput.SearchInput.Blur()
-				m.CurrencyInput.Mode = CurrencyModeInsert
-				m.TagsInput.SearchInput.Focus()
-				return m, nil
-			}
-
-			if m.TagsInput.SearchInput.Focused() || m.TagsInput.Mode == TagModeNormal {
-				m.TagsInput.SearchInput.Blur()
-				m.TagsInput.Mode = TagModeInsert
-				m.DateDayInput.Focus()
-				return m, nil
-			}
-
-			if m.DateDayInput.Focused() {
-				m.DateDayInput.Blur()
-				m.DateMonthInput.Focus()
-				return m, nil
-			}
-
-			if m.DateMonthInput.Focused() {
-				m.DateMonthInput.Blur()
-				m.DateYearInput.Focus()
-				return m, nil
-			}
-
 			return m, nil
 
 		case "enter":
-			if m.DateYearInput.Focused() {
+			switch m.ActiveField {
+			case FieldDateYear:
 				if m.DateYearInput.Value() == "" {
 					m.DateYearInput.SetValue(m.DateYearInput.Placeholder)
 				}
-				m.DateYearInput.Blur()
-				m.DateMonthInput.Focus()
+				m.setActiveField(FieldDateMonth)
 				return m, nil
-			}
-
-			if m.DateMonthInput.Focused() {
+			case FieldDateMonth:
 				if m.DateMonthInput.Value() == "" {
 					m.DateMonthInput.SetValue(m.DateMonthInput.Placeholder)
 				}
-				m.DateMonthInput.Blur()
-				m.DateDayInput.Focus()
+				m.setActiveField(FieldDateDay)
 				return m, nil
-			}
-
-			if m.DateDayInput.Focused() {
+			case FieldDateDay:
 				if m.DateDayInput.Value() == "" {
 					m.DateDayInput.SetValue(m.DateDayInput.Placeholder)
 				}
-				m.DateDayInput.Blur()
-				m.TagsInput.SearchInput.Focus()
+				m.setActiveField(FieldTags)
 				return m, nil
-			}
-
-			if m.AmountInput.Focused() {
-				m.AmountInput.Blur()
-				m.NotesInput.Focus()
+			case FieldAmount:
+				m.setActiveField(FieldNotes)
 				return m, nil
-			}
-
-			if m.NotesInput.Focused() {
-				m.NotesInput.Blur()
+			case FieldNotes:
 				m.State = RecordStateConfirm
 				m.ConfirmModel.Errors = m.Validate()
 				m.ConfirmModel.Warnings = m.GetWarnings()
@@ -272,9 +261,7 @@ func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 
 	if m.CurrencyInput.ShouldAdvance {
 		m.CurrencyInput.ShouldAdvance = false
-		m.CurrencyInput.SearchInput.Blur()
-		m.CurrencyInput.Mode = CurrencyModeInsert
-		m.AmountInput.Focus()
+		m.setActiveField(FieldAmount)
 		return m, tea.Batch(yearCmd, monthCmd, dayCmd, tagsCmd, currencyCmd, amountCmd, notesCmd)
 	}
 
@@ -287,27 +274,27 @@ func (m RecordModel) updateConfirm(msg tea.Msg) (RecordModel, tea.Cmd) {
 		switch msg.String() {
 		case "1":
 			m.State = RecordStateEditing
-			m.DateYearInput.Focus()
+			m.setActiveField(FieldDateYear)
 			return m, nil
 		case "2":
 			m.State = RecordStateEditing
-			m.TagsInput.SearchInput.Focus()
+			m.setActiveField(FieldTags)
 			return m, nil
 		case "3":
 			m.State = RecordStateEditing
-			m.CurrencyInput.SearchInput.Focus()
+			m.setActiveField(FieldCurrency)
 			return m, nil
 		case "4":
 			m.State = RecordStateEditing
-			m.AmountInput.Focus()
+			m.setActiveField(FieldAmount)
 			return m, nil
 		case "5":
 			m.State = RecordStateEditing
-			m.NotesInput.Focus()
+			m.setActiveField(FieldNotes)
 			return m, nil
 		case "esc":
 			m.State = RecordStateEditing
-			m.NotesInput.Focus()
+			m.setActiveField(FieldNotes)
 			return m, nil
 		case "enter":
 			if !m.ConfirmModel.Errors.HasErrors() {
