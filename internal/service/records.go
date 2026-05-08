@@ -23,6 +23,10 @@ func (s *Service) CreateRecord(ctx context.Context, date string, amountCents int
 }
 
 func (s *Service) CreateRecordWithTags(ctx context.Context, date string, amountCents int64, currencyID int64, notes string, createdBy int64, tagIDs []int64) (db.Record, error) {
+	return s.CreateRecordWithTagsAndLinks(ctx, date, amountCents, currencyID, notes, createdBy, tagIDs, nil)
+}
+
+func (s *Service) CreateRecordWithTagsAndLinks(ctx context.Context, date string, amountCents int64, currencyID int64, notes string, createdBy int64, tagIDs []int64, parentIDs []int64) (db.Record, error) {
 	return s.WithTransactionResult(func(q *db.Queries) (db.Record, error) {
 		now := time.Now().Unix()
 
@@ -48,6 +52,17 @@ func (s *Service) CreateRecordWithTags(ctx context.Context, date string, amountC
 				CreatedBy: createdBy,
 				UpdatedAt: now,
 				UpdatedBy: createdBy,
+			})
+			if err != nil {
+				return record, err
+			}
+		}
+
+		for _, parentID := range parentIDs {
+			err := q.AddRecordLink(ctx, db.AddRecordLinkParams{
+				ParentID:  parentID,
+				ChildID:   record.ID,
+				CreatedAt: now,
 			})
 			if err != nil {
 				return record, err

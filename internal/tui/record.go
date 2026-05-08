@@ -17,9 +17,10 @@ const (
 	FieldDateYear ActiveField = iota
 	FieldDateMonth
 	FieldDateDay
-	FieldTags
 	FieldCurrency
+	FieldTags
 	FieldAmount
+	FieldLinks
 	FieldNotes
 )
 
@@ -33,6 +34,7 @@ type RecordModel struct {
 	TagsInput     TagsModel
 	CurrencyInput CurrencyModel
 	AmountInput   textinput.Model
+	LinksInput    LinksModel
 	NotesInput    textinput.Model
 
 	ConfirmModel ConfirmModel
@@ -67,18 +69,21 @@ func NewRecordModel(svc *service.Service) RecordModel {
 	amountInput.Prompt = "Amount: "
 	amountInput.Placeholder = "0.00"
 
+	linksInput := NewLinksModel(svc)
+
 	notesInput := textinput.New()
 	notesInput.Prompt = "Notes: "
 
 	m := RecordModel{
-		State:         RecordStateEditing,
-		ActiveField:   FieldDateYear,
-		DateYearInput: yearInput,
+		State:          RecordStateEditing,
+		ActiveField:    FieldDateYear,
+		DateYearInput:  yearInput,
 		DateMonthInput: monthInput,
 		DateDayInput:   dayInput,
 		TagsInput:      tagsInput,
 		CurrencyInput:  currencyInput,
 		AmountInput:    amountInput,
+		LinksInput:     linksInput,
 		NotesInput:     notesInput,
 		ConfirmModel:   NewConfirmModel(),
 		SuccessModel:   NewSuccessModel(),
@@ -96,6 +101,7 @@ func (m *RecordModel) focusActiveField() {
 	m.TagsInput.SearchInput.Blur()
 	m.CurrencyInput.SearchInput.Blur()
 	m.AmountInput.Blur()
+	m.LinksInput.SearchInput.Blur()
 	m.NotesInput.Blur()
 
 	switch m.ActiveField {
@@ -111,6 +117,8 @@ func (m *RecordModel) focusActiveField() {
 		m.CurrencyInput.SearchInput.Focus()
 	case FieldAmount:
 		m.AmountInput.Focus()
+	case FieldLinks:
+		m.LinksInput.SearchInput.Focus()
 	case FieldNotes:
 		m.NotesInput.Focus()
 	}
@@ -126,6 +134,13 @@ func (m *RecordModel) setActiveField(field ActiveField) {
 		m.TagsInput.Mode = TagModeInsert
 	case FieldCurrency:
 		m.CurrencyInput.Mode = CurrencyModeInsert
+	case FieldLinks:
+		m.LinksInput.Mode = LinkModeInsert
+		m.LinksInput.SetDateRange(m.DateYearInput.Value(), m.DateMonthInput.Value())
+		if m.CurrencyInput.Selected != nil {
+			m.LinksInput.SetCurrencyID(m.CurrencyInput.Selected.ID)
+		}
+		m.LinksInput.LoadCandidates(context.Background())
 	}
 
 	m.ActiveField = field
@@ -178,15 +193,18 @@ func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 				if m.DateDayInput.Value() == "" {
 					m.DateDayInput.SetValue(m.DateDayInput.Placeholder)
 				}
-				m.setActiveField(FieldTags)
-				return m, nil
-			case FieldTags:
 				m.setActiveField(FieldCurrency)
 				return m, nil
 			case FieldCurrency:
+				m.setActiveField(FieldTags)
+				return m, nil
+			case FieldTags:
 				m.setActiveField(FieldAmount)
 				return m, nil
 			case FieldAmount:
+				m.setActiveField(FieldLinks)
+				return m, nil
+			case FieldLinks:
 				m.setActiveField(FieldNotes)
 				return m, nil
 			}
@@ -195,15 +213,18 @@ func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 		case "shift+tab":
 			switch m.ActiveField {
 			case FieldNotes:
+				m.setActiveField(FieldLinks)
+				return m, nil
+			case FieldLinks:
 				m.setActiveField(FieldAmount)
 				return m, nil
 			case FieldAmount:
-				m.setActiveField(FieldCurrency)
-				return m, nil
-			case FieldCurrency:
 				m.setActiveField(FieldTags)
 				return m, nil
 			case FieldTags:
+				m.setActiveField(FieldCurrency)
+				return m, nil
+			case FieldCurrency:
 				m.setActiveField(FieldDateDay)
 				return m, nil
 			case FieldDateDay:
@@ -233,9 +254,9 @@ func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 				if m.DateDayInput.Value() == "" {
 					m.DateDayInput.SetValue(m.DateDayInput.Placeholder)
 				}
-				m.setActiveField(FieldTags)
+				m.setActiveField(FieldCurrency)
 				return m, nil
-			case FieldAmount:
+			case FieldLinks:
 				m.setActiveField(FieldNotes)
 				return m, nil
 			case FieldNotes:
@@ -265,16 +286,19 @@ func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 	var amountCmd tea.Cmd
 	m.AmountInput, amountCmd = m.AmountInput.Update(msg)
 
+	var linksCmd tea.Cmd
+	m.LinksInput, linksCmd = m.LinksInput.Update(msg)
+
 	var notesCmd tea.Cmd
 	m.NotesInput, notesCmd = m.NotesInput.Update(msg)
 
 	if m.CurrencyInput.ShouldAdvance {
 		m.CurrencyInput.ShouldAdvance = false
 		m.setActiveField(FieldAmount)
-		return m, tea.Batch(yearCmd, monthCmd, dayCmd, tagsCmd, currencyCmd, amountCmd, notesCmd)
+		return m, tea.Batch(yearCmd, monthCmd, dayCmd, tagsCmd, currencyCmd, amountCmd, linksCmd, notesCmd)
 	}
 
-	return m, tea.Batch(yearCmd, monthCmd, dayCmd, tagsCmd, currencyCmd, amountCmd, notesCmd)
+	return m, tea.Batch(yearCmd, monthCmd, dayCmd, tagsCmd, currencyCmd, amountCmd, linksCmd, notesCmd)
 }
 
 func (m RecordModel) updateConfirm(msg tea.Msg) (RecordModel, tea.Cmd) {
@@ -287,11 +311,11 @@ func (m RecordModel) updateConfirm(msg tea.Msg) (RecordModel, tea.Cmd) {
 			return m, nil
 		case "2":
 			m.State = RecordStateEditing
-			m.setActiveField(FieldTags)
+			m.setActiveField(FieldCurrency)
 			return m, nil
 		case "3":
 			m.State = RecordStateEditing
-			m.setActiveField(FieldCurrency)
+			m.setActiveField(FieldTags)
 			return m, nil
 		case "4":
 			m.State = RecordStateEditing
@@ -299,11 +323,15 @@ func (m RecordModel) updateConfirm(msg tea.Msg) (RecordModel, tea.Cmd) {
 			return m, nil
 		case "5":
 			m.State = RecordStateEditing
+			m.setActiveField(FieldLinks)
+			return m, nil
+		case "6":
+			m.State = RecordStateEditing
 			m.setActiveField(FieldNotes)
 			return m, nil
 		case "esc":
 			m.State = RecordStateEditing
-			m.setActiveField(FieldNotes)
+			m.setActiveField(FieldLinks)
 			return m, nil
 		case "enter":
 			if !m.ConfirmModel.Errors.HasErrors() {
@@ -370,7 +398,12 @@ func (m RecordModel) CreateRecord(ctx context.Context, userID int64) error {
 		}
 	}
 
-	_, err = m.service.CreateRecordWithTags(ctx, date, amountCents, currency.ID, m.NotesInput.Value(), userID, tagIDs)
+	parentIDs := make([]int64, 0, len(m.LinksInput.SelectedParents))
+	for _, p := range m.LinksInput.SelectedParents {
+		parentIDs = append(parentIDs, p.ID)
+	}
+
+	_, err = m.service.CreateRecordWithTagsAndLinks(ctx, date, amountCents, currency.ID, m.NotesInput.Value(), userID, tagIDs, parentIDs)
 	return err
 }
 
@@ -398,6 +431,7 @@ func (m RecordModel) viewEditing() string {
 	sb.WriteString(m.CurrencyInput.View())
 	sb.WriteString(m.AmountInput.View())
 	sb.WriteString("\n")
+	sb.WriteString(m.LinksInput.View())
 	sb.WriteString(m.NotesInput.View())
 	return sb.String()
 }

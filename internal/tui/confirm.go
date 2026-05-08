@@ -43,7 +43,21 @@ func (m ConfirmModel) View(record RecordModel) string {
 	}
 	sb.WriteString("\n")
 
-	sb.WriteString("2) Tags: ")
+	sb.WriteString("2) Currency: ")
+	if record.CurrencyInput.Selected != nil {
+		sb.WriteString(record.CurrencyInput.Selected.Code)
+		if record.CurrencyInput.Selected.IsNew {
+			sb.WriteString("*")
+		}
+	} else {
+		sb.WriteString("(empty)")
+		if errMsg := m.Errors.Get("currency"); errMsg != "" {
+			sb.WriteString(fmt.Sprintf("  ← %s", errMsg))
+		}
+	}
+	sb.WriteString("\n")
+
+	sb.WriteString("3) Tags: ")
 	if len(record.TagsInput.SelectedTags) == 0 {
 		sb.WriteString("(none)")
 		if warnMsg := m.Warnings.Get("tags"); warnMsg != "" {
@@ -62,27 +76,33 @@ func (m ConfirmModel) View(record RecordModel) string {
 	}
 	sb.WriteString("\n")
 
-	sb.WriteString("3) Currency: ")
-	if record.CurrencyInput.Selected != nil {
-		sb.WriteString(record.CurrencyInput.Selected.Code)
-		if record.CurrencyInput.Selected.IsNew {
-			sb.WriteString("*")
-		}
-	} else {
-		sb.WriteString("(empty)")
-		if errMsg := m.Errors.Get("currency"); errMsg != "" {
-			sb.WriteString(fmt.Sprintf("  ← %s", errMsg))
-		}
-	}
-	sb.WriteString("\n")
-
 	sb.WriteString(fmt.Sprintf("4) Amount: %s", strings.TrimSpace(record.AmountInput.Value())))
 	if errMsg := m.Errors.Get("amount"); errMsg != "" {
 		sb.WriteString(fmt.Sprintf("  ← %s", errMsg))
 	}
 	sb.WriteString("\n")
 
-	sb.WriteString(fmt.Sprintf("5) Notes: %s\n", strings.TrimSpace(record.NotesInput.Value())))
+	sb.WriteString("5) Links: ")
+	if len(record.LinksInput.SelectedParents) == 0 {
+		sb.WriteString("(none)")
+		if warnMsg := m.Warnings.Get("links"); warnMsg != "" {
+			sb.WriteString(fmt.Sprintf("  ⚠ %s", warnMsg))
+		}
+	} else {
+		for i, p := range record.LinksInput.SelectedParents {
+			if i > 0 {
+				sb.WriteString(", ")
+			}
+			notes := p.Notes
+			if len(notes) > 30 {
+				notes = notes[:30] + "..."
+			}
+			sb.WriteString(fmt.Sprintf("[%s]", notes))
+		}
+	}
+	sb.WriteString("\n")
+
+	sb.WriteString(fmt.Sprintf("6) Notes: %s\n", strings.TrimSpace(record.NotesInput.Value())))
 
 	sb.WriteString("\n")
 
