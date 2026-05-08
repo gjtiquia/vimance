@@ -22,4 +22,4 @@ sqlc generate     # regenerate db code
 
 ## ideas
 - tag templates? commonly used group of tags together (or perhaps a whole record template itself)
-
+- links? some records hv relationships...? use case is, dig deep into why a drop in bank account, a top down rather than bottom up... needa think think about it tho, tags "might" solve it?
