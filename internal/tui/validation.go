@@ -132,9 +132,5 @@ func (m RecordModel) GetWarnings() ValidationErrors {
 		warnings = append(warnings, ValidationError{Field: "tags", Message: "no tags selected"})
 	}
 
-	if len(m.LinksInput.SelectedParents) == 0 {
-		warnings = append(warnings, ValidationError{Field: "links", Message: "no links — record is standalone"})
-	}
-
 	return warnings
 }

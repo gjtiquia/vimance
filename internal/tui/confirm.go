@@ -86,9 +86,6 @@ func (m ConfirmModel) View(record RecordModel) string {
 	sb.WriteString("5) Links: ")
 	if len(record.LinksInput.SelectedParents) == 0 {
 		sb.WriteString("(none)")
-		if warnMsg := m.Warnings.Get("links"); warnMsg != "" {
-			sb.WriteString(fmt.Sprintf("  ⚠ %s", warnMsg))
-		}
 	} else {
 		for i, p := range record.LinksInput.SelectedParents {
 			if i > 0 {
