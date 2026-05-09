@@ -164,12 +164,9 @@ func (m LinksModel) Update(msg tea.Msg) (LinksModel, tea.Cmd) {
 				}
 				return m, nil
 			case "enter":
-				input := strings.TrimSpace(m.SearchInput.Value())
-				if input != "" {
-					filtered := m.FilteredCandidates
-					if len(filtered) > 0 && m.CursorIndex < len(filtered) {
-						m.addParent(filtered[m.CursorIndex])
-					}
+				filtered := m.FilteredCandidates
+				if len(filtered) > 0 && m.CursorIndex < len(filtered) {
+					m.addParent(filtered[m.CursorIndex])
 				}
 				return m, nil
 			case "up":
