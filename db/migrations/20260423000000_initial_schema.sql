@@ -76,6 +76,15 @@ CREATE TABLE pinned_tags (
     updated_by INTEGER NOT NULL REFERENCES users(id)
 );
 
+-- Record links table (multiple parents per child)
+CREATE TABLE record_links (
+    parent_id INTEGER NOT NULL REFERENCES records(id) ON DELETE CASCADE,
+    child_id  INTEGER NOT NULL REFERENCES records(id) ON DELETE CASCADE,
+    created_at INTEGER NOT NULL,
+    created_by INTEGER NOT NULL REFERENCES users(id),
+    PRIMARY KEY (parent_id, child_id)
+);
+
 -- Views for active records
 CREATE VIEW active_users AS
 SELECT * FROM users WHERE deleted_at IS NULL;
@@ -95,6 +104,7 @@ DROP VIEW IF EXISTS active_records;
 DROP VIEW IF EXISTS active_tags;
 DROP VIEW IF EXISTS active_users;
 DROP TABLE IF EXISTS pinned_tags;
+DROP TABLE IF EXISTS record_links;
 DROP TABLE IF EXISTS records_tags;
 DROP TABLE IF EXISTS records;
 DROP TABLE IF EXISTS tags;
