@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/gjtiquia/vimance/internal/service"
 	"github.com/gjtiquia/vimance/internal/tui"
 )
 
@@ -110,5 +111,33 @@ func TestLinksModelLoadCandidatesWithoutPrereqs(t *testing.T) {
 	}
 	if !strings.Contains(view, "enter date and currency first") {
 		t.Error("should hint to enter date and currency first when prereqs not set")
+	}
+}
+
+func TestLinksModelLoadCandidatesWithError(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestDB(t, db)
+	svc := service.New(db)
+	m := tui.NewLinksModel(svc)
+	m.SetDateRange("2026", "05")
+	m.SetCurrencyID(1)
+	db.Close()
+
+	err := m.LoadCandidates(context.Background(), 0)
+	if err == nil {
+		t.Fatal("expected error from closed DB")
+	}
+	if m.LoadErr == "" {
+		t.Error("expected LoadErr to be set after error")
+	}
+	if m.Loaded {
+		t.Error("expected Loaded=false after DB error")
+	}
+	view := m.View()
+	if strings.Contains(view, "no records found") {
+		t.Error("should not say 'no records found' when error occurred")
+	}
+	if !strings.Contains(view, "error") {
+		t.Error("view should show error message")
 	}
 }

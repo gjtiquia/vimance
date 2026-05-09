@@ -492,7 +492,7 @@ func (m QueryModel) updateFilterForm(msg tea.Msg) (QueryModel, tea.Cmd) {
 		}
 	}
 
-	var fromCmd, toCmd, fuzzyCmd tea.Cmd
+	var fromCmd, toCmd, fuzzyCmd, currencyCmd, tagsCmd tea.Cmd
 	oldFromVal := m.DateFrom.Value()
 	m.DateFrom, fromCmd = m.DateFrom.Update(msg)
 	if oldFromVal != m.DateFrom.Value() {
@@ -507,19 +507,19 @@ func (m QueryModel) updateFilterForm(msg tea.Msg) (QueryModel, tea.Cmd) {
 
 	switch m.ActiveField {
 	case FilterCurrency:
-		m.Currency, _ = m.Currency.Update(msg)
+		m.Currency, currencyCmd = m.Currency.Update(msg)
 		if m.Currency.ShouldAdvance {
 			m.Currency.ShouldAdvance = false
 			m.setActiveFilterField(FilterTags)
-			return m, tea.Batch(fromCmd, toCmd, fuzzyCmd)
+			return m, tea.Batch(fromCmd, toCmd, currencyCmd, tagsCmd, fuzzyCmd)
 		}
 	case FilterTags:
-		m.Tags, _ = m.Tags.Update(msg)
+		m.Tags, tagsCmd = m.Tags.Update(msg)
 	case FilterFuzzy:
 		m.Fuzzy, fuzzyCmd = m.Fuzzy.Update(msg)
 	}
 
-	return m, tea.Batch(fromCmd, toCmd, fuzzyCmd)
+	return m, tea.Batch(fromCmd, toCmd, currencyCmd, tagsCmd, fuzzyCmd)
 }
 
 func (m *QueryModel) autoShiftDateTo() {

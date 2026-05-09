@@ -29,17 +29,18 @@ type LinkedRecord struct {
 }
 
 type LinksModel struct {
-	SelectedParents   []LinkedRecord
-	SearchInput       textinput.Model
-	AllCandidates     []LinkedRecord
+	SelectedParents    []LinkedRecord
+	SearchInput        textinput.Model
+	AllCandidates      []LinkedRecord
 	FilteredCandidates []LinkedRecord
-	CursorIndex       int
-	Mode              LinkMode
-	DateFrom          string
-	DateTo            string
-	CurrencyID        int64
-	service           *service.Service
-	loaded            bool
+	CursorIndex        int
+	Mode               LinkMode
+	DateFrom           string
+	DateTo             string
+	CurrencyID         int64
+	Loaded             bool
+	LoadErr            string
+	service            *service.Service
 }
 
 func NewLinksModel(svc *service.Service) LinksModel {
@@ -57,7 +58,8 @@ func NewLinksModel(svc *service.Service) LinksModel {
 		DateTo:             "",
 		CurrencyID:         0,
 		service:            svc,
-		loaded:             false,
+		Loaded:             false,
+		LoadErr:            "",
 	}
 }
 
@@ -87,7 +89,8 @@ func (m *LinksModel) LoadCandidates(ctx context.Context, excludeID int64) error 
 	if m.DateFrom == "" || m.DateTo == "" || m.CurrencyID == 0 {
 		m.AllCandidates = make([]LinkedRecord, 0)
 		m.FilteredCandidates = make([]LinkedRecord, 0)
-		m.loaded = false
+		m.Loaded = false
+		m.LoadErr = ""
 		return nil
 	}
 
@@ -95,7 +98,8 @@ func (m *LinksModel) LoadCandidates(ctx context.Context, excludeID int64) error 
 	if err != nil {
 		m.AllCandidates = make([]LinkedRecord, 0)
 		m.FilteredCandidates = make([]LinkedRecord, 0)
-		m.loaded = true
+		m.Loaded = false
+		m.LoadErr = err.Error()
 		return err
 	}
 
@@ -111,7 +115,8 @@ func (m *LinksModel) LoadCandidates(ctx context.Context, excludeID int64) error 
 		}
 	}
 	m.FilteredCandidates = m.filterCandidates()
-	m.loaded = true
+	m.Loaded = true
+	m.LoadErr = ""
 	return nil
 }
 
@@ -244,7 +249,7 @@ func (m LinksModel) View() string {
 	}
 	sb.WriteString("\n")
 
-	if m.loaded && m.DateFrom != "" && m.DateTo != "" {
+	if m.Loaded && m.DateFrom != "" && m.DateTo != "" {
 		sb.WriteString(fmt.Sprintf("(showing records from %s to %s)\n", m.DateFrom, m.DateTo))
 	}
 
@@ -259,7 +264,11 @@ func (m LinksModel) View() string {
 func (m LinksModel) filteredListView() string {
 	filtered := m.FilteredCandidates
 
-	if !m.loaded {
+	if m.LoadErr != "" {
+		return fmt.Sprintf("  (error loading candidates: %s)\n", m.LoadErr)
+	}
+
+	if !m.Loaded {
 		return "  (enter date and currency first to see candidates)\n"
 	}
 
