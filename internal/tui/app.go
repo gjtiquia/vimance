@@ -173,8 +173,11 @@ func (m Model) UpdateQueryInput(msg tea.Msg) (Model, tea.Cmd) {
 				return m, nil
 			case "enter":
 				visibleItems := m.listInput.VisibleItems()
-				visibleIndex := m.listInput.Index()
 				if len(visibleItems) > 0 {
+					visibleIndex := m.listInput.Index()
+					if visibleIndex >= len(visibleItems) {
+						visibleIndex = len(visibleItems) - 1
+					}
 					item := visibleItems[visibleIndex].(ListItem)
 					if item.title == "new" {
 						m.queryInput.State = QueryStateFilterForm

@@ -93,8 +93,11 @@ func (m Model) UpdateListInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// always submit even if in filtering state
 
 			visibleItems := m.listInput.VisibleItems()
-			visibleIndex := m.listInput.Index()
 			if len(visibleItems) > 0 {
+				visibleIndex := m.listInput.Index()
+				if visibleIndex >= len(visibleItems) {
+					visibleIndex = len(visibleItems) - 1
+				}
 				item := visibleItems[visibleIndex].(ListItem)
 
 				itemRender := m.textInput.Prompt + string(item.title) + "\n"
