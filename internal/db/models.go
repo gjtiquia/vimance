@@ -74,6 +74,12 @@ type Record struct {
 	DeletedBy   sql.NullInt64
 }
 
+type RecordLink struct {
+	ParentID  int64
+	ChildID   int64
+	CreatedAt int64
+}
+
 type RecordsTag struct {
 	RecordID  int64
 	TagID     int64
