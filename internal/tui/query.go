@@ -298,24 +298,14 @@ func (m QueryModel) updateSavedList(msg tea.Msg) (QueryModel, tea.Cmd) {
 	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "enter":
-			visibleItems := m.savedList.VisibleItems()
-			if len(visibleItems) > 0 {
-				visibleIndex := m.savedList.Index()
-				if visibleIndex >= len(visibleItems) {
-					visibleIndex = len(visibleItems) - 1
-				}
-				sqItem := visibleItems[visibleIndex].(SavedQueryListItem)
+			if item, ok := visibleItem(m.savedList); ok {
+				sqItem := item.(SavedQueryListItem)
 				m.executeSavedQuery(sqItem.ID)
 			}
 			return m, nil
 		case "d":
-			visibleItems := m.savedList.VisibleItems()
-			if len(visibleItems) > 0 {
-				visibleIndex := m.savedList.Index()
-				if visibleIndex >= len(visibleItems) {
-					visibleIndex = len(visibleItems) - 1
-				}
-				sqItem := visibleItems[visibleIndex].(SavedQueryListItem)
+			if item, ok := visibleItem(m.savedList); ok {
+				sqItem := item.(SavedQueryListItem)
 				for _, sq := range m.savedQueries {
 					if sq.ID == sqItem.ID {
 						m.deleteTarget = sq

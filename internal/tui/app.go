@@ -172,20 +172,15 @@ func (m Model) UpdateQueryInput(msg tea.Msg) (Model, tea.Cmd) {
 				m.listInput.Help.ShowAll = true
 				return m, nil
 			case "enter":
-				visibleItems := m.listInput.VisibleItems()
-				if len(visibleItems) > 0 {
-					visibleIndex := m.listInput.Index()
-					if visibleIndex >= len(visibleItems) {
-						visibleIndex = len(visibleItems) - 1
-					}
-					item := visibleItems[visibleIndex].(ListItem)
-					if item.title == "new" {
+				if item, ok := visibleItem(m.listInput); ok {
+					li := item.(ListItem)
+					if li.title == "new" {
 						m.queryInput.State = QueryStateFilterForm
 						m.queryInput.ActiveField = FilterDateFrom
 						m.queryInput.focusActiveField()
 						return m, nil
 					}
-					if item.title == "saved" {
+					if li.title == "saved" {
 						m.queryInput.loadSavedQueries()
 						return m, nil
 					}

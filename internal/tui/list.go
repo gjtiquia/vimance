@@ -11,6 +11,18 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
+func visibleItem(l list.Model) (list.Item, bool) {
+	items := l.VisibleItems()
+	if len(items) == 0 {
+		return nil, false
+	}
+	idx := l.Index()
+	if idx >= len(items) {
+		idx = len(items) - 1
+	}
+	return items[idx], true
+}
+
 func NewUnstyledList() list.Model {
 	const listWidth = 20 // arbitrary
 
@@ -92,25 +104,20 @@ func (m Model) UpdateListInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			// always submit even if in filtering state
 
-			visibleItems := m.listInput.VisibleItems()
-			if len(visibleItems) > 0 {
-				visibleIndex := m.listInput.Index()
-				if visibleIndex >= len(visibleItems) {
-					visibleIndex = len(visibleItems) - 1
-				}
-				item := visibleItems[visibleIndex].(ListItem)
+			if item, ok := visibleItem(m.listInput); ok {
+				li := item.(ListItem)
 
-				itemRender := m.textInput.Prompt + string(item.title) + "\n"
+				itemRender := m.textInput.Prompt + string(li.title) + "\n"
 				m.history = append(m.history, itemRender)
 
-				m.inputChain = append(m.inputChain, item.title)
+				m.inputChain = append(m.inputChain, li.title)
 
 				// TODO : not sure if there is a more elegant way to do this
-				if item.title == "create" {
+				if li.title == "create" {
 					return m.EnterRecordInput()
 				}
 
-				if item.title == "query" {
+				if li.title == "query" {
 					return m.EnterQueryInput()
 				}
 
