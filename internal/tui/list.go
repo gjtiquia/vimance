@@ -23,6 +23,14 @@ func visibleItem(l list.Model) (list.Item, bool) {
 	return items[idx], true
 }
 
+func clampListCursor(l list.Model) list.Model {
+	visible := l.VisibleItems()
+	if len(visible) > 0 && l.Index() >= len(visible) {
+		l.Select(len(visible) - 1)
+	}
+	return l
+}
+
 func NewUnstyledList() list.Model {
 	const listWidth = 20 // arbitrary
 
@@ -129,6 +137,7 @@ func (m Model) UpdateListInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	var cmd tea.Cmd
 	m.listInput, cmd = m.listInput.Update(msg)
+	m.listInput = clampListCursor(m.listInput)
 	return m, cmd
 }
 

@@ -322,6 +322,7 @@ func (m QueryModel) updateSavedList(msg tea.Msg) (QueryModel, tea.Cmd) {
 
 	var cmd tea.Cmd
 	m.savedList, cmd = m.savedList.Update(msg)
+	m.savedList = clampListCursor(m.savedList)
 	return m, cmd
 }
 

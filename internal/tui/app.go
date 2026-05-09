@@ -200,6 +200,7 @@ func (m Model) UpdateQueryInput(msg tea.Msg) (Model, tea.Cmd) {
 
 		var cmd tea.Cmd
 		m.listInput, cmd = m.listInput.Update(msg)
+		m.listInput = clampListCursor(m.listInput)
 		return m, cmd
 	}
 
