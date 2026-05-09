@@ -160,13 +160,12 @@ func TestRecordModelCurrencyAdvanceResetsOnFieldChange(t *testing.T) {
 		t.Fatal("expected USD selected")
 	}
 
-	// Tab away from currency — ShouldAdvance should be cleared by setActiveField
-	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	// Enter auto-advances to FieldTags and clears ShouldAdvance
 	if m.ActiveField != tui.FieldTags {
-		t.Fatalf("expected FieldTags after tab, got %v", m.ActiveField)
+		t.Fatalf("expected FieldTags after enter, got %v", m.ActiveField)
 	}
 	if m.CurrencyInput.ShouldAdvance {
-		t.Error("ShouldAdvance should be false after tabbing away from currency")
+		t.Error("ShouldAdvance should be false after auto-advance")
 	}
 }
 
@@ -190,10 +189,9 @@ func TestRecordModelConfirmEnterNoErrors(t *testing.T) {
 		t.Fatal("expected USD selected")
 	}
 
-	// Tab to Tags
-	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	// Auto-advances to Tags on enter
 	if m.ActiveField != tui.FieldTags {
-		t.Fatalf("expected FieldTags, got %v", m.ActiveField)
+		t.Fatalf("expected auto-advance to FieldTags, got %v", m.ActiveField)
 	}
 
 	// Tab to Amount
@@ -234,5 +232,53 @@ func TestRecordModelConfirmEnterNoErrors(t *testing.T) {
 	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if m.State != tui.RecordStateSuccess {
 		t.Errorf("expected RecordStateSuccess, got %v", m.State)
+	}
+}
+
+func TestRecordModelInactiveSubModelsIgnoreKeys(t *testing.T) {
+	m := setupRecordModel(t)
+
+	m.TagsInput.SelectedTags = []tui.TagItem{{ID: 1, Name: "food"}}
+	m.CurrencyInput.AllCurrencies = []tui.CurrencyItem{
+		{ID: 1, Code: "USD"}, {ID: 2, Code: "EUR"},
+	}
+	m.CurrencyInput.CursorIndex = 0
+	m.CurrencyInput.Mode = tui.CurrencyModeNormal
+
+	// Tab from FieldDateYear to FieldAmount
+	for i := 0; i < 5; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	if m.ActiveField != tui.FieldAmount {
+		t.Fatalf("expected FieldAmount, got %v", m.ActiveField)
+	}
+
+	// ctrl+z on Amount should NOT remove tag from TagsInput
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'z', Mod: tea.ModCtrl})
+	if len(m.TagsInput.SelectedTags) != 1 {
+		t.Errorf("ctrl+z on Amount should not remove tags: got %d", len(m.TagsInput.SelectedTags))
+	}
+
+	// down arrow on Amount should NOT move currency cursor
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	if m.CurrencyInput.CursorIndex != 0 {
+		t.Errorf("down arrow on Amount should not move currency cursor: got %d", m.CurrencyInput.CursorIndex)
+	}
+
+	// Navigate to Tags and verify ctrl+z DOES work on the active field
+	// Tab from Amount → Links → Notes, then shift+tab back to Tags
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab}) // → FieldLinks
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab}) // → FieldNotes
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift}) // → FieldLinks
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift}) // → FieldAmount
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift}) // → FieldTags
+	if m.ActiveField != tui.FieldTags {
+		t.Fatalf("expected FieldTags, got %v", m.ActiveField)
+	}
+
+	// ctrl+z on Tags SHOULD remove tag
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'z', Mod: tea.ModCtrl})
+	if len(m.TagsInput.SelectedTags) != 0 {
+		t.Errorf("ctrl+z on Tags should remove tag: got %d", len(m.TagsInput.SelectedTags))
 	}
 }

@@ -326,6 +326,10 @@ func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 				return m, nil
 			case FieldCurrency:
 				m.CurrencyInput, _ = m.CurrencyInput.Update(msg)
+				if m.CurrencyInput.ShouldAdvance {
+					m.CurrencyInput.ShouldAdvance = false
+					m.setActiveField(FieldTags)
+				}
 				return m, nil
 			case FieldTags:
 				m.TagsInput, _ = m.TagsInput.Update(msg)
@@ -349,29 +353,24 @@ func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 		}
 	}
 
-	var yearCmd tea.Cmd
+	var yearCmd, monthCmd, dayCmd tea.Cmd
 	m.DateYearInput, yearCmd = m.DateYearInput.Update(msg)
-
-	var monthCmd tea.Cmd
 	m.DateMonthInput, monthCmd = m.DateMonthInput.Update(msg)
-
-	var dayCmd tea.Cmd
 	m.DateDayInput, dayCmd = m.DateDayInput.Update(msg)
 
-	var tagsCmd tea.Cmd
-	m.TagsInput, tagsCmd = m.TagsInput.Update(msg)
-
-	var currencyCmd tea.Cmd
-	m.CurrencyInput, currencyCmd = m.CurrencyInput.Update(msg)
-
-	var amountCmd tea.Cmd
+	var amountCmd, notesCmd tea.Cmd
 	m.AmountInput, amountCmd = m.AmountInput.Update(msg)
-
-	var linksCmd tea.Cmd
-	m.LinksInput, linksCmd = m.LinksInput.Update(msg)
-
-	var notesCmd tea.Cmd
 	m.NotesInput, notesCmd = m.NotesInput.Update(msg)
+
+	var tagsCmd, currencyCmd, linksCmd tea.Cmd
+	switch m.ActiveField {
+	case FieldTags:
+		m.TagsInput, tagsCmd = m.TagsInput.Update(msg)
+	case FieldCurrency:
+		m.CurrencyInput, currencyCmd = m.CurrencyInput.Update(msg)
+	case FieldLinks:
+		m.LinksInput, linksCmd = m.LinksInput.Update(msg)
+	}
 
 	if m.CurrencyInput.ShouldAdvance {
 		m.CurrencyInput.ShouldAdvance = false

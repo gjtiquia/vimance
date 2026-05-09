@@ -106,8 +106,7 @@ func TestModelRecordCreateIntegration(t *testing.T) {
 		t.Fatal("expected USD selected")
 	}
 
-	result, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
-	m = result.(tui.Model)
+	// Auto-advanced to Tags on enter, one tab to Amount
 	result, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 	m = result.(tui.Model)
 	if m.RecordInput.ActiveField != tui.FieldAmount {

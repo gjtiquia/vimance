@@ -505,15 +505,19 @@ func (m QueryModel) updateFilterForm(msg tea.Msg) (QueryModel, tea.Cmd) {
 		m.dateToManual = true
 	}
 
-	m.Currency, _ = m.Currency.Update(msg)
-	if m.ActiveField == FilterCurrency && m.Currency.ShouldAdvance {
-		m.Currency.ShouldAdvance = false
-		m.setActiveFilterField(FilterTags)
-		return m, tea.Batch(fromCmd, toCmd, fuzzyCmd)
+	switch m.ActiveField {
+	case FilterCurrency:
+		m.Currency, _ = m.Currency.Update(msg)
+		if m.Currency.ShouldAdvance {
+			m.Currency.ShouldAdvance = false
+			m.setActiveFilterField(FilterTags)
+			return m, tea.Batch(fromCmd, toCmd, fuzzyCmd)
+		}
+	case FilterTags:
+		m.Tags, _ = m.Tags.Update(msg)
+	case FilterFuzzy:
+		m.Fuzzy, fuzzyCmd = m.Fuzzy.Update(msg)
 	}
-
-	m.Tags, _ = m.Tags.Update(msg)
-	m.Fuzzy, fuzzyCmd = m.Fuzzy.Update(msg)
 
 	return m, tea.Batch(fromCmd, toCmd, fuzzyCmd)
 }

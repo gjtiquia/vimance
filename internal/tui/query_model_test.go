@@ -284,6 +284,36 @@ func TestQueryModelResultsErrorDismissal(t *testing.T) {
 	}
 }
 
+func TestQueryModelInactiveSubModelsIgnoreKeys(t *testing.T) {
+	m := setupQueryModel(t)
+	m.State = tui.QueryStateFilterForm
+	m.ActiveField = tui.FilterDateTo
+	m.FocusActiveField()
+
+	m.Currency.AllCurrencies = []tui.CurrencyItem{
+		{ID: 1, Code: "USD"},
+		{ID: 2, Code: "EUR"},
+	}
+	m.Currency.CursorIndex = 0
+	m.Currency.Mode = tui.CurrencyModeNormal
+
+	// Part 1: inactive field — down on DateTo should NOT move currency cursor
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	if m.Currency.CursorIndex != 0 {
+		t.Errorf("down on DateTo should not move currency cursor: got %d", m.Currency.CursorIndex)
+	}
+
+	// Part 2: active field — set to Currency and verify down DOES move cursor
+	m.ActiveField = tui.FilterCurrency
+	m.Currency.Mode = tui.CurrencyModeNormal
+	m.Currency.CursorIndex = 0
+
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	if m.Currency.CursorIndex != 1 {
+		t.Errorf("down on Currency should move cursor: expected 1, got %d", m.Currency.CursorIndex)
+	}
+}
+
 func TestQueryModelDeleteConfirm(t *testing.T) {
 	m := setupQueryModel(t)
 	m.State = tui.QueryStateDeleteConfirm
