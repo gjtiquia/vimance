@@ -40,15 +40,15 @@ func setupTestDB(t *testing.T) *sql.DB {
 func seedTestDB(t *testing.T, db *sql.DB) {
 	t.Helper()
 
-	_, err := db.Exec("INSERT INTO users (id, name) VALUES (1, 'testuser')")
+	_, err := db.Exec("INSERT INTO users (id, username, created_at, updated_at) VALUES (1, 'testuser', 0, 0)")
 	if err != nil {
 		t.Fatalf("seed user: %v", err)
 	}
-	_, err = db.Exec("INSERT INTO currencies (id, code) VALUES (1, 'USD')")
+	_, err = db.Exec("INSERT INTO currencies (id, code, created_at, updated_at) VALUES (1, 'USD', 0, 0)")
 	if err != nil {
 		t.Fatalf("seed currency: %v", err)
 	}
-	_, err = db.Exec("INSERT INTO tags (id, name) VALUES (1, 'food')")
+	_, err = db.Exec("INSERT INTO tags (id, name, created_at, created_by, updated_at, updated_by) VALUES (1, 'food', 0, 1, 0, 1)")
 	if err != nil {
 		t.Fatalf("seed tag: %v", err)
 	}

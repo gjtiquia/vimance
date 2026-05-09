@@ -248,6 +248,8 @@ func (m *RecordModel) setActiveField(field ActiveField) {
 		return
 	}
 
+	m.CurrencyInput.ShouldAdvance = false
+
 	switch field {
 	case FieldTags:
 		m.TagsInput.Mode = TagModeInsert
