@@ -164,9 +164,9 @@ func NewEditRecordModel(svc *service.Service, full *service.RecordFull, origin R
 
 	// pre-fill currency
 	m.CurrencyInput.LoadCurrencies(context.Background())
-	for _, c := range m.CurrencyInput.AllCurrencies {
-		if c.ID == full.Record.CurrencyID {
-			m.CurrencyInput.Selected = &c
+	for i := range m.CurrencyInput.AllCurrencies {
+		if m.CurrencyInput.AllCurrencies[i].ID == full.Record.CurrencyID {
+			m.CurrencyInput.Selected = &m.CurrencyInput.AllCurrencies[i]
 			break
 		}
 	}
@@ -249,7 +249,7 @@ func (m *RecordModel) setActiveField(field ActiveField) {
 		if m.CurrencyInput.Selected != nil {
 			m.LinksInput.SetCurrencyID(m.CurrencyInput.Selected.ID)
 		}
-		m.LinksInput.LoadCandidates(context.Background())
+		m.LinksInput.LoadCandidates(context.Background(), m.EditRecordID)
 	}
 
 	m.ActiveField = field

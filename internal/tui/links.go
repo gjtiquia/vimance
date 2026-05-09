@@ -65,10 +65,16 @@ func (m *LinksModel) SetDateRange(year, month string) {
 	if year == "" || month == "" {
 		return
 	}
+	if len(year) != 4 || len(month) < 1 || len(month) > 2 {
+		return
+	}
 	m.DateFrom = fmt.Sprintf("%s-%s-01", year, month)
 
-	y, _ := strconv.Atoi(year)
-	mo, _ := strconv.Atoi(month)
+	y, errY := strconv.Atoi(year)
+	mo, errM := strconv.Atoi(month)
+	if errY != nil || errM != nil || y < 1 || mo < 1 || mo > 12 {
+		return
+	}
 	lastDay := time.Date(y, time.Month(mo)+1, 0, 0, 0, 0, 0, time.UTC).Day()
 	m.DateTo = fmt.Sprintf("%s-%s-%02d", year, month, lastDay)
 }
@@ -77,7 +83,7 @@ func (m *LinksModel) SetCurrencyID(id int64) {
 	m.CurrencyID = id
 }
 
-func (m *LinksModel) LoadCandidates(ctx context.Context) error {
+func (m *LinksModel) LoadCandidates(ctx context.Context, excludeID int64) error {
 	if m.DateFrom == "" || m.DateTo == "" || m.CurrencyID == 0 {
 		m.AllCandidates = make([]LinkedRecord, 0)
 		m.FilteredCandidates = make([]LinkedRecord, 0)
@@ -85,7 +91,7 @@ func (m *LinksModel) LoadCandidates(ctx context.Context) error {
 		return nil
 	}
 
-	candidates, err := m.service.SearchLinkCandidates(ctx, m.DateFrom, m.DateTo, m.CurrencyID, 0)
+	candidates, err := m.service.SearchLinkCandidates(ctx, m.DateFrom, m.DateTo, m.CurrencyID, excludeID)
 	if err != nil {
 		m.AllCandidates = make([]LinkedRecord, 0)
 		m.FilteredCandidates = make([]LinkedRecord, 0)
