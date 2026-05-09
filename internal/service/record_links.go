@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gjtiquia/vimance/internal/db"
@@ -16,7 +17,43 @@ type LinkCandidate struct {
 	TagNames    []string
 }
 
+func wouldCreateCycle(ctx context.Context, q *db.Queries, parentID, childID int64) (bool, error) {
+	if parentID == childID {
+		return true, nil
+	}
+	visited := make(map[int64]bool)
+	queue := []int64{childID}
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		if visited[current] {
+			continue
+		}
+		visited[current] = true
+		children, err := q.GetRecordChildrenAll(ctx, current)
+		if err != nil {
+			return false, err
+		}
+		for _, c := range children {
+			if c.ID == parentID {
+				return true, nil
+			}
+			if !visited[c.ID] {
+				queue = append(queue, c.ID)
+			}
+		}
+	}
+	return false, nil
+}
+
 func (s *Service) LinkRecords(ctx context.Context, parentID int64, childID int64, createdBy int64) error {
+	cycle, err := wouldCreateCycle(ctx, s.queries, parentID, childID)
+	if err != nil {
+		return err
+	}
+	if cycle {
+		return fmt.Errorf("linking %d → %d would create a cycle", parentID, childID)
+	}
 	now := time.Now().Unix()
 	return s.queries.AddRecordLink(ctx, db.AddRecordLinkParams{
 		ParentID:  parentID,

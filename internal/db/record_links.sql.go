@@ -74,6 +74,48 @@ func (q *Queries) GetRecordChildren(ctx context.Context, parentID int64) ([]Acti
 	return items, nil
 }
 
+const getRecordChildrenAll = `-- name: GetRecordChildrenAll :many
+SELECT r.id, r.date, r.amount_cents, r.currency_id, r.notes, r.created_at, r.created_by, r.updated_at, r.updated_by, r.deleted_at, r.deleted_by FROM records r
+INNER JOIN record_links rl ON r.id = rl.child_id
+WHERE rl.parent_id = ?
+ORDER BY r.date DESC, r.id DESC
+`
+
+func (q *Queries) GetRecordChildrenAll(ctx context.Context, parentID int64) ([]Record, error) {
+	rows, err := q.db.QueryContext(ctx, getRecordChildrenAll, parentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Record
+	for rows.Next() {
+		var i Record
+		if err := rows.Scan(
+			&i.ID,
+			&i.Date,
+			&i.AmountCents,
+			&i.CurrencyID,
+			&i.Notes,
+			&i.CreatedAt,
+			&i.CreatedBy,
+			&i.UpdatedAt,
+			&i.UpdatedBy,
+			&i.DeletedAt,
+			&i.DeletedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getRecordParents = `-- name: GetRecordParents :many
 SELECT r.id, r.date, r.amount_cents, r.currency_id, r.notes, r.created_at, r.created_by, r.updated_at, r.updated_by, r.deleted_at, r.deleted_by FROM active_records r
 INNER JOIN record_links rl ON r.id = rl.parent_id

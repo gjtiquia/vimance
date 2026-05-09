@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/gjtiquia/vimance/internal/db"
@@ -284,6 +285,13 @@ func (s *Service) UpdateRecordWithTagsAndLinks(ctx context.Context, id int64, da
 		}
 
 		for _, parentID := range parentIDs {
+			cycle, err := wouldCreateCycle(ctx, q, parentID, record.ID)
+			if err != nil {
+				return record, err
+			}
+			if cycle {
+				return record, fmt.Errorf("linking %d → %d would create a cycle", parentID, record.ID)
+			}
 			if err := q.AddRecordLink(ctx, db.AddRecordLinkParams{
 				ParentID:  parentID,
 				ChildID:   record.ID,

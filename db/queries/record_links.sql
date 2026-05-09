@@ -20,6 +20,12 @@ INNER JOIN record_links rl ON r.id = rl.child_id
 WHERE rl.parent_id = ?
 ORDER BY r.date DESC, r.id DESC;
 
+-- name: GetRecordChildrenAll :many
+SELECT r.* FROM records r
+INNER JOIN record_links rl ON r.id = rl.child_id
+WHERE rl.parent_id = ?
+ORDER BY r.date DESC, r.id DESC;
+
 -- name: SearchParentCandidates :many
 SELECT DISTINCT r.id, r.date, r.amount_cents, r.currency_id, r.notes
 FROM active_records r

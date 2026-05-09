@@ -73,7 +73,8 @@ CREATE TABLE pinned_tags (
     created_at INTEGER NOT NULL,
     created_by INTEGER NOT NULL REFERENCES users(id),
     updated_at INTEGER NOT NULL,
-    updated_by INTEGER NOT NULL REFERENCES users(id)
+    updated_by INTEGER NOT NULL REFERENCES users(id),
+    UNIQUE(position)
 );
 
 -- Record links table (multiple parents per child)
@@ -82,7 +83,8 @@ CREATE TABLE record_links (
     child_id  INTEGER NOT NULL REFERENCES records(id) ON DELETE CASCADE,
     created_at INTEGER NOT NULL,
     created_by INTEGER NOT NULL REFERENCES users(id),
-    PRIMARY KEY (parent_id, child_id)
+    PRIMARY KEY (parent_id, child_id),
+    CHECK(parent_id != child_id)
 );
 
 -- Views for active records
@@ -98,7 +100,7 @@ SELECT * FROM records WHERE deleted_at IS NULL;
 -- Saved queries table (hard delete, user convenience config)
 CREATE TABLE saved_queries (
     id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL,
+    name TEXT NOT NULL UNIQUE,
     date_from TEXT NOT NULL,
     date_to TEXT NOT NULL,
     currency_id INTEGER REFERENCES currencies(id),
@@ -106,7 +108,8 @@ CREATE TABLE saved_queries (
     created_at INTEGER NOT NULL,
     created_by INTEGER NOT NULL REFERENCES users(id),
     updated_at INTEGER NOT NULL,
-    updated_by INTEGER NOT NULL REFERENCES users(id)
+    updated_by INTEGER NOT NULL REFERENCES users(id),
+    CHECK(date_from <= date_to)
 );
 
 CREATE TABLE saved_query_tags (
@@ -115,11 +118,25 @@ CREATE TABLE saved_query_tags (
     PRIMARY KEY (query_id, tag_id)
 );
 
+-- Indexes for common query patterns
+CREATE INDEX idx_records_date ON records(date);
+CREATE INDEX idx_records_currency_id ON records(currency_id);
+CREATE INDEX idx_records_deleted_at ON records(deleted_at);
+CREATE INDEX idx_records_tags_tag_id ON records_tags(tag_id);
+CREATE INDEX idx_record_links_child_id ON record_links(child_id);
+CREATE INDEX idx_record_links_parent_id ON record_links(parent_id);
+
 -- +goose StatementEnd
 
 -- +goose Down
 -- +goose StatementBegin
 
+DROP INDEX IF EXISTS idx_records_date;
+DROP INDEX IF EXISTS idx_records_currency_id;
+DROP INDEX IF EXISTS idx_records_deleted_at;
+DROP INDEX IF EXISTS idx_records_tags_tag_id;
+DROP INDEX IF EXISTS idx_record_links_child_id;
+DROP INDEX IF EXISTS idx_record_links_parent_id;
 DROP VIEW IF EXISTS active_records;
 DROP VIEW IF EXISTS active_tags;
 DROP VIEW IF EXISTS active_users;
