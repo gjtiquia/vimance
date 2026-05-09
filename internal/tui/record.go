@@ -272,6 +272,7 @@ func (m *RecordModel) setActiveField(field ActiveField) {
 
 func (m Model) EnterRecordInput() (Model, tea.Cmd) {
 	m.InputType = InputTypeRecord
+	m.RecordInput.Origin = RecordOriginCreate
 	m.RecordInput.setActiveField(FieldDateYear)
 	return m, nil
 }

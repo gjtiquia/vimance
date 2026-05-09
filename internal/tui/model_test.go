@@ -145,6 +145,15 @@ func TestModelRecordCreateIntegration(t *testing.T) {
 	result, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	m = result.(tui.Model)
 	if m.RecordInput.State != tui.RecordStateSuccess {
-		t.Errorf("expected RecordStateSuccess, got %v", m.RecordInput.State)
+		t.Fatalf("expected RecordStateSuccess, got %v", m.RecordInput.State)
+	}
+
+	result, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = result.(tui.Model)
+	if m.RecordInput.State != tui.RecordStateEditing {
+		t.Errorf("expected RecordStateEditing after Enter in success, got %v", m.RecordInput.State)
+	}
+	if m.RecordInput.ActiveField != tui.FieldDateYear {
+		t.Errorf("expected FieldDateYear after reset, got %v", m.RecordInput.ActiveField)
 	}
 }
