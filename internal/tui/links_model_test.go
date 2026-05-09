@@ -1,6 +1,8 @@
 package tui_test
 
 import (
+	"context"
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -96,5 +98,17 @@ func TestLinksModelUpDown(t *testing.T) {
 	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyUp})
 	if m.CursorIndex != 0 {
 		t.Errorf("expected CursorIndex=0 at top, got %d", m.CursorIndex)
+	}
+}
+
+func TestLinksModelLoadCandidatesWithoutPrereqs(t *testing.T) {
+	m := tui.NewLinksModel(nil)
+	m.LoadCandidates(context.Background(), 0)
+	view := m.View()
+	if strings.Contains(view, "no records found") {
+		t.Error("should not say 'no records found' when date/currency not set")
+	}
+	if !strings.Contains(view, "enter date and currency first") {
+		t.Error("should hint to enter date and currency first when prereqs not set")
 	}
 }

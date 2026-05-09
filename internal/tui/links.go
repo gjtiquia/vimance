@@ -87,7 +87,7 @@ func (m *LinksModel) LoadCandidates(ctx context.Context, excludeID int64) error 
 	if m.DateFrom == "" || m.DateTo == "" || m.CurrencyID == 0 {
 		m.AllCandidates = make([]LinkedRecord, 0)
 		m.FilteredCandidates = make([]LinkedRecord, 0)
-		m.loaded = true
+		m.loaded = false
 		return nil
 	}
 
