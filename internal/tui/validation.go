@@ -10,8 +10,12 @@ import (
 
 var amountRegex = regexp.MustCompile(`^\d+(\.\d{1,2})?$`)
 
+func cleanAmount(s string) string {
+	return strings.ReplaceAll(strings.TrimSpace(s), ",", "")
+}
+
 func validateAmount(amount string) error {
-	amount = strings.TrimSpace(amount)
+	amount = cleanAmount(amount)
 	if amount == "" {
 		return fmt.Errorf("amount is required")
 	}
@@ -24,6 +28,7 @@ func validateAmount(amount string) error {
 }
 
 func parseAmountToCents(amount string) (int64, error) {
+	amount = cleanAmount(amount)
 	if err := validateAmount(amount); err != nil {
 		return 0, err
 	}
