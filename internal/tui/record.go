@@ -24,6 +24,51 @@ const (
 	FieldNotes
 )
 
+var fieldOrder = []ActiveField{
+	FieldDateYear, FieldDateMonth, FieldDateDay,
+	FieldCurrency, FieldTags, FieldAmount,
+	FieldLinks, FieldNotes,
+}
+
+func (m RecordModel) nextField() ActiveField {
+	for i, f := range fieldOrder {
+		if f == m.ActiveField && i < len(fieldOrder)-1 {
+			return fieldOrder[i+1]
+		}
+	}
+	return m.ActiveField
+}
+
+func (m RecordModel) prevField() ActiveField {
+	for i, f := range fieldOrder {
+		if f == m.ActiveField && i > 0 {
+			return fieldOrder[i-1]
+		}
+	}
+	return m.ActiveField
+}
+
+func isDateField(f ActiveField) bool {
+	return f == FieldDateYear || f == FieldDateMonth || f == FieldDateDay
+}
+
+func (m *RecordModel) fillCurrentDateDefault() {
+	switch m.ActiveField {
+	case FieldDateYear:
+		if m.DateYearInput.Value() == "" {
+			m.DateYearInput.SetValue(m.DateYearInput.Placeholder)
+		}
+	case FieldDateMonth:
+		if m.DateMonthInput.Value() == "" {
+			m.DateMonthInput.SetValue(m.DateMonthInput.Placeholder)
+		}
+	case FieldDateDay:
+		if m.DateDayInput.Value() == "" {
+			m.DateDayInput.SetValue(m.DateDayInput.Placeholder)
+		}
+	}
+}
+
 type RecordModel struct {
 	State          RecordState
 	ActiveField    ActiveField
@@ -178,87 +223,32 @@ func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "tab":
-			switch m.ActiveField {
-			case FieldDateYear:
-				if m.DateYearInput.Value() == "" {
-					m.DateYearInput.SetValue(m.DateYearInput.Placeholder)
-				}
-				m.setActiveField(FieldDateMonth)
-				return m, nil
-			case FieldDateMonth:
-				if m.DateMonthInput.Value() == "" {
-					m.DateMonthInput.SetValue(m.DateMonthInput.Placeholder)
-				}
-				m.setActiveField(FieldDateDay)
-				return m, nil
-			case FieldDateDay:
-				if m.DateDayInput.Value() == "" {
-					m.DateDayInput.SetValue(m.DateDayInput.Placeholder)
-				}
-				m.setActiveField(FieldCurrency)
-				return m, nil
-			case FieldCurrency:
-				m.setActiveField(FieldTags)
-				return m, nil
-			case FieldTags:
-				m.setActiveField(FieldAmount)
-				return m, nil
-			case FieldAmount:
-				m.setActiveField(FieldLinks)
-				return m, nil
-			case FieldLinks:
-				m.setActiveField(FieldNotes)
-				return m, nil
+			if isDateField(m.ActiveField) {
+				m.fillCurrentDateDefault()
+			}
+			next := m.nextField()
+			if next != m.ActiveField {
+				m.setActiveField(next)
 			}
 			return m, nil
 
 		case "shift+tab":
-			switch m.ActiveField {
-			case FieldNotes:
-				m.setActiveField(FieldLinks)
-				return m, nil
-			case FieldLinks:
-				m.setActiveField(FieldAmount)
-				return m, nil
-			case FieldAmount:
-				m.setActiveField(FieldTags)
-				return m, nil
-			case FieldTags:
-				m.setActiveField(FieldCurrency)
-				return m, nil
-			case FieldCurrency:
-				m.setActiveField(FieldDateDay)
-				return m, nil
-			case FieldDateDay:
-				m.setActiveField(FieldDateMonth)
-				return m, nil
-			case FieldDateMonth:
-				m.setActiveField(FieldDateYear)
-				return m, nil
+			prev := m.prevField()
+			if prev != m.ActiveField {
+				m.setActiveField(prev)
 			}
 			return m, nil
 
 		case "enter":
-			switch m.ActiveField {
-			case FieldDateYear:
-				if m.DateYearInput.Value() == "" {
-					m.DateYearInput.SetValue(m.DateYearInput.Placeholder)
+			if isDateField(m.ActiveField) {
+				m.fillCurrentDateDefault()
+				next := m.nextField()
+				if next != m.ActiveField {
+					m.setActiveField(next)
 				}
-				m.setActiveField(FieldDateMonth)
 				return m, nil
-			case FieldDateMonth:
-				if m.DateMonthInput.Value() == "" {
-					m.DateMonthInput.SetValue(m.DateMonthInput.Placeholder)
-				}
-				m.setActiveField(FieldDateDay)
-				return m, nil
-			case FieldDateDay:
-				if m.DateDayInput.Value() == "" {
-					m.DateDayInput.SetValue(m.DateDayInput.Placeholder)
-				}
-				m.setActiveField(FieldCurrency)
-				return m, nil
-			case FieldNotes:
+			}
+			if m.ActiveField == FieldNotes {
 				m.State = RecordStateConfirm
 				m.ConfirmModel.Errors = m.Validate()
 				m.ConfirmModel.Warnings = m.GetWarnings()
@@ -420,17 +410,29 @@ func (m RecordModel) View() string {
 
 func (m RecordModel) viewEditing() string {
 	var sb strings.Builder
-	sb.WriteString(m.DateYearInput.View())
-	sb.WriteString("\n")
-	sb.WriteString(m.DateMonthInput.View())
-	sb.WriteString("\n")
-	sb.WriteString(m.DateDayInput.View())
-	sb.WriteString("\n")
-	sb.WriteString(m.CurrencyInput.View())
-	sb.WriteString(m.TagsInput.View())
-	sb.WriteString(m.AmountInput.View())
-	sb.WriteString("\n")
-	sb.WriteString(m.LinksInput.View())
-	sb.WriteString(m.NotesInput.View())
+	for _, f := range fieldOrder {
+		switch f {
+		case FieldDateYear:
+			sb.WriteString(m.DateYearInput.View())
+			sb.WriteString("\n")
+		case FieldDateMonth:
+			sb.WriteString(m.DateMonthInput.View())
+			sb.WriteString("\n")
+		case FieldDateDay:
+			sb.WriteString(m.DateDayInput.View())
+			sb.WriteString("\n")
+		case FieldCurrency:
+			sb.WriteString(m.CurrencyInput.View())
+		case FieldTags:
+			sb.WriteString(m.TagsInput.View())
+		case FieldAmount:
+			sb.WriteString(m.AmountInput.View())
+			sb.WriteString("\n")
+		case FieldLinks:
+			sb.WriteString(m.LinksInput.View())
+		case FieldNotes:
+			sb.WriteString(m.NotesInput.View())
+		}
+	}
 	return sb.String()
 }
