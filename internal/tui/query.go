@@ -415,6 +415,19 @@ func (m *QueryModel) executeSavedQuery(id int64) {
 		}
 	}
 
+	if len(target.TagIDs) > 0 {
+		m.Tags.LoadTags(context.Background())
+		m.Tags.SelectedTags = make([]TagItem, 0)
+		for _, tid := range target.TagIDs {
+			for _, t := range m.Tags.AllTags {
+				if t.ID == tid {
+					m.Tags.SelectedTags = append(m.Tags.SelectedTags, t)
+					break
+				}
+			}
+		}
+	}
+
 	params := m.currentFilterParams()
 	results, err := m.svc.QueryRecords(context.Background(), params.dateFrom, params.dateTo, params.currencyID, params.tagIDs, params.fuzzy)
 	if err != nil {
@@ -515,9 +528,25 @@ func (m QueryModel) updateFilterForm(msg tea.Msg) (QueryModel, tea.Cmd) {
 	}
 
 	var fromCmd, toCmd, fuzzyCmd tea.Cmd
+	oldFromVal := m.DateFrom.Value()
 	m.DateFrom, fromCmd = m.DateFrom.Update(msg)
+	if oldFromVal != m.DateFrom.Value() {
+		m.dateToManual = false
+	}
+
+	oldToVal := m.DateTo.Value()
 	m.DateTo, toCmd = m.DateTo.Update(msg)
+	if oldToVal != m.DateTo.Value() {
+		m.dateToManual = true
+	}
+
 	m.Currency, _ = m.Currency.Update(msg)
+	if m.Currency.ShouldAdvance {
+		m.Currency.ShouldAdvance = false
+		m.setActiveFilterField(FilterTags)
+		return m, tea.Batch(fromCmd, toCmd, fuzzyCmd)
+	}
+
 	m.Tags, _ = m.Tags.Update(msg)
 	m.Fuzzy, fuzzyCmd = m.Fuzzy.Update(msg)
 
@@ -525,6 +554,10 @@ func (m QueryModel) updateFilterForm(msg tea.Msg) (QueryModel, tea.Cmd) {
 }
 
 func (m *QueryModel) autoShiftDateTo() {
+	if m.dateToManual {
+		return
+	}
+
 	fromVal := m.DateFrom.Value()
 	if !isValidDate(fromVal) {
 		return
@@ -545,7 +578,18 @@ func isFilterDateField(f FilterField) bool {
 	return f == FilterDateFrom || f == FilterDateTo
 }
 
-func (m *QueryModel) fillCurrentDateDefault() {}
+func (m *QueryModel) fillCurrentDateDefault() {
+	switch m.ActiveField {
+	case FilterDateFrom:
+		if m.DateFrom.Value() == "" {
+			m.DateFrom.SetValue(m.DateFrom.Placeholder)
+		}
+	case FilterDateTo:
+		if m.DateTo.Value() == "" {
+			m.DateTo.SetValue(m.DateTo.Placeholder)
+		}
+	}
+}
 
 func isValidDate(s string) bool {
 	_, err := time.Parse("2006-01-02", s)
