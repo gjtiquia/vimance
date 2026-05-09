@@ -507,7 +507,7 @@ func (m QueryModel) updateFilterForm(msg tea.Msg) (QueryModel, tea.Cmd) {
 	}
 
 	m.Currency, _ = m.Currency.Update(msg)
-	if m.Currency.ShouldAdvance {
+	if m.ActiveField == FilterCurrency && m.Currency.ShouldAdvance {
 		m.Currency.ShouldAdvance = false
 		m.setActiveFilterField(FilterTags)
 		return m, tea.Batch(fromCmd, toCmd, fuzzyCmd)

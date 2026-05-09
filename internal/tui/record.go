@@ -70,6 +70,18 @@ func (m *RecordModel) fillCurrentDateDefault() {
 	}
 }
 
+func (m RecordModel) isInInsertMode() bool {
+	switch m.ActiveField {
+	case FieldCurrency:
+		return m.CurrencyInput.Mode == CurrencyModeInsert
+	case FieldTags:
+		return m.TagsInput.Mode == TagModeInsert
+	case FieldLinks:
+		return m.LinksInput.Mode == LinkModeInsert
+	}
+	return false
+}
+
 type RecordModel struct {
 	State          RecordState
 	ActiveField    ActiveField
@@ -304,16 +316,28 @@ func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 			return m, nil
 
 		case "enter":
-			if isDateField(m.ActiveField) {
+			switch m.ActiveField {
+			case FieldDateYear, FieldDateMonth, FieldDateDay:
 				m.fillCurrentDateDefault()
 				m.setActiveField(m.nextField())
 				return m, nil
-			}
-			if m.ActiveField == FieldAmount {
+			case FieldCurrency:
+				m.CurrencyInput, _ = m.CurrencyInput.Update(msg)
+				return m, nil
+			case FieldTags:
+				m.TagsInput, _ = m.TagsInput.Update(msg)
+				return m, nil
+			case FieldAmount:
 				m.setActiveField(m.nextField())
 				return m, nil
-			}
-			if m.ActiveField == FieldNotes {
+			case FieldLinks:
+				if len(m.LinksInput.FilteredCandidates) == 0 {
+					m.setActiveField(m.nextField())
+					return m, nil
+				}
+				m.LinksInput, _ = m.LinksInput.Update(msg)
+				return m, nil
+			case FieldNotes:
 				m.State = RecordStateConfirm
 				m.ConfirmModel.Errors = m.Validate()
 				m.ConfirmModel.Warnings = m.GetWarnings()

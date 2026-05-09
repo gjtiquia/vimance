@@ -87,16 +87,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case InputTypeList:
 		return m.UpdateListInput(msg)
 	case InputTypeRecord:
-		if m.recordInput.State == RecordStateSuccess {
-			if keyMsg, ok := msg.(tea.KeyPressMsg); ok && keyMsg.String() == "esc" {
-				if m.recordInput.Origin == RecordOriginQuery {
-					m.recordInput = NewRecordModel(m.service)
-					m.inputType = InputTypeQuery
-					m.queryInput.RefreshResults()
-					return m, nil
-				}
-				m.recordInput = NewRecordModel(m.service)
-				return m.EnterListInput()
+		if keyMsg, ok := msg.(tea.KeyPressMsg); ok && keyMsg.String() == "esc" {
+			if m.recordInput.State == RecordStateEditing && !m.recordInput.isInInsertMode() {
+				return m.routeBackFromRecord()
+			}
+			if m.recordInput.State == RecordStateSuccess {
+				return m.routeBackFromRecord()
 			}
 		}
 		return m.UpdateRecordInput(msg)
@@ -133,6 +129,17 @@ func (m Model) View() tea.View {
 	}
 
 	return tea.NewView(sb.String())
+}
+
+func (m Model) routeBackFromRecord() (Model, tea.Cmd) {
+	if m.recordInput.Origin == RecordOriginQuery {
+		m.recordInput = NewRecordModel(m.service)
+		m.inputType = InputTypeQuery
+		m.queryInput.RefreshResults()
+		return m, nil
+	}
+	m.recordInput = NewRecordModel(m.service)
+	return m.EnterListInput()
 }
 
 func (m Model) EnterQueryInput() (Model, tea.Cmd) {
