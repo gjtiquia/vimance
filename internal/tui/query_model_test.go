@@ -192,15 +192,27 @@ func TestQueryModelResultsEnterSelectsRecord(t *testing.T) {
 	}
 }
 
-func TestQueryModelResultsEscToFilterForm(t *testing.T) {
-	m := setupQueryModel(t)
-	m.State = tui.QueryStateResults
-	m.Results = []service.QueryResult{{ID: 1, Date: "2026-05-01"}}
-	m.ResultsOrigin = tui.QueryStateFilterForm
+func TestQueryModelResultsEscRouting(t *testing.T) {
+	tests := []struct {
+		name     string
+		origin   tui.QueryState
+		expected tui.QueryState
+	}{
+		{"filter form origin", tui.QueryStateFilterForm, tui.QueryStateFilterForm},
+		{"saved list origin", tui.QueryStateSavedList, tui.QueryStateSavedList},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			m := setupQueryModel(t)
+			m.State = tui.QueryStateResults
+			m.Results = []service.QueryResult{{ID: 1, Date: "2026-05-01"}}
+			m.ResultsOrigin = tc.origin
 
-	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
-	if m.State != tui.QueryStateFilterForm {
-		t.Errorf("expected QueryStateFilterForm, got %v", m.State)
+			m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+			if m.State != tc.expected {
+				t.Errorf("expected %v, got %v", tc.expected, m.State)
+			}
+		})
 	}
 }
 
@@ -221,13 +233,26 @@ func TestQueryModelResultsSaveName(t *testing.T) {
 }
 
 func TestQueryModelResultsEmpty(t *testing.T) {
-	m := setupQueryModel(t)
-	m.State = tui.QueryStateResults
-	m.Results = []service.QueryResult{}
+	tests := []struct {
+		name     string
+		origin   tui.QueryState
+		expected tui.QueryState
+	}{
+		{"filter form origin", tui.QueryStateFilterForm, tui.QueryStateFilterForm},
+		{"saved list origin", tui.QueryStateSavedList, tui.QueryStateSavedList},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			m := setupQueryModel(t)
+			m.State = tui.QueryStateResults
+			m.Results = []service.QueryResult{}
+			m.ResultsOrigin = tc.origin
 
-	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
-	if m.State != tui.QueryStateFilterForm {
-		t.Errorf("expected QueryStateFilterForm, got %v", m.State)
+			m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+			if m.State != tc.expected {
+				t.Errorf("expected %v, got %v", tc.expected, m.State)
+			}
+		})
 	}
 }
 

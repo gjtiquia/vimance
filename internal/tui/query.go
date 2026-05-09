@@ -668,7 +668,11 @@ func (m QueryModel) updateResults(msg tea.Msg) (QueryModel, tea.Cmd) {
 		case tea.KeyPressMsg:
 			switch msg.String() {
 			case "esc":
-				m.State = QueryStateFilterForm
+				if m.ResultsOrigin == QueryStateSavedList {
+					m.State = QueryStateSavedList
+				} else {
+					m.State = QueryStateFilterForm
+				}
 				return m, nil
 			}
 		}
@@ -725,8 +729,12 @@ func (m QueryModel) updateResults(msg tea.Msg) (QueryModel, tea.Cmd) {
 			}
 			return m, nil
 		case "esc":
-			m.State = QueryStateFilterForm
-			m.FocusActiveField()
+			if m.ResultsOrigin == QueryStateSavedList {
+				m.State = QueryStateSavedList
+			} else {
+				m.State = QueryStateFilterForm
+				m.FocusActiveField()
+			}
 			return m, nil
 		}
 	}
