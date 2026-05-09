@@ -76,10 +76,10 @@ type QueryModel struct {
 	results      []service.QueryResult
 	cursorIndex  int
 	pageSize     int
-	needsRefresh bool
 
-	selectedID int64
-	errorMsg   string
+	selectedID    int64
+	errorMsg      string
+	resultsOrigin QueryState
 }
 
 func NewQueryModel(svc *service.Service) QueryModel {
@@ -196,7 +196,7 @@ func (d SavedQueryListItemDelegate) Render(w io.Writer, m list.Model, index int,
 		cursor = " "
 	}
 
-	fmt.Fprintf(w, "%s %s  |  %s → %s\n", cursor, item.Name, item.DateFrom, item.DateTo)
+	fmt.Fprintf(w, "%s %s  |  %s \u2192 %s\n", cursor, item.Name, item.DateFrom, item.DateTo)
 }
 
 func (m *QueryModel) SetPageSize(height int) {
@@ -278,7 +278,7 @@ func (m QueryModel) Update(msg tea.Msg) (QueryModel, tea.Cmd) {
 
 func (m QueryModel) updateMenu(msg tea.Msg) (QueryModel, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "enter":
 			visibleItems := m.menuInput.VisibleItems()
@@ -308,6 +308,7 @@ func (m *QueryModel) loadSavedQueries() {
 	saved, err := m.svc.ListSavedQueries(context.Background())
 	if err != nil {
 		m.errorMsg = fmt.Sprintf("Failed to load saved queries: %v", err)
+		m.State = QueryStateMenu
 		return
 	}
 
@@ -345,6 +346,8 @@ func (m *QueryModel) loadSavedQueries() {
 	}
 
 	m.savedList.SetItems(items)
+	m.savedList.SetFilterText("")
+	m.savedList.SetFilterState(list.Filtering)
 	listHeight := len(items) + 3 + 2 + 1 + 3
 	m.savedList.SetHeight(listHeight)
 	m.State = QueryStateSavedList
@@ -352,7 +355,7 @@ func (m *QueryModel) loadSavedQueries() {
 
 func (m QueryModel) updateSavedList(msg tea.Msg) (QueryModel, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "enter":
 			visibleItems := m.savedList.VisibleItems()
@@ -404,12 +407,13 @@ func (m *QueryModel) executeSavedQuery(id int64) {
 	m.DateFrom.SetValue(target.DateFrom)
 	m.DateTo.SetValue(target.DateTo)
 	m.Fuzzy.SetValue(target.FuzzyText)
+	m.dateToManual = true
 
 	if target.CurrencyID != nil {
 		m.Currency.LoadCurrencies(context.Background())
-		for _, c := range m.Currency.AllCurrencies {
-			if c.ID == *target.CurrencyID {
-				m.Currency.Selected = &c
+		for i := range m.Currency.AllCurrencies {
+			if m.Currency.AllCurrencies[i].ID == *target.CurrencyID {
+				m.Currency.Selected = &m.Currency.AllCurrencies[i]
 				break
 			}
 		}
@@ -437,12 +441,13 @@ func (m *QueryModel) executeSavedQuery(id int64) {
 
 	m.results = results
 	m.cursorIndex = 0
+	m.resultsOrigin = QueryStateSavedList
 	m.State = QueryStateResults
 }
 
 func (m QueryModel) updateDeleteConfirm(msg tea.Msg) (QueryModel, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "y", "Y":
 			if err := m.svc.DeleteSavedQuery(context.Background(), m.deleteTarget.ID); err != nil {
@@ -460,7 +465,7 @@ func (m QueryModel) updateDeleteConfirm(msg tea.Msg) (QueryModel, tea.Cmd) {
 
 func (m QueryModel) updateSaveName(msg tea.Msg) (QueryModel, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "enter":
 			name := strings.TrimSpace(m.saveNameInput.Value())
@@ -494,9 +499,9 @@ func (m QueryModel) updateSaveName(msg tea.Msg) (QueryModel, tea.Cmd) {
 
 func (m QueryModel) updateFilterForm(msg tea.Msg) (QueryModel, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
-		case "tab", "enter":
+		case "tab":
 			if m.ActiveField == FilterFuzzy {
 				m.State = QueryStateConfirm
 				return m, nil
@@ -514,6 +519,24 @@ func (m QueryModel) updateFilterForm(msg tea.Msg) (QueryModel, tea.Cmd) {
 			m.setActiveFilterField(next)
 			return m, nil
 
+		case "enter":
+			if m.ActiveField == FilterCurrency || m.ActiveField == FilterTags {
+				// let sub-widget handle enter (select item / add tag)
+			} else if m.ActiveField == FilterFuzzy {
+				m.State = QueryStateConfirm
+				return m, nil
+			} else {
+				if isFilterDateField(m.ActiveField) {
+					m.fillCurrentDateDefault()
+				}
+				if m.ActiveField == FilterDateFrom {
+					m.autoShiftDateTo()
+				}
+				next := filterFieldOrder[m.ActiveField+1]
+				m.setActiveFilterField(next)
+				return m, nil
+			}
+
 		case "shift+tab":
 			if m.ActiveField > 0 {
 				prev := m.ActiveField - 1
@@ -522,8 +545,14 @@ func (m QueryModel) updateFilterForm(msg tea.Msg) (QueryModel, tea.Cmd) {
 			return m, nil
 
 		case "esc":
-			m.State = QueryStateMenu
-			return m, nil
+			if m.ActiveField == FilterCurrency && m.Currency.Mode == CurrencyModeInsert {
+				// let sub-widget handle (toggle mode)
+			} else if m.ActiveField == FilterTags && m.Tags.Mode == TagModeInsert {
+				// let sub-widget handle (toggle mode)
+			} else {
+				m.State = QueryStateMenu
+				return m, nil
+			}
 		}
 	}
 
@@ -633,9 +662,22 @@ func (m *QueryModel) focusActiveField() {
 
 func (m QueryModel) updateConfirm(msg tea.Msg) (QueryModel, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "enter":
+			df := m.DateFrom.Value()
+			dt := m.DateTo.Value()
+			if !isValidDate(df) {
+				m.errorMsg = "Invalid Date From format (use YYYY-MM-DD)"
+				m.State = QueryStateFilterForm
+				return m, nil
+			}
+			if !isValidDate(dt) {
+				m.errorMsg = "Invalid Date To format (use YYYY-MM-DD)"
+				m.State = QueryStateFilterForm
+				return m, nil
+			}
+
 			params := m.currentFilterParams()
 			results, err := m.svc.QueryRecords(context.Background(), params.dateFrom, params.dateTo, params.currencyID, params.tagIDs, params.fuzzy)
 			if err != nil {
@@ -644,6 +686,7 @@ func (m QueryModel) updateConfirm(msg tea.Msg) (QueryModel, tea.Cmd) {
 			}
 			m.results = results
 			m.cursorIndex = 0
+			m.resultsOrigin = QueryStateFilterForm
 			m.State = QueryStateResults
 			return m, nil
 		case "esc":
@@ -673,26 +716,31 @@ func (m QueryModel) updateConfirm(msg tea.Msg) (QueryModel, tea.Cmd) {
 func (m QueryModel) updateResults(msg tea.Msg) (QueryModel, tea.Cmd) {
 	if m.errorMsg != "" {
 		switch msg.(type) {
-		case tea.KeyMsg:
+		case tea.KeyPressMsg:
 			m.errorMsg = ""
-			m.State = QueryStateFilterForm
+			if m.resultsOrigin == QueryStateSavedList {
+				m.State = QueryStateSavedList
+			} else {
+				m.State = QueryStateFilterForm
+			}
 			return m, nil
 		}
 	}
 
-	if m.needsRefresh {
-		m.needsRefresh = false
-		params := m.currentFilterParams()
-		results, err := m.svc.QueryRecords(context.Background(), params.dateFrom, params.dateTo, params.currencyID, params.tagIDs, params.fuzzy)
-		if err != nil {
-			m.errorMsg = fmt.Sprintf("Query error: %v", err)
-			return m, nil
+	if len(m.results) == 0 {
+		switch msg := msg.(type) {
+		case tea.KeyPressMsg:
+			switch msg.String() {
+			case "esc":
+				m.State = QueryStateFilterForm
+				return m, nil
+			}
 		}
-		m.results = results
+		return m, nil
 	}
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "j", "down":
 			if m.cursorIndex < len(m.results)-1 {
@@ -705,22 +753,28 @@ func (m QueryModel) updateResults(msg tea.Msg) (QueryModel, tea.Cmd) {
 			}
 			return m, nil
 		case "n":
-			m.cursorIndex += m.pageSize
-			if m.cursorIndex >= len(m.results) {
-				m.cursorIndex = len(m.results) - 1
+			if len(m.results) > 0 {
+				m.cursorIndex += m.pageSize
+				if m.cursorIndex >= len(m.results) {
+					m.cursorIndex = len(m.results) - 1
+				}
 			}
 			return m, nil
 		case "p":
-			m.cursorIndex -= m.pageSize
-			if m.cursorIndex < 0 {
-				m.cursorIndex = 0
+			if len(m.results) > 0 {
+				m.cursorIndex -= m.pageSize
+				if m.cursorIndex < 0 {
+					m.cursorIndex = 0
+				}
 			}
 			return m, nil
 		case "g":
 			m.cursorIndex = 0
 			return m, nil
 		case "G":
-			m.cursorIndex = len(m.results) - 1
+			if len(m.results) > 0 {
+				m.cursorIndex = len(m.results) - 1
+			}
 			return m, nil
 		case "enter":
 			if len(m.results) > 0 {
@@ -764,6 +818,9 @@ func (m *QueryModel) View() string {
 }
 
 func (m *QueryModel) viewMenu() string {
+	if m.errorMsg != "" {
+		return fmt.Sprintf("Error: %s\n\n%s", m.errorMsg, m.menuInput.View())
+	}
 	return m.menuInput.View()
 }
 
@@ -778,7 +835,7 @@ func (m *QueryModel) viewFilterForm() string {
 	sb.WriteString(m.Tags.View())
 	sb.WriteString(m.Fuzzy.View())
 	sb.WriteString("\n\n")
-	sb.WriteString("tab: next field  |  shift+tab: previous  |  enter: confirm  |  esc: back\n")
+	sb.WriteString("tab: next field  |  shift+tab: previous  |  esc: back\n")
 
 	return sb.String()
 }
@@ -788,7 +845,7 @@ func (m *QueryModel) viewConfirm() string {
 
 	sb.WriteString("Query Parameters:\n")
 	sb.WriteString("─────────────────────\n")
-	sb.WriteString(fmt.Sprintf("  1) Date: %s → %s\n", m.DateFrom.Value(), m.DateTo.Value()))
+	sb.WriteString(fmt.Sprintf("  1) Date: %s \u2192 %s\n", m.DateFrom.Value(), m.DateTo.Value()))
 
 	if m.Currency.Selected != nil {
 		sb.WriteString(fmt.Sprintf("  2) Currency: %s", m.Currency.Selected.Code))
@@ -830,6 +887,10 @@ func (m *QueryModel) viewConfirm() string {
 func (m *QueryModel) viewSavedList() string {
 	var sb strings.Builder
 
+	if m.errorMsg != "" {
+		sb.WriteString(fmt.Sprintf("Error: %s\n\n", m.errorMsg))
+	}
+
 	visibleItems := m.savedList.VisibleItems()
 	if len(visibleItems) == 0 && len(m.savedQueries) == 0 {
 		sb.WriteString("No saved queries yet.\n\n")
@@ -848,7 +909,7 @@ func (m *QueryModel) viewSaveName() string {
 	sb.WriteString("\n\n")
 
 	sb.WriteString("Filter:\n")
-	sb.WriteString(fmt.Sprintf("  Date: %s → %s\n", m.DateFrom.Value(), m.DateTo.Value()))
+	sb.WriteString(fmt.Sprintf("  Date: %s \u2192 %s\n", m.DateFrom.Value(), m.DateTo.Value()))
 	if m.Currency.Selected != nil {
 		sb.WriteString(fmt.Sprintf("  Currency: %s\n", m.Currency.Selected.Code))
 	} else {
@@ -868,6 +929,9 @@ func (m *QueryModel) viewSaveName() string {
 	if fuzzy != "" {
 		sb.WriteString(fmt.Sprintf("  Fuzzy: %s\n", fuzzy))
 	}
+
+	sb.WriteString("\n")
+	sb.WriteString("Enter: save query  |  Esc: cancel\n")
 
 	return sb.String()
 }

@@ -152,7 +152,7 @@ func (m *LinksModel) removeLastParent() {
 
 func (m LinksModel) Update(msg tea.Msg) (LinksModel, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch m.Mode {
 		case LinkModeInsert:
 			switch msg.String() {

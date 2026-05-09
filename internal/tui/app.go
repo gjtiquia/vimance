@@ -88,7 +88,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.UpdateListInput(msg)
 	case InputTypeRecord:
 		if m.recordInput.State == RecordStateSuccess {
-			if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "esc" {
+			if keyMsg, ok := msg.(tea.KeyPressMsg); ok && keyMsg.String() == "esc" {
 				if m.recordInput.Origin == RecordOriginQuery {
 					m.recordInput = NewRecordModel(m.service)
 					m.inputType = InputTypeQuery
@@ -140,7 +140,7 @@ func (m Model) EnterQueryInput() (Model, tea.Cmd) {
 func (m Model) UpdateQueryInput(msg tea.Msg) (Model, tea.Cmd) {
 	// handle esc from non-filtering query menu → app menu
 	if m.queryInput.State == QueryStateMenu {
-		if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "esc" &&
+		if keyMsg, ok := msg.(tea.KeyPressMsg); ok && keyMsg.String() == "esc" &&
 			m.queryInput.menuInput.FilterState() != list.Filtering {
 			m.queryInput = NewQueryModel(m.service)
 			return m.EnterListInput()

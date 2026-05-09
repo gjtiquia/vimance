@@ -284,7 +284,7 @@ func (m RecordModel) Update(msg tea.Msg) (RecordModel, tea.Cmd) {
 
 func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "tab":
 			if isDateField(m.ActiveField) {
@@ -357,7 +357,7 @@ func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 
 func (m RecordModel) updateConfirm(msg tea.Msg) (RecordModel, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "1":
 			m.State = RecordStateEditing
@@ -407,7 +407,7 @@ func (m RecordModel) updateConfirm(msg tea.Msg) (RecordModel, tea.Cmd) {
 
 func (m RecordModel) updateSuccess(msg tea.Msg) (RecordModel, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "enter":
 			if m.Origin == RecordOriginCreate {
@@ -424,7 +424,7 @@ func (m RecordModel) updateSuccess(msg tea.Msg) (RecordModel, tea.Cmd) {
 
 func (m RecordModel) updateFatal(msg tea.Msg) (RecordModel, tea.Cmd) {
 	switch msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		return m, tea.Quit
 	}
 	return m, nil

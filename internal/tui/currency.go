@@ -107,7 +107,7 @@ func (m *CurrencyModel) clearSelection() {
 
 func (m CurrencyModel) Update(msg tea.Msg) (CurrencyModel, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch m.Mode {
 		case CurrencyModeInsert:
 			switch msg.String() {

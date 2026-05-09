@@ -142,7 +142,7 @@ func (m *TagsModel) removeLastTag() {
 
 func (m TagsModel) Update(msg tea.Msg) (TagsModel, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch m.Mode {
 		case TagModeInsert:
 			switch msg.String() {
