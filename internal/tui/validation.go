@@ -14,7 +14,7 @@ func cleanAmount(s string) string {
 	return strings.ReplaceAll(strings.TrimSpace(s), ",", "")
 }
 
-func validateAmount(amount string) error {
+func ValidateAmount(amount string) error {
 	amount = cleanAmount(amount)
 	if amount == "" {
 		return fmt.Errorf("amount is required")
@@ -27,9 +27,9 @@ func validateAmount(amount string) error {
 	return nil
 }
 
-func parseAmountToCents(amount string) (int64, error) {
+func ParseAmountToCents(amount string) (int64, error) {
 	amount = cleanAmount(amount)
-	if err := validateAmount(amount); err != nil {
+	if err := ValidateAmount(amount); err != nil {
 		return 0, err
 	}
 
@@ -56,7 +56,7 @@ func parseAmountToCents(amount string) (int64, error) {
 	return cents, nil
 }
 
-func validateDate(year, month, day string) error {
+func ValidateDate(year, month, day string) error {
 	year = strings.TrimSpace(year)
 	month = strings.TrimSpace(month)
 	day = strings.TrimSpace(day)
@@ -75,7 +75,7 @@ func validateDate(year, month, day string) error {
 	return nil
 }
 
-func truncate(s string, maxLen int) string {
+func Truncate(s string, maxLen int) string {
 	runes := []rune(s)
 	if len(runes) > maxLen {
 		return string(runes[:maxLen]) + "..."
@@ -83,7 +83,7 @@ func truncate(s string, maxLen int) string {
 	return s
 }
 
-func formatDate(year, month, day string) string {
+func FormatDate(year, month, day string) string {
 	return fmt.Sprintf("%s-%s-%s", year, month, day)
 }
 
@@ -110,7 +110,7 @@ func (e ValidationErrors) Get(field string) string {
 func (m RecordModel) Validate() ValidationErrors {
 	var errors ValidationErrors
 
-	if err := validateDate(m.DateYearInput.Value(), m.DateMonthInput.Value(), m.DateDayInput.Value()); err != nil {
+	if err := ValidateDate(m.DateYearInput.Value(), m.DateMonthInput.Value(), m.DateDayInput.Value()); err != nil {
 		errors = append(errors, ValidationError{Field: "date", Message: err.Error()})
 	}
 
@@ -118,7 +118,7 @@ func (m RecordModel) Validate() ValidationErrors {
 		errors = append(errors, ValidationError{Field: "currency", Message: "currency is required"})
 	}
 
-	if err := validateAmount(m.AmountInput.Value()); err != nil {
+	if err := ValidateAmount(m.AmountInput.Value()); err != nil {
 		errors = append(errors, ValidationError{Field: "amount", Message: err.Error()})
 	}
 

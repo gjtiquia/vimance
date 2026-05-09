@@ -7,7 +7,7 @@ import (
 )
 
 func (m Model) EnterTextInput() Model {
-	m.inputType = InputTypeText
+	m.InputType = InputTypeText
 	m.textInput.SetValue("")
 	m.textInput.Focus()
 	return m

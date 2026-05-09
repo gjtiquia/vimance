@@ -269,14 +269,14 @@ func (m *RecordModel) setActiveField(field ActiveField) {
 }
 
 func (m Model) EnterRecordInput() (Model, tea.Cmd) {
-	m.inputType = InputTypeRecord
-	m.recordInput.setActiveField(FieldDateYear)
+	m.InputType = InputTypeRecord
+	m.RecordInput.setActiveField(FieldDateYear)
 	return m, nil
 }
 
 func (m Model) UpdateRecordInput(msg tea.Msg) (Model, tea.Cmd) {
 	var recordCmd tea.Cmd
-	m.recordInput, recordCmd = m.recordInput.Update(msg)
+	m.RecordInput, recordCmd = m.RecordInput.Update(msg)
 	return m, recordCmd
 }
 
@@ -462,9 +462,9 @@ func (m RecordModel) SaveRecord(ctx context.Context, userID int64) error {
 }
 
 func (m RecordModel) updateRecord(ctx context.Context, userID int64) error {
-	date := formatDate(m.DateYearInput.Value(), m.DateMonthInput.Value(), m.DateDayInput.Value())
+	date := FormatDate(m.DateYearInput.Value(), m.DateMonthInput.Value(), m.DateDayInput.Value())
 
-	amountCents, err := parseAmountToCents(m.AmountInput.Value())
+	amountCents, err := ParseAmountToCents(m.AmountInput.Value())
 	if err != nil {
 		return err
 	}
@@ -505,9 +505,9 @@ func (m RecordModel) updateRecord(ctx context.Context, userID int64) error {
 }
 
 func (m RecordModel) CreateRecord(ctx context.Context, userID int64) error {
-	date := formatDate(m.DateYearInput.Value(), m.DateMonthInput.Value(), m.DateDayInput.Value())
+	date := FormatDate(m.DateYearInput.Value(), m.DateMonthInput.Value(), m.DateDayInput.Value())
 
-	amountCents, err := parseAmountToCents(m.AmountInput.Value())
+	amountCents, err := ParseAmountToCents(m.AmountInput.Value())
 	if err != nil {
 		return err
 	}

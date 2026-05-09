@@ -27,13 +27,13 @@ type Model struct {
 	service     *service.Service
 	history     []string
 	inputChain  []string
-	inputType   InputType
+	InputType   InputType
 	textInput   textinput.Model
 	listInput   list.Model
-	recordInput RecordModel
-	queryInput  QueryModel
-	width       int
-	height      int
+	RecordInput RecordModel
+	QueryInput  QueryModel
+	Width       int
+	Height      int
 }
 
 func NewModel(database *sql.DB) Model {
@@ -51,8 +51,8 @@ func NewModel(database *sql.DB) Model {
 		history:     history,
 		textInput:   textInput,
 		listInput:   listInput,
-		recordInput: recordInput,
-		queryInput:  NewQueryModel(svc),
+		RecordInput: recordInput,
+		QueryInput:  NewQueryModel(svc),
 	}
 
 	m, _ = m.EnterListInput()
@@ -60,7 +60,7 @@ func NewModel(database *sql.DB) Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	if m.inputType == InputTypeText {
+	if m.InputType == InputTypeText {
 		return textinput.Blink
 	}
 	return nil
@@ -74,24 +74,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-		if m.inputType == InputTypeQuery {
-			m.queryInput.SetPageSize(m.height)
+		m.Width = msg.Width
+		m.Height = msg.Height
+		if m.InputType == InputTypeQuery {
+			m.QueryInput.SetPageSize(m.Height)
 		}
 	}
 
-	switch m.inputType {
+	switch m.InputType {
 	case InputTypeText:
 		return m.UpdateTextInput(msg)
 	case InputTypeList:
 		return m.UpdateListInput(msg)
 	case InputTypeRecord:
 		if keyMsg, ok := msg.(tea.KeyPressMsg); ok && keyMsg.String() == "esc" {
-			if m.recordInput.State == RecordStateEditing && !m.recordInput.isInInsertMode() {
+			if m.RecordInput.State == RecordStateEditing && !m.RecordInput.isInInsertMode() {
 				return m.routeBackFromRecord()
 			}
-			if m.recordInput.State == RecordStateSuccess {
+			if m.RecordInput.State == RecordStateSuccess {
 				return m.routeBackFromRecord()
 			}
 		}
@@ -110,21 +110,21 @@ func (m Model) View() tea.View {
 		sb.WriteString(s)
 	}
 
-	switch m.inputType {
+	switch m.InputType {
 	case InputTypeText:
 		sb.WriteString(m.textInput.View())
 	case InputTypeList:
 		sb.WriteString(m.listInput.View())
 	case InputTypeRecord:
-		sb.WriteString(m.recordInput.View())
+		sb.WriteString(m.RecordInput.View())
 	case InputTypeQuery:
-		if m.queryInput.State == QueryStateMenu {
-			if m.queryInput.errorMsg != "" {
-				sb.WriteString(fmt.Sprintf("Error: %s\n\n", m.queryInput.errorMsg))
+		if m.QueryInput.State == QueryStateMenu {
+			if m.QueryInput.ErrorMsg != "" {
+				sb.WriteString(fmt.Sprintf("Error: %s\n\n", m.QueryInput.ErrorMsg))
 			}
 			sb.WriteString(m.listInput.View())
 		} else {
-			sb.WriteString(m.queryInput.View())
+			sb.WriteString(m.QueryInput.View())
 		}
 	}
 
@@ -132,21 +132,21 @@ func (m Model) View() tea.View {
 }
 
 func (m Model) routeBackFromRecord() (Model, tea.Cmd) {
-	if m.recordInput.Origin == RecordOriginQuery {
-		m.recordInput = NewRecordModel(m.service)
-		m.inputType = InputTypeQuery
-		m.queryInput.RefreshResults()
+	if m.RecordInput.Origin == RecordOriginQuery {
+		m.RecordInput = NewRecordModel(m.service)
+		m.InputType = InputTypeQuery
+		m.QueryInput.RefreshResults()
 		return m, nil
 	}
-	m.recordInput = NewRecordModel(m.service)
+	m.RecordInput = NewRecordModel(m.service)
 	return m.EnterListInput()
 }
 
 func (m Model) EnterQueryInput() (Model, tea.Cmd) {
-	m.inputType = InputTypeQuery
-	m.queryInput = NewQueryModel(m.service)
-	if m.height > 0 {
-		m.queryInput.SetPageSize(m.height)
+	m.InputType = InputTypeQuery
+	m.QueryInput = NewQueryModel(m.service)
+	if m.Height > 0 {
+		m.QueryInput.SetPageSize(m.Height)
 	}
 
 	m.listInput.SetItems([]list.Item{
@@ -164,15 +164,15 @@ func (m Model) EnterQueryInput() (Model, tea.Cmd) {
 }
 
 func (m Model) UpdateQueryInput(msg tea.Msg) (Model, tea.Cmd) {
-	if m.queryInput.State == QueryStateMenu {
-		m.queryInput.errorMsg = ""
+	if m.QueryInput.State == QueryStateMenu {
+		m.QueryInput.ErrorMsg = ""
 
 		switch msg := msg.(type) {
 		case tea.KeyPressMsg:
 			switch msg.String() {
 			case "esc":
 				if m.listInput.FilterState() != list.Filtering {
-					m.queryInput = NewQueryModel(m.service)
+					m.QueryInput = NewQueryModel(m.service)
 					return m.EnterListInput()
 				}
 				m.listInput.SetFilterState(list.FilterApplied)
@@ -182,13 +182,13 @@ func (m Model) UpdateQueryInput(msg tea.Msg) (Model, tea.Cmd) {
 				if item, ok := visibleItem(m.listInput); ok {
 					li := item.(ListItem)
 					if li.title == "new" {
-						m.queryInput.State = QueryStateFilterForm
-						m.queryInput.ActiveField = FilterDateFrom
-						m.queryInput.focusActiveField()
+						m.QueryInput.State = QueryStateFilterForm
+						m.QueryInput.ActiveField = FilterDateFrom
+						m.QueryInput.FocusActiveField()
 						return m, nil
 					}
 					if li.title == "saved" {
-						m.queryInput.loadSavedQueries()
+						m.QueryInput.loadSavedQueries()
 						return m, nil
 					}
 				}
@@ -212,19 +212,19 @@ func (m Model) UpdateQueryInput(msg tea.Msg) (Model, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
-	m.queryInput, cmd = m.queryInput.Update(msg)
+	m.QueryInput, cmd = m.QueryInput.Update(msg)
 
-	if m.queryInput.selectedID != 0 {
-		id := m.queryInput.selectedID
-		m.queryInput.selectedID = 0
+	if m.QueryInput.SelectedID != 0 {
+		id := m.QueryInput.SelectedID
+		m.QueryInput.SelectedID = 0
 
 		full, err := m.service.GetRecordFull(context.Background(), id)
 		if err != nil {
-			m.queryInput.setError(fmt.Sprintf("Failed to load record: %v", err))
+			m.QueryInput.setError(fmt.Sprintf("Failed to load record: %v", err))
 			return m, nil
 		}
-		m.inputType = InputTypeRecord
-		m.recordInput = NewEditRecordModel(m.service, full, RecordOriginQuery)
+		m.InputType = InputTypeRecord
+		m.RecordInput = NewEditRecordModel(m.service, full, RecordOriginQuery)
 		return m, nil
 	}
 

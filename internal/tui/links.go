@@ -239,7 +239,7 @@ func (m LinksModel) View() string {
 			if i > 0 {
 				sb.WriteString(", ")
 			}
-			sb.WriteString(fmt.Sprintf("[%s]", truncate(p.Notes, 20)))
+			sb.WriteString(fmt.Sprintf("[%s]", Truncate(p.Notes, 20)))
 		}
 	}
 	sb.WriteString("\n")
@@ -278,7 +278,7 @@ func (m LinksModel) filteredListView() string {
 
 		tags := strings.Join(c.TagNames, ", ")
 
-		sb.WriteString(fmt.Sprintf("%s %d) %s  $%s  \"%s\"", cursor, i+1, c.Date, amountStr, truncate(c.Notes, 30)))
+		sb.WriteString(fmt.Sprintf("%s %d) %s  $%s  \"%s\"", cursor, i+1, c.Date, amountStr, Truncate(c.Notes, 30)))
 		if tags != "" {
 			sb.WriteString(fmt.Sprintf("  [%s]", tags))
 		}

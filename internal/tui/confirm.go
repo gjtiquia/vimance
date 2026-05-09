@@ -45,7 +45,7 @@ func (m ConfirmModel) View(record RecordModel) string {
 	sb.WriteString("Review Record:\n")
 	sb.WriteString("─────────────────────\n")
 
-	sb.WriteString(fmt.Sprintf("1) Date: %s", formatDate(record.DateYearInput.Value(), record.DateMonthInput.Value(), record.DateDayInput.Value())))
+		sb.WriteString(fmt.Sprintf("1) Date: %s", FormatDate(record.DateYearInput.Value(), record.DateMonthInput.Value(), record.DateDayInput.Value())))
 	if errMsg := m.Errors.Get("date"); errMsg != "" {
 		sb.WriteString(fmt.Sprintf("  ← %s", errMsg))
 	}
@@ -98,7 +98,7 @@ func (m ConfirmModel) View(record RecordModel) string {
 			if i > 0 {
 				sb.WriteString(", ")
 			}
-			sb.WriteString(fmt.Sprintf("[%s]", truncate(p.Notes, 30)))
+			sb.WriteString(fmt.Sprintf("[%s]", Truncate(p.Notes, 30)))
 		}
 	}
 	sb.WriteString("\n")
