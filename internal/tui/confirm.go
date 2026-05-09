@@ -13,6 +13,7 @@ const (
 	RecordStateEditing   RecordState = "editing"
 	RecordStateConfirm   RecordState = "confirm"
 	RecordStateSuccess   RecordState = "success"
+	RecordStateFatal     RecordState = "fatal"
 )
 
 type ConfirmModel struct {

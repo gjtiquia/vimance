@@ -4,6 +4,33 @@ import (
 	"testing"
 )
 
+func TestDefaultUser(t *testing.T) {
+	s := setupTestService(t)
+
+	user, err := s.CreateUser(t.Context(), "default")
+	if err != nil {
+		t.Fatalf("failed to create default user: %v", err)
+	}
+	if user.ID != 1 {
+		t.Errorf("expected default user id=1, got %d", user.ID)
+	}
+
+	// Second create must fail (UNIQUE)
+	_, err = s.CreateUser(t.Context(), "default")
+	if err == nil {
+		t.Error("expected error creating duplicate user")
+	}
+
+	// GetUserByUsername works
+	got, err := s.GetUserByUsername(t.Context(), "default")
+	if err != nil {
+		t.Fatalf("failed to get default user: %v", err)
+	}
+	if got.ID != 1 {
+		t.Errorf("expected default user id=1, got %d", got.ID)
+	}
+}
+
 func TestUserCRUD(t *testing.T) {
 	s := setupTestService(t)
 

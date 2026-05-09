@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"embed"
 	"fmt"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/gjtiquia/vimance/internal/service"
 	"github.com/gjtiquia/vimance/internal/tui"
 	"github.com/pressly/goose/v3"
 	_ "modernc.org/sqlite"
@@ -52,6 +54,13 @@ func initDB(dataSourceName string) (*sql.DB, error) {
 
 	if err := goose.Up(database, "db/migrations"); err != nil {
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
+	}
+
+	svc := service.New(database)
+	if _, err := svc.GetUserByUsername(context.Background(), "default"); err != nil {
+		if _, err := svc.CreateUser(context.Background(), "default"); err != nil {
+			return nil, fmt.Errorf("failed to create default user: %w", err)
+		}
 	}
 
 	return database, nil

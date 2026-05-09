@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -84,6 +85,7 @@ type RecordModel struct {
 
 	ConfirmModel ConfirmModel
 	SuccessModel SuccessModel
+	FatalErr     error
 	service      *service.Service
 }
 
@@ -214,6 +216,8 @@ func (m RecordModel) Update(msg tea.Msg) (RecordModel, tea.Cmd) {
 		return m.updateConfirm(msg)
 	case RecordStateSuccess:
 		return m.updateSuccess(msg)
+	case RecordStateFatal:
+		return m.updateFatal(msg)
 	}
 	return m, nil
 }
@@ -325,14 +329,13 @@ func (m RecordModel) updateConfirm(msg tea.Msg) (RecordModel, tea.Cmd) {
 			return m, nil
 		case "enter":
 			if !m.ConfirmModel.Errors.HasErrors() {
-				err := m.CreateRecord(context.Background(), 1)
-				if err != nil {
-					m.ConfirmModel.Errors = append(m.ConfirmModel.Errors, ValidationError{
-						Field:   "record",
-						Message: err.Error(),
-					})
-					return m, nil
-				}
+			err := m.CreateRecord(context.Background(), 1)
+			if err != nil {
+				m.FatalErr = err
+				fmt.Fprintf(os.Stderr, "fatal: %v\n", err)
+				m.State = RecordStateFatal
+				return m, nil
+			}
 				m.State = RecordStateSuccess
 				return m, nil
 			}
@@ -354,6 +357,14 @@ func (m RecordModel) updateSuccess(msg tea.Msg) (RecordModel, tea.Cmd) {
 	return m, nil
 }
 
+func (m RecordModel) updateFatal(msg tea.Msg) (RecordModel, tea.Cmd) {
+	switch msg.(type) {
+	case tea.KeyMsg:
+		return m, tea.Quit
+	}
+	return m, nil
+}
+
 func (m RecordModel) CreateRecord(ctx context.Context, userID int64) error {
 	date := formatDate(m.DateYearInput.Value(), m.DateMonthInput.Value(), m.DateDayInput.Value())
 
@@ -368,7 +379,7 @@ func (m RecordModel) CreateRecord(ctx context.Context, userID int64) error {
 	}
 
 	if currency.IsNew {
-		createdCurrency, err := m.service.CreateCurrency(ctx, currency.Code)
+		createdCurrency, _, err := m.service.GetOrCreateCurrency(ctx, currency.Code)
 		if err != nil {
 			return err
 		}
@@ -378,7 +389,7 @@ func (m RecordModel) CreateRecord(ctx context.Context, userID int64) error {
 	tagIDs := make([]int64, 0, len(m.TagsInput.SelectedTags))
 	for _, tag := range m.TagsInput.SelectedTags {
 		if tag.IsNew {
-			createdTag, err := m.service.CreateTag(ctx, tag.Name, "", "", userID)
+			createdTag, _, err := m.service.GetOrCreateTag(ctx, tag.Name, userID)
 			if err != nil {
 				return err
 			}
@@ -397,6 +408,10 @@ func (m RecordModel) CreateRecord(ctx context.Context, userID int64) error {
 	return err
 }
 
+func (m RecordModel) viewFatal() string {
+	return fmt.Sprintf("\nFatal error: %v\n\nPress any key to exit.\n", m.FatalErr)
+}
+
 func (m RecordModel) View() string {
 	switch m.State {
 	case RecordStateEditing:
@@ -405,6 +420,8 @@ func (m RecordModel) View() string {
 		return m.ConfirmModel.View(m)
 	case RecordStateSuccess:
 		return m.SuccessModel.View()
+	case RecordStateFatal:
+		return m.viewFatal()
 	}
 	return ""
 }
