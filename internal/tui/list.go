@@ -35,6 +35,7 @@ func NewUnstyledList() list.Model {
 func (m Model) EnterListInput() (Model, tea.Cmd) {
 	m.inputType = InputTypeList
 
+	m.listInput.Title = "commands:"
 	m.listInput.ResetSelected()
 	m.listInput.ResetFilter()
 

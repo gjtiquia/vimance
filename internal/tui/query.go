@@ -56,8 +56,6 @@ type QueryModel struct {
 	svc           *service.Service
 	err           error
 
-	menuInput     list.Model
-
 	DateFrom      textinput.Model
 	DateTo        textinput.Model
 	Currency      CurrencyModel
@@ -113,7 +111,6 @@ func NewQueryModel(svc *service.Service) QueryModel {
 	return QueryModel{
 		State:         QueryStateMenu,
 		svc:           svc,
-		menuInput:     newQueryMenuList(),
 		DateFrom:      dateFrom,
 		DateTo:        dateTo,
 		Currency:      NewCurrencyModel(svc),
@@ -124,33 +121,6 @@ func NewQueryModel(svc *service.Service) QueryModel {
 		saveNameInput: saveNameInput,
 		pageSize:      10,
 	}
-}
-
-func newQueryMenuList() list.Model {
-	const listWidth = 20
-
-	items := []list.Item{
-		NewListItem("new", "create a new query", "n"),
-		NewListItem("saved", "use a saved query", "s"),
-	}
-
-	l := list.New(items, ListItemDelegate{}, listWidth, 0)
-	l.Styles = list.Styles{}
-	l.Title = "query:"
-	l.Styles.TitleBar = lipgloss.NewStyle().Padding(1, 0)
-	l.SetShowStatusBar(false)
-	l.FilterInput.Prompt = "type command: "
-	l.SetShowHelp(false)
-	l.Help.ShowAll = true
-	l.KeyMap = CustomKeyMap()
-
-	listHeight := len(items) + 3 + 2 + 1 + 3
-	l.SetHeight(listHeight)
-
-	l.SetFilterText("")
-	l.SetFilterState(list.Filtering)
-
-	return l
 }
 
 func newSavedQueryList() list.Model {
@@ -258,8 +228,6 @@ func (m *QueryModel) currentFilterParams() filterParams {
 
 func (m QueryModel) Update(msg tea.Msg) (QueryModel, tea.Cmd) {
 	switch m.State {
-	case QueryStateMenu:
-		return m.updateMenu(msg)
 	case QueryStateFilterForm:
 		return m.updateFilterForm(msg)
 	case QueryStateConfirm:
@@ -274,34 +242,6 @@ func (m QueryModel) Update(msg tea.Msg) (QueryModel, tea.Cmd) {
 		return m.updateResults(msg)
 	}
 	return m, nil
-}
-
-func (m QueryModel) updateMenu(msg tea.Msg) (QueryModel, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "enter":
-			visibleItems := m.menuInput.VisibleItems()
-			visibleIndex := m.menuInput.Index()
-			if len(visibleItems) > 0 {
-				item := visibleItems[visibleIndex].(ListItem)
-				if item.title == "new" {
-					m.State = QueryStateFilterForm
-					m.ActiveField = FilterDateFrom
-					m.focusActiveField()
-					return m, nil
-				}
-				if item.title == "saved" {
-					m.loadSavedQueries()
-					return m, nil
-				}
-			}
-		}
-	}
-
-	var cmd tea.Cmd
-	m.menuInput, cmd = m.menuInput.Update(msg)
-	return m, cmd
 }
 
 func (m *QueryModel) loadSavedQueries() {
@@ -799,8 +739,6 @@ func (m QueryModel) updateResults(msg tea.Msg) (QueryModel, tea.Cmd) {
 
 func (m *QueryModel) View() string {
 	switch m.State {
-	case QueryStateMenu:
-		return m.viewMenu()
 	case QueryStateFilterForm:
 		return m.viewFilterForm()
 	case QueryStateConfirm:
@@ -815,13 +753,6 @@ func (m *QueryModel) View() string {
 		return m.viewResults()
 	}
 	return ""
-}
-
-func (m *QueryModel) viewMenu() string {
-	if m.errorMsg != "" {
-		return fmt.Sprintf("Error: %s\n\n%s", m.errorMsg, m.menuInput.View())
-	}
-	return m.menuInput.View()
 }
 
 func (m *QueryModel) viewFilterForm() string {

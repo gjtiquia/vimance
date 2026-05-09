@@ -122,7 +122,14 @@ func (m Model) View() tea.View {
 	case InputTypeRecord:
 		sb.WriteString(m.recordInput.View())
 	case InputTypeQuery:
-		sb.WriteString(m.queryInput.View())
+		if m.queryInput.State == QueryStateMenu {
+			if m.queryInput.errorMsg != "" {
+				sb.WriteString(fmt.Sprintf("Error: %s\n\n", m.queryInput.errorMsg))
+			}
+			sb.WriteString(m.listInput.View())
+		} else {
+			sb.WriteString(m.queryInput.View())
+		}
 	}
 
 	return tea.NewView(sb.String())
@@ -134,23 +141,73 @@ func (m Model) EnterQueryInput() (Model, tea.Cmd) {
 	if m.height > 0 {
 		m.queryInput.SetPageSize(m.height)
 	}
+
+	m.listInput.SetItems([]list.Item{
+		NewListItem("new", "create a new query", "n"),
+		NewListItem("saved", "use a saved query", "s"),
+	})
+	m.listInput.Title = "query:"
+	m.listInput.ResetSelected()
+	listHeight := 2 + 3 + 2 + 1 + 3
+	m.listInput.SetHeight(listHeight)
+	m.listInput.SetFilterText("")
+	m.listInput.SetFilterState(list.Filtering)
+
 	return m, nil
 }
 
 func (m Model) UpdateQueryInput(msg tea.Msg) (Model, tea.Cmd) {
-	// handle esc from non-filtering query menu → app menu
 	if m.queryInput.State == QueryStateMenu {
-		if keyMsg, ok := msg.(tea.KeyPressMsg); ok && keyMsg.String() == "esc" &&
-			m.queryInput.menuInput.FilterState() != list.Filtering {
-			m.queryInput = NewQueryModel(m.service)
-			return m.EnterListInput()
+		m.queryInput.errorMsg = ""
+
+		switch msg := msg.(type) {
+		case tea.KeyPressMsg:
+			switch msg.String() {
+			case "esc":
+				if m.listInput.FilterState() != list.Filtering {
+					m.queryInput = NewQueryModel(m.service)
+					return m.EnterListInput()
+				}
+				m.listInput.SetFilterState(list.FilterApplied)
+				m.listInput.Help.ShowAll = true
+				return m, nil
+			case "enter":
+				visibleItems := m.listInput.VisibleItems()
+				visibleIndex := m.listInput.Index()
+				if len(visibleItems) > 0 {
+					item := visibleItems[visibleIndex].(ListItem)
+					if item.title == "new" {
+						m.queryInput.State = QueryStateFilterForm
+						m.queryInput.ActiveField = FilterDateFrom
+						m.queryInput.focusActiveField()
+						return m, nil
+					}
+					if item.title == "saved" {
+						m.queryInput.loadSavedQueries()
+						return m, nil
+					}
+				}
+			case "up":
+				if m.listInput.FilterState() == list.Filtering {
+					m.listInput.CursorUp()
+				}
+				return m, nil
+			case "down":
+				if m.listInput.FilterState() == list.Filtering {
+					m.listInput.CursorDown()
+				}
+				return m, nil
+			}
 		}
+
+		var cmd tea.Cmd
+		m.listInput, cmd = m.listInput.Update(msg)
+		return m, cmd
 	}
 
 	var cmd tea.Cmd
 	m.queryInput, cmd = m.queryInput.Update(msg)
 
-	// handle record edit request from results
 	if m.queryInput.selectedID != 0 {
 		id := m.queryInput.selectedID
 		m.queryInput.selectedID = 0
