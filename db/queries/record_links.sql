@@ -1,6 +1,6 @@
 -- name: AddRecordLink :exec
-INSERT INTO record_links (parent_id, child_id, created_at)
-VALUES (?, ?, ?);
+INSERT INTO record_links (parent_id, child_id, created_at, created_by)
+VALUES (?, ?, ?, ?);
 
 -- name: RemoveRecordLink :exec
 DELETE FROM record_links WHERE parent_id = ? AND child_id = ?;

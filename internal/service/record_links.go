@@ -22,6 +22,7 @@ func (s *Service) LinkRecords(ctx context.Context, parentID int64, childID int64
 		ParentID:  parentID,
 		ChildID:   childID,
 		CreatedAt: now,
+		CreatedBy: createdBy,
 	})
 }
 

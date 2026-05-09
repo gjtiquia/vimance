@@ -256,9 +256,6 @@ func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 				}
 				m.setActiveField(FieldCurrency)
 				return m, nil
-			case FieldLinks:
-				m.setActiveField(FieldNotes)
-				return m, nil
 			case FieldNotes:
 				m.State = RecordStateConfirm
 				m.ConfirmModel.Errors = m.Validate()

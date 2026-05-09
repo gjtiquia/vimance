@@ -11,18 +11,24 @@ import (
 )
 
 const addRecordLink = `-- name: AddRecordLink :exec
-INSERT INTO record_links (parent_id, child_id, created_at)
-VALUES (?, ?, ?)
+INSERT INTO record_links (parent_id, child_id, created_at, created_by)
+VALUES (?, ?, ?, ?)
 `
 
 type AddRecordLinkParams struct {
 	ParentID  int64
 	ChildID   int64
 	CreatedAt int64
+	CreatedBy int64
 }
 
 func (q *Queries) AddRecordLink(ctx context.Context, arg AddRecordLinkParams) error {
-	_, err := q.db.ExecContext(ctx, addRecordLink, arg.ParentID, arg.ChildID, arg.CreatedAt)
+	_, err := q.db.ExecContext(ctx, addRecordLink,
+		arg.ParentID,
+		arg.ChildID,
+		arg.CreatedAt,
+		arg.CreatedBy,
+	)
 	return err
 }
 

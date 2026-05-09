@@ -3,7 +3,9 @@ package tui
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
@@ -64,7 +66,11 @@ func (m *LinksModel) SetDateRange(year, month string) {
 		return
 	}
 	m.DateFrom = fmt.Sprintf("%s-%s-01", year, month)
-	m.DateTo = fmt.Sprintf("%s-%s-31", year, month)
+
+	y, _ := strconv.Atoi(year)
+	mo, _ := strconv.Atoi(month)
+	lastDay := time.Date(y, time.Month(mo)+1, 0, 0, 0, 0, 0, time.UTC).Day()
+	m.DateTo = fmt.Sprintf("%s-%s-%02d", year, month, lastDay)
 }
 
 func (m *LinksModel) SetCurrencyID(id int64) {

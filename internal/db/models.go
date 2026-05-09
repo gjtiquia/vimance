@@ -78,6 +78,7 @@ type RecordLink struct {
 	ParentID  int64
 	ChildID   int64
 	CreatedAt int64
+	CreatedBy int64
 }
 
 type RecordsTag struct {

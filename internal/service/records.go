@@ -63,6 +63,7 @@ func (s *Service) CreateRecordWithTagsAndLinks(ctx context.Context, date string,
 				ParentID:  parentID,
 				ChildID:   record.ID,
 				CreatedAt: now,
+				CreatedBy: createdBy,
 			})
 			if err != nil {
 				return record, err
