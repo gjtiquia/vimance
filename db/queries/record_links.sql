@@ -6,13 +6,13 @@ VALUES (?, ?, ?, ?);
 DELETE FROM record_links WHERE parent_id = ? AND child_id = ?;
 
 -- name: GetRecordParents :many
-SELECT r.* FROM records r
+SELECT r.* FROM active_records r
 INNER JOIN record_links rl ON r.id = rl.parent_id
 WHERE rl.child_id = ?
 ORDER BY r.date DESC, r.id DESC;
 
 -- name: GetRecordChildren :many
-SELECT r.* FROM records r
+SELECT r.* FROM active_records r
 INNER JOIN record_links rl ON r.id = rl.child_id
 WHERE rl.parent_id = ?
 ORDER BY r.date DESC, r.id DESC;

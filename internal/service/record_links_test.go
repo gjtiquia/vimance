@@ -58,12 +58,27 @@ func TestLinkRecords(t *testing.T) {
 func TestMultipleParents(t *testing.T) {
 	s := setupTestService(t)
 
-	user, _ := s.CreateUser(t.Context(), "testuser")
-	currency, _ := s.CreateCurrency(t.Context(), "USD")
+	user, err := s.CreateUser(t.Context(), "testuser")
+	if err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+	currency, err := s.CreateCurrency(t.Context(), "USD")
+	if err != nil {
+		t.Fatalf("failed to create currency: %v", err)
+	}
 
-	parent1, _ := s.CreateRecord(t.Context(), "2026-01-01", 500000, currency.ID, "january balance", user.ID)
-	parent2, _ := s.CreateRecord(t.Context(), "2026-02-01", 520000, currency.ID, "february balance", user.ID)
-	child, _ := s.CreateRecord(t.Context(), "2026-01-15", 120000, currency.ID, "credit card bill", user.ID)
+	parent1, err := s.CreateRecord(t.Context(), "2026-01-01", 500000, currency.ID, "january balance", user.ID)
+	if err != nil {
+		t.Fatalf("failed to create parent1: %v", err)
+	}
+	parent2, err := s.CreateRecord(t.Context(), "2026-02-01", 520000, currency.ID, "february balance", user.ID)
+	if err != nil {
+		t.Fatalf("failed to create parent2: %v", err)
+	}
+	child, err := s.CreateRecord(t.Context(), "2026-01-15", 120000, currency.ID, "credit card bill", user.ID)
+	if err != nil {
+		t.Fatalf("failed to create child: %v", err)
+	}
 
 	if err := s.LinkRecords(t.Context(), parent1.ID, child.ID, user.ID); err != nil {
 		t.Fatalf("failed to link parent1: %v", err)
@@ -84,15 +99,29 @@ func TestMultipleParents(t *testing.T) {
 func TestUnlinkRecords(t *testing.T) {
 	s := setupTestService(t)
 
-	user, _ := s.CreateUser(t.Context(), "testuser")
-	currency, _ := s.CreateCurrency(t.Context(), "USD")
+	user, err := s.CreateUser(t.Context(), "testuser")
+	if err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+	currency, err := s.CreateCurrency(t.Context(), "USD")
+	if err != nil {
+		t.Fatalf("failed to create currency: %v", err)
+	}
 
-	parent, _ := s.CreateRecord(t.Context(), "2026-01-01", 500000, currency.ID, "january balance", user.ID)
-	child, _ := s.CreateRecord(t.Context(), "2026-01-15", 120000, currency.ID, "credit card bill", user.ID)
+	parent, err := s.CreateRecord(t.Context(), "2026-01-01", 500000, currency.ID, "january balance", user.ID)
+	if err != nil {
+		t.Fatalf("failed to create parent: %v", err)
+	}
+	child, err := s.CreateRecord(t.Context(), "2026-01-15", 120000, currency.ID, "credit card bill", user.ID)
+	if err != nil {
+		t.Fatalf("failed to create child: %v", err)
+	}
 
-	s.LinkRecords(t.Context(), parent.ID, child.ID, user.ID)
+	if err := s.LinkRecords(t.Context(), parent.ID, child.ID, user.ID); err != nil {
+		t.Fatalf("failed to link records: %v", err)
+	}
 
-	err := s.UnlinkRecords(t.Context(), parent.ID, child.ID)
+	err = s.UnlinkRecords(t.Context(), parent.ID, child.ID)
 	if err != nil {
 		t.Fatalf("failed to unlink records: %v", err)
 	}
@@ -106,16 +135,40 @@ func TestUnlinkRecords(t *testing.T) {
 func TestSearchLinkCandidates(t *testing.T) {
 	s := setupTestService(t)
 
-	user, _ := s.CreateUser(t.Context(), "testuser")
-	currency1, _ := s.CreateCurrency(t.Context(), "USD")
-	currency2, _ := s.CreateCurrency(t.Context(), "PHP")
+	user, err := s.CreateUser(t.Context(), "testuser")
+	if err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+	currency1, err := s.CreateCurrency(t.Context(), "USD")
+	if err != nil {
+		t.Fatalf("failed to create currency1: %v", err)
+	}
+	currency2, err := s.CreateCurrency(t.Context(), "PHP")
+	if err != nil {
+		t.Fatalf("failed to create currency2: %v", err)
+	}
 
-	tag1, _ := s.CreateTag(t.Context(), "balance", "", "", user.ID)
-	tag2, _ := s.CreateTag(t.Context(), "expense", "", "", user.ID)
+	tag1, err := s.CreateTag(t.Context(), "balance", "", "", user.ID)
+	if err != nil {
+		t.Fatalf("failed to create tag1: %v", err)
+	}
+	tag2, err := s.CreateTag(t.Context(), "expense", "", "", user.ID)
+	if err != nil {
+		t.Fatalf("failed to create tag2: %v", err)
+	}
 
-	p1, _ := s.CreateRecord(t.Context(), "2026-01-01", 500000, currency1.ID, "january balance", user.ID)
-	p2, _ := s.CreateRecord(t.Context(), "2026-02-01", 520000, currency1.ID, "february balance", user.ID)
-	pOtherCurrency, _ := s.CreateRecord(t.Context(), "2026-01-10", 10000, currency2.ID, "php balance", user.ID)
+	p1, err := s.CreateRecord(t.Context(), "2026-01-01", 500000, currency1.ID, "january balance", user.ID)
+	if err != nil {
+		t.Fatalf("failed to create p1: %v", err)
+	}
+	p2, err := s.CreateRecord(t.Context(), "2026-02-01", 520000, currency1.ID, "february balance", user.ID)
+	if err != nil {
+		t.Fatalf("failed to create p2: %v", err)
+	}
+	pOtherCurrency, err := s.CreateRecord(t.Context(), "2026-01-10", 10000, currency2.ID, "php balance", user.ID)
+	if err != nil {
+		t.Fatalf("failed to create pOtherCurrency: %v", err)
+	}
 
 	s.CreateRecordWithTags(t.Context(), "2026-01-15", 1000, currency1.ID, "unrelated", user.ID, []int64{tag1.ID})
 
@@ -153,23 +206,49 @@ func TestSearchLinkCandidates(t *testing.T) {
 func TestCreateRecordWithTagsAndLinks(t *testing.T) {
 	s := setupTestService(t)
 
-	user, _ := s.CreateUser(t.Context(), "testuser")
-	currency, _ := s.CreateCurrency(t.Context(), "USD")
-	tag, _ := s.CreateTag(t.Context(), "expense", "", "", user.ID)
+	user, err := s.CreateUser(t.Context(), "testuser")
+	if err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+	currency, err := s.CreateCurrency(t.Context(), "USD")
+	if err != nil {
+		t.Fatalf("failed to create currency: %v", err)
+	}
+	tag, err := s.CreateTag(t.Context(), "expense", "", "", user.ID)
+	if err != nil {
+		t.Fatalf("failed to create tag: %v", err)
+	}
 
-	parent, _ := s.CreateRecord(t.Context(), "2026-01-01", 500000, currency.ID, "january balance", user.ID)
+	parent, err := s.CreateRecord(t.Context(), "2026-01-01", 500000, currency.ID, "january balance", user.ID)
+	if err != nil {
+		t.Fatalf("failed to create parent: %v", err)
+	}
 
 	child, err := s.CreateRecordWithTagsAndLinks(t.Context(), "2026-01-15", 120000, currency.ID, "credit card bill", user.ID, []int64{tag.ID}, []int64{parent.ID})
 	if err != nil {
 		t.Fatalf("failed to create record with tags and links: %v", err)
 	}
 
-	parents, _ := s.GetRecordParents(t.Context(), child.ID)
+	parents, err := s.GetRecordParents(t.Context(), child.ID)
+	if err != nil {
+		t.Fatalf("failed to get parents: %v", err)
+	}
 	if len(parents) != 1 {
 		t.Errorf("expected 1 parent, got %d", len(parents))
 	}
 
-	tags, _ := s.GetRecordTags(t.Context(), child.ID)
+	children, err := s.GetRecordChildren(t.Context(), parent.ID)
+	if err != nil {
+		t.Fatalf("failed to get children: %v", err)
+	}
+	if len(children) != 1 {
+		t.Errorf("expected 1 child, got %d", len(children))
+	}
+
+	tags, err := s.GetRecordTags(t.Context(), child.ID)
+	if err != nil {
+		t.Fatalf("failed to get tags: %v", err)
+	}
 	if len(tags) != 1 {
 		t.Errorf("expected 1 tag, got %d", len(tags))
 	}
@@ -178,22 +257,44 @@ func TestCreateRecordWithTagsAndLinks(t *testing.T) {
 func TestCascadeDeleteRecordLinks(t *testing.T) {
 	s := setupTestService(t)
 
-	user, _ := s.CreateUser(t.Context(), "testuser")
-	currency, _ := s.CreateCurrency(t.Context(), "USD")
+	user, err := s.CreateUser(t.Context(), "testuser")
+	if err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+	currency, err := s.CreateCurrency(t.Context(), "USD")
+	if err != nil {
+		t.Fatalf("failed to create currency: %v", err)
+	}
 
-	parent, _ := s.CreateRecord(t.Context(), "2026-01-01", 500000, currency.ID, "january balance", user.ID)
-	child, _ := s.CreateRecord(t.Context(), "2026-01-15", 120000, currency.ID, "credit card bill", user.ID)
+	parent, err := s.CreateRecord(t.Context(), "2026-01-01", 500000, currency.ID, "january balance", user.ID)
+	if err != nil {
+		t.Fatalf("failed to create parent: %v", err)
+	}
+	child, err := s.CreateRecord(t.Context(), "2026-01-15", 120000, currency.ID, "credit card bill", user.ID)
+	if err != nil {
+		t.Fatalf("failed to create child: %v", err)
+	}
 
-	s.LinkRecords(t.Context(), parent.ID, child.ID, user.ID)
+	if err := s.LinkRecords(t.Context(), parent.ID, child.ID, user.ID); err != nil {
+		t.Fatalf("failed to link records: %v", err)
+	}
 
-	s.HardDeleteRecord(t.Context(), parent.ID)
+	if err := s.HardDeleteRecord(t.Context(), parent.ID); err != nil {
+		t.Fatalf("failed to hard delete parent: %v", err)
+	}
 
-	parents, _ := s.GetRecordParents(t.Context(), child.ID)
+	parents, err := s.GetRecordParents(t.Context(), child.ID)
+	if err != nil {
+		t.Fatalf("failed to get parents: %v", err)
+	}
 	if len(parents) != 0 {
 		t.Errorf("expected 0 parents after cascade delete, got %d", len(parents))
 	}
 
-	children, _ := s.GetRecordChildren(t.Context(), parent.ID)
+	children, err := s.GetRecordChildren(t.Context(), parent.ID)
+	if err != nil {
+		t.Fatalf("failed to get children: %v", err)
+	}
 	if len(children) != 0 {
 		t.Errorf("expected 0 children after cascade delete, got %d", len(children))
 	}

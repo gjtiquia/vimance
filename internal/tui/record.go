@@ -132,8 +132,10 @@ func (m *RecordModel) setActiveField(field ActiveField) {
 	switch field {
 	case FieldTags:
 		m.TagsInput.Mode = TagModeInsert
+		m.TagsInput.LoadTags(context.Background())
 	case FieldCurrency:
 		m.CurrencyInput.Mode = CurrencyModeInsert
+		m.CurrencyInput.LoadCurrencies(context.Background())
 	case FieldLinks:
 		m.LinksInput.Mode = LinkModeInsert
 		m.LinksInput.SetDateRange(m.DateYearInput.Value(), m.DateMonthInput.Value())
@@ -328,7 +330,7 @@ func (m RecordModel) updateConfirm(msg tea.Msg) (RecordModel, tea.Cmd) {
 			return m, nil
 		case "esc":
 			m.State = RecordStateEditing
-			m.setActiveField(FieldLinks)
+			m.setActiveField(FieldNotes)
 			return m, nil
 		case "enter":
 			if !m.ConfirmModel.Errors.HasErrors() {

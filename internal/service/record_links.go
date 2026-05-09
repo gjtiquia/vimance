@@ -33,11 +33,11 @@ func (s *Service) UnlinkRecords(ctx context.Context, parentID int64, childID int
 	})
 }
 
-func (s *Service) GetRecordParents(ctx context.Context, recordID int64) ([]db.Record, error) {
+func (s *Service) GetRecordParents(ctx context.Context, recordID int64) ([]db.ActiveRecord, error) {
 	return s.queries.GetRecordParents(ctx, recordID)
 }
 
-func (s *Service) GetRecordChildren(ctx context.Context, recordID int64) ([]db.Record, error) {
+func (s *Service) GetRecordChildren(ctx context.Context, recordID int64) ([]db.ActiveRecord, error) {
 	return s.queries.GetRecordChildren(ctx, recordID)
 }
 

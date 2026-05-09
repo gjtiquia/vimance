@@ -87,6 +87,9 @@ func (m *LinksModel) LoadCandidates(ctx context.Context) error {
 
 	candidates, err := m.service.SearchLinkCandidates(ctx, m.DateFrom, m.DateTo, m.CurrencyID, 0)
 	if err != nil {
+		m.AllCandidates = make([]LinkedRecord, 0)
+		m.FilteredCandidates = make([]LinkedRecord, 0)
+		m.loaded = true
 		return err
 	}
 
@@ -233,11 +236,7 @@ func (m LinksModel) View() string {
 			if i > 0 {
 				sb.WriteString(", ")
 			}
-			notes := p.Notes
-			if len(notes) > 20 {
-				notes = notes[:20] + "..."
-			}
-			sb.WriteString(fmt.Sprintf("[%s]", notes))
+			sb.WriteString(fmt.Sprintf("[%s]", truncate(p.Notes, 20)))
 		}
 	}
 	sb.WriteString("\n")
@@ -277,14 +276,9 @@ func (m LinksModel) filteredListView() string {
 		centsRemainder := cents % 100
 		amountStr := fmt.Sprintf("%d.%02d", dollars, centsRemainder)
 
-		notes := c.Notes
-		if len(notes) > 30 {
-			notes = notes[:30] + "..."
-		}
-
 		tags := strings.Join(c.TagNames, ", ")
 
-		sb.WriteString(fmt.Sprintf("%s %d) %s  $%s  \"%s\"", cursor, i+1, c.Date, amountStr, notes))
+		sb.WriteString(fmt.Sprintf("%s %d) %s  $%s  \"%s\"", cursor, i+1, c.Date, amountStr, truncate(c.Notes, 30)))
 		if tags != "" {
 			sb.WriteString(fmt.Sprintf("  [%s]", tags))
 		}

@@ -70,6 +70,14 @@ func validateDate(year, month, day string) error {
 	return nil
 }
 
+func truncate(s string, maxLen int) string {
+	runes := []rune(s)
+	if len(runes) > maxLen {
+		return string(runes[:maxLen]) + "..."
+	}
+	return s
+}
+
 func formatDate(year, month, day string) string {
 	return fmt.Sprintf("%s-%s-%s", year, month, day)
 }

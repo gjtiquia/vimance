@@ -93,11 +93,7 @@ func (m ConfirmModel) View(record RecordModel) string {
 			if i > 0 {
 				sb.WriteString(", ")
 			}
-			notes := p.Notes
-			if len(notes) > 30 {
-				notes = notes[:30] + "..."
-			}
-			sb.WriteString(fmt.Sprintf("[%s]", notes))
+			sb.WriteString(fmt.Sprintf("[%s]", truncate(p.Notes, 30)))
 		}
 	}
 	sb.WriteString("\n")

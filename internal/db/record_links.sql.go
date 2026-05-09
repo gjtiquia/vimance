@@ -33,21 +33,21 @@ func (q *Queries) AddRecordLink(ctx context.Context, arg AddRecordLinkParams) er
 }
 
 const getRecordChildren = `-- name: GetRecordChildren :many
-SELECT r.id, r.date, r.amount_cents, r.currency_id, r.notes, r.created_at, r.created_by, r.updated_at, r.updated_by, r.deleted_at, r.deleted_by FROM records r
+SELECT r.id, r.date, r.amount_cents, r.currency_id, r.notes, r.created_at, r.created_by, r.updated_at, r.updated_by, r.deleted_at, r.deleted_by FROM active_records r
 INNER JOIN record_links rl ON r.id = rl.child_id
 WHERE rl.parent_id = ?
 ORDER BY r.date DESC, r.id DESC
 `
 
-func (q *Queries) GetRecordChildren(ctx context.Context, parentID int64) ([]Record, error) {
+func (q *Queries) GetRecordChildren(ctx context.Context, parentID int64) ([]ActiveRecord, error) {
 	rows, err := q.db.QueryContext(ctx, getRecordChildren, parentID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Record
+	var items []ActiveRecord
 	for rows.Next() {
-		var i Record
+		var i ActiveRecord
 		if err := rows.Scan(
 			&i.ID,
 			&i.Date,
@@ -75,21 +75,21 @@ func (q *Queries) GetRecordChildren(ctx context.Context, parentID int64) ([]Reco
 }
 
 const getRecordParents = `-- name: GetRecordParents :many
-SELECT r.id, r.date, r.amount_cents, r.currency_id, r.notes, r.created_at, r.created_by, r.updated_at, r.updated_by, r.deleted_at, r.deleted_by FROM records r
+SELECT r.id, r.date, r.amount_cents, r.currency_id, r.notes, r.created_at, r.created_by, r.updated_at, r.updated_by, r.deleted_at, r.deleted_by FROM active_records r
 INNER JOIN record_links rl ON r.id = rl.parent_id
 WHERE rl.child_id = ?
 ORDER BY r.date DESC, r.id DESC
 `
 
-func (q *Queries) GetRecordParents(ctx context.Context, childID int64) ([]Record, error) {
+func (q *Queries) GetRecordParents(ctx context.Context, childID int64) ([]ActiveRecord, error) {
 	rows, err := q.db.QueryContext(ctx, getRecordParents, childID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Record
+	var items []ActiveRecord
 	for rows.Next() {
-		var i Record
+		var i ActiveRecord
 		if err := rows.Scan(
 			&i.ID,
 			&i.Date,
