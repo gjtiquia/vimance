@@ -232,3 +232,78 @@ func TestDuplicateRecordTag(t *testing.T) {
 		t.Error("expected error when adding duplicate record-tag pair")
 	}
 }
+
+func TestGetRecordFull(t *testing.T) {
+	s := setupTestService(t)
+
+	user, _ := s.CreateUser(t.Context(), "testuser")
+	currency, _ := s.CreateCurrency(t.Context(), "USD")
+	tag1, _ := s.CreateTag(t.Context(), "food", "", "", user.ID)
+	tag2, _ := s.CreateTag(t.Context(), "drink", "", "", user.ID)
+
+	parent, _ := s.CreateRecord(t.Context(), "2026-01-01", 500000, currency.ID, "january balance", user.ID)
+	child, _ := s.CreateRecordWithTags(t.Context(), "2026-01-15", 120000, currency.ID, "credit card bill", user.ID, []int64{tag1.ID, tag2.ID})
+	s.LinkRecords(t.Context(), parent.ID, child.ID, user.ID)
+
+	full, err := s.GetRecordFull(t.Context(), child.ID)
+	if err != nil {
+		t.Fatalf("failed to get record full: %v", err)
+	}
+
+	if full.Record.ID != child.ID {
+		t.Errorf("expected record ID %d, got %d", child.ID, full.Record.ID)
+	}
+	if full.CurrencyCode != "USD" {
+		t.Errorf("expected currency code USD, got %s", full.CurrencyCode)
+	}
+	if len(full.Tags) != 2 {
+		t.Errorf("expected 2 tags, got %d", len(full.Tags))
+	}
+	if len(full.Parents) != 1 {
+		t.Errorf("expected 1 parent, got %d", len(full.Parents))
+	}
+	if full.Parents[0].ID != parent.ID {
+		t.Errorf("expected parent ID %d, got %d", parent.ID, full.Parents[0].ID)
+	}
+}
+
+func TestUpdateRecordWithTagsAndLinks(t *testing.T) {
+	s := setupTestService(t)
+
+	user, _ := s.CreateUser(t.Context(), "testuser")
+	currency, _ := s.CreateCurrency(t.Context(), "USD")
+	tag1, _ := s.CreateTag(t.Context(), "food", "", "", user.ID)
+	tag2, _ := s.CreateTag(t.Context(), "drink", "", "", user.ID)
+
+	parent, _ := s.CreateRecord(t.Context(), "2026-01-01", 500000, currency.ID, "january", user.ID)
+	child, _ := s.CreateRecordWithTags(t.Context(), "2026-01-15", 120000, currency.ID, "bill", user.ID, []int64{tag1.ID})
+	s.LinkRecords(t.Context(), parent.ID, child.ID, user.ID)
+
+	// update: change tags (remove tag1, add tag2), change links (remove parent)
+	updated, err := s.UpdateRecordWithTagsAndLinks(t.Context(), child.ID, "2026-01-20", 200000, currency.ID, "updated bill", user.ID, []int64{tag2.ID}, nil)
+	if err != nil {
+		t.Fatalf("failed to update record: %v", err)
+	}
+
+	if updated.Date != "2026-01-20" {
+		t.Errorf("expected date '2026-01-20', got '%s'", updated.Date)
+	}
+	if updated.AmountCents != 200000 {
+		t.Errorf("expected amount 200000, got %d", updated.AmountCents)
+	}
+
+	// verify old tag removed
+	tags, _ := s.GetRecordTags(t.Context(), child.ID)
+	if len(tags) != 1 {
+		t.Errorf("expected 1 tag after update, got %d", len(tags))
+	}
+	if tags[0].ID != tag2.ID {
+		t.Errorf("expected tag2 (%d) after update, got %d", tag2.ID, tags[0].ID)
+	}
+
+	// verify old link removed
+	parents, _ := s.GetRecordParents(t.Context(), child.ID)
+	if len(parents) != 0 {
+		t.Errorf("expected 0 parents after link removal, got %d", len(parents))
+	}
+}

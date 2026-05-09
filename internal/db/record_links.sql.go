@@ -116,6 +116,50 @@ func (q *Queries) GetRecordParents(ctx context.Context, childID int64) ([]Active
 	return items, nil
 }
 
+const getRecordTagIDsByIDs = `-- name: GetRecordTagIDsByIDs :many
+SELECT record_id, tag_id FROM records_tags
+WHERE record_id IN (/*SLICE:record_ids*/?)
+ORDER BY record_id, tag_id
+`
+
+type GetRecordTagIDsByIDsRow struct {
+	RecordID int64
+	TagID    int64
+}
+
+func (q *Queries) GetRecordTagIDsByIDs(ctx context.Context, recordIds []int64) ([]GetRecordTagIDsByIDsRow, error) {
+	query := getRecordTagIDsByIDs
+	var queryParams []interface{}
+	if len(recordIds) > 0 {
+		for _, v := range recordIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:record_ids*/?", strings.Repeat(",?", len(recordIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:record_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetRecordTagIDsByIDsRow
+	for rows.Next() {
+		var i GetRecordTagIDsByIDsRow
+		if err := rows.Scan(&i.RecordID, &i.TagID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getRecordTagsByIDs = `-- name: GetRecordTagsByIDs :many
 SELECT rt.record_id, t.name FROM tags t
 INNER JOIN records_tags rt ON t.id = rt.tag_id
@@ -159,6 +203,15 @@ func (q *Queries) GetRecordTagsByIDs(ctx context.Context, recordIds []int64) ([]
 		return nil, err
 	}
 	return items, nil
+}
+
+const removeAllRecordLinks = `-- name: RemoveAllRecordLinks :exec
+DELETE FROM record_links WHERE child_id = ?
+`
+
+func (q *Queries) RemoveAllRecordLinks(ctx context.Context, childID int64) error {
+	_, err := q.db.ExecContext(ctx, removeAllRecordLinks, childID)
+	return err
 }
 
 const removeRecordLink = `-- name: RemoveRecordLink :exec

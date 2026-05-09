@@ -90,6 +90,24 @@ type RecordsTag struct {
 	UpdatedBy int64
 }
 
+type SavedQuery struct {
+	ID         int64
+	Name       string
+	DateFrom   string
+	DateTo     string
+	CurrencyID sql.NullInt64
+	FuzzyText  string
+	CreatedAt  int64
+	CreatedBy  int64
+	UpdatedAt  int64
+	UpdatedBy  int64
+}
+
+type SavedQueryTag struct {
+	QueryID int64
+	TagID   int64
+}
+
 type Tag struct {
 	ID          int64
 	Name        string

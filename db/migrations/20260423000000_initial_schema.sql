@@ -95,6 +95,26 @@ SELECT * FROM tags WHERE deleted_at IS NULL;
 CREATE VIEW active_records AS
 SELECT * FROM records WHERE deleted_at IS NULL;
 
+-- Saved queries table (hard delete, user convenience config)
+CREATE TABLE saved_queries (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    date_from TEXT NOT NULL,
+    date_to TEXT NOT NULL,
+    currency_id INTEGER REFERENCES currencies(id),
+    fuzzy_text TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL,
+    created_by INTEGER NOT NULL REFERENCES users(id),
+    updated_at INTEGER NOT NULL,
+    updated_by INTEGER NOT NULL REFERENCES users(id)
+);
+
+CREATE TABLE saved_query_tags (
+    query_id INTEGER NOT NULL REFERENCES saved_queries(id) ON DELETE CASCADE,
+    tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (query_id, tag_id)
+);
+
 -- +goose StatementEnd
 
 -- +goose Down
@@ -103,6 +123,8 @@ SELECT * FROM records WHERE deleted_at IS NULL;
 DROP VIEW IF EXISTS active_records;
 DROP VIEW IF EXISTS active_tags;
 DROP VIEW IF EXISTS active_users;
+DROP TABLE IF EXISTS saved_query_tags;
+DROP TABLE IF EXISTS saved_queries;
 DROP TABLE IF EXISTS pinned_tags;
 DROP TABLE IF EXISTS record_links;
 DROP TABLE IF EXISTS records_tags;

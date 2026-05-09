@@ -16,6 +16,13 @@ const (
 	RecordStateFatal     RecordState = "fatal"
 )
 
+type RecordOrigin string
+
+const (
+	RecordOriginCreate RecordOrigin = "create"
+	RecordOriginQuery  RecordOrigin = "query"
+)
+
 type ConfirmModel struct {
 	Errors   ValidationErrors
 	Warnings ValidationErrors
@@ -134,11 +141,16 @@ func (m SuccessModel) Update(msg tea.Msg) (SuccessModel, tea.Cmd) {
 	return m, nil
 }
 
-func (m SuccessModel) View() string {
+func (m SuccessModel) View(origin RecordOrigin) string {
 	var sb strings.Builder
 
-	sb.WriteString("✓ Record created successfully\n\n")
-	sb.WriteString("Press enter to add another record, esc to return to menu\n")
+	if origin == RecordOriginQuery {
+		sb.WriteString("✓ Record updated successfully\n\n")
+		sb.WriteString("Press esc to return to results\n")
+	} else {
+		sb.WriteString("✓ Record created successfully\n\n")
+		sb.WriteString("Press enter to add another record, esc to return to menu\n")
+	}
 
 	return sb.String()
 }

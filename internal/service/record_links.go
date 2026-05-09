@@ -41,6 +41,10 @@ func (s *Service) GetRecordChildren(ctx context.Context, recordID int64) ([]db.A
 	return s.queries.GetRecordChildren(ctx, recordID)
 }
 
+func (s *Service) RemoveAllRecordLinks(ctx context.Context, childID int64) error {
+	return s.queries.RemoveAllRecordLinks(ctx, childID)
+}
+
 func (s *Service) SearchLinkCandidates(ctx context.Context, dateFrom string, dateTo string, currencyID int64, excludeID int64) ([]LinkCandidate, error) {
 	rows, err := s.queries.SearchParentCandidates(ctx, db.SearchParentCandidatesParams{
 		Date:       dateFrom,

@@ -268,10 +268,7 @@ func (m LinksModel) filteredListView() string {
 			cursor = ">"
 		}
 
-		cents := c.AmountCents
-		dollars := cents / 100
-		centsRemainder := cents % 100
-		amountStr := fmt.Sprintf("%d.%02d", dollars, centsRemainder)
+		amountStr := service.FormatCents(c.AmountCents)
 
 		tags := strings.Join(c.TagNames, ", ")
 

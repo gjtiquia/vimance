@@ -5,6 +5,9 @@ VALUES (?, ?, ?, ?);
 -- name: RemoveRecordLink :exec
 DELETE FROM record_links WHERE parent_id = ? AND child_id = ?;
 
+-- name: RemoveAllRecordLinks :exec
+DELETE FROM record_links WHERE child_id = ?;
+
 -- name: GetRecordParents :many
 SELECT r.* FROM active_records r
 INNER JOIN record_links rl ON r.id = rl.parent_id
@@ -30,3 +33,8 @@ SELECT rt.record_id, t.name FROM tags t
 INNER JOIN records_tags rt ON t.id = rt.tag_id
 WHERE rt.record_id IN (sqlc.slice('record_ids'))
 ORDER BY rt.record_id, t.name;
+
+-- name: GetRecordTagIDsByIDs :many
+SELECT record_id, tag_id FROM records_tags
+WHERE record_id IN (sqlc.slice('record_ids'))
+ORDER BY record_id, tag_id;

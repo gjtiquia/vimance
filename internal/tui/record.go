@@ -87,6 +87,8 @@ type RecordModel struct {
 	SuccessModel SuccessModel
 	FatalErr     error
 	service      *service.Service
+	Origin       RecordOrigin
+	EditRecordID int64
 }
 
 func NewRecordModel(svc *service.Service) RecordModel {
@@ -138,6 +140,64 @@ func NewRecordModel(svc *service.Service) RecordModel {
 	}
 
 	m.focusActiveField()
+	return m
+}
+
+func NewEditRecordModel(svc *service.Service, full *service.RecordFull, origin RecordOrigin) RecordModel {
+	m := NewRecordModel(svc)
+	m.Origin = origin
+	m.EditRecordID = full.Record.ID
+
+	// pre-fill date
+	parts := strings.Split(full.Record.Date, "-")
+	if len(parts) == 3 {
+		m.DateYearInput.SetValue(parts[0])
+		m.DateMonthInput.SetValue(parts[1])
+		m.DateDayInput.SetValue(parts[2])
+	}
+
+	// pre-fill amount
+	m.AmountInput.SetValue(service.FormatCents(full.Record.AmountCents))
+
+	// pre-fill notes
+	m.NotesInput.SetValue(full.Record.Notes)
+
+	// pre-fill currency
+	m.CurrencyInput.LoadCurrencies(context.Background())
+	for _, c := range m.CurrencyInput.AllCurrencies {
+		if c.ID == full.Record.CurrencyID {
+			m.CurrencyInput.Selected = &c
+			break
+		}
+	}
+
+	// pre-fill tags
+	m.TagsInput.LoadTags(context.Background())
+	for _, t := range full.Tags {
+		m.TagsInput.addTag(t.Name)
+	}
+
+	// pre-fill links
+	if len(full.Parents) > 0 {
+		year := m.DateYearInput.Value()
+		month := m.DateMonthInput.Value()
+		m.LinksInput.SetDateRange(year, month)
+		if m.CurrencyInput.Selected != nil {
+			m.LinksInput.SetCurrencyID(m.CurrencyInput.Selected.ID)
+		}
+		m.LinksInput.SelectedParents = make([]LinkedRecord, len(full.Parents))
+		for i, p := range full.Parents {
+			m.LinksInput.SelectedParents[i] = LinkedRecord{
+				ID:          p.ID,
+				Date:        p.Date,
+				AmountCents: p.AmountCents,
+				CurrencyID:  p.CurrencyID,
+				Notes:       p.Notes,
+				TagNames:    p.TagNames,
+			}
+		}
+	}
+
 	return m
 }
 
@@ -329,7 +389,7 @@ func (m RecordModel) updateConfirm(msg tea.Msg) (RecordModel, tea.Cmd) {
 			return m, nil
 		case "enter":
 			if !m.ConfirmModel.Errors.HasErrors() {
-			err := m.CreateRecord(context.Background(), 1)
+			err := m.SaveRecord(context.Background(), 1)
 			if err != nil {
 				m.FatalErr = err
 				fmt.Fprintf(os.Stderr, "fatal: %v\n", err)
@@ -350,7 +410,12 @@ func (m RecordModel) updateSuccess(msg tea.Msg) (RecordModel, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "enter":
-			return NewRecordModel(m.service), nil
+			if m.Origin == RecordOriginCreate {
+				return NewRecordModel(m.service), nil
+			}
+		case "esc":
+			// handled by app.go for origin-aware routing
+			return m, nil
 		}
 	}
 
@@ -363,6 +428,56 @@ func (m RecordModel) updateFatal(msg tea.Msg) (RecordModel, tea.Cmd) {
 		return m, tea.Quit
 	}
 	return m, nil
+}
+
+func (m RecordModel) SaveRecord(ctx context.Context, userID int64) error {
+	if m.Origin == RecordOriginQuery {
+		return m.updateRecord(ctx, userID)
+	}
+	return m.CreateRecord(ctx, userID)
+}
+
+func (m RecordModel) updateRecord(ctx context.Context, userID int64) error {
+	date := formatDate(m.DateYearInput.Value(), m.DateMonthInput.Value(), m.DateDayInput.Value())
+
+	amountCents, err := parseAmountToCents(m.AmountInput.Value())
+	if err != nil {
+		return err
+	}
+
+	currency := m.CurrencyInput.Selected
+	if currency == nil {
+		return fmt.Errorf("currency is required")
+	}
+
+	if currency.IsNew {
+		createdCurrency, _, err := m.service.GetOrCreateCurrency(ctx, currency.Code)
+		if err != nil {
+			return err
+		}
+		currency.ID = createdCurrency.ID
+	}
+
+	tagIDs := make([]int64, 0, len(m.TagsInput.SelectedTags))
+	for _, tag := range m.TagsInput.SelectedTags {
+		if tag.IsNew {
+			createdTag, _, err := m.service.GetOrCreateTag(ctx, tag.Name, userID)
+			if err != nil {
+				return err
+			}
+			tagIDs = append(tagIDs, createdTag.ID)
+		} else {
+			tagIDs = append(tagIDs, tag.ID)
+		}
+	}
+
+	parentIDs := make([]int64, 0, len(m.LinksInput.SelectedParents))
+	for _, p := range m.LinksInput.SelectedParents {
+		parentIDs = append(parentIDs, p.ID)
+	}
+
+	_, err = m.service.UpdateRecordWithTagsAndLinks(ctx, m.EditRecordID, date, amountCents, currency.ID, m.NotesInput.Value(), userID, tagIDs, parentIDs)
+	return err
 }
 
 func (m RecordModel) CreateRecord(ctx context.Context, userID int64) error {
@@ -419,7 +534,7 @@ func (m RecordModel) View() string {
 	case RecordStateConfirm:
 		return m.ConfirmModel.View(m)
 	case RecordStateSuccess:
-		return m.SuccessModel.View()
+		return m.SuccessModel.View(m.Origin)
 	case RecordStateFatal:
 		return m.viewFatal()
 	}

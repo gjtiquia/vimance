@@ -1,7 +1,9 @@
 package tui
 
 import (
+	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 
 	"charm.land/bubbles/v2/list"
@@ -17,6 +19,7 @@ const (
 	InputTypeText   InputType = "text"
 	InputTypeList   InputType = "list"
 	InputTypeRecord InputType = "record"
+	InputTypeQuery  InputType = "query"
 )
 
 type Model struct {
@@ -28,6 +31,9 @@ type Model struct {
 	textInput   textinput.Model
 	listInput   list.Model
 	recordInput RecordModel
+	queryInput  QueryModel
+	width       int
+	height      int
 }
 
 func NewModel(database *sql.DB) Model {
@@ -46,6 +52,7 @@ func NewModel(database *sql.DB) Model {
 		textInput:   textInput,
 		listInput:   listInput,
 		recordInput: recordInput,
+		queryInput:  NewQueryModel(svc),
 	}
 
 	m, _ = m.EnterListInput()
@@ -66,6 +73,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 		}
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		if m.inputType == InputTypeQuery {
+			m.queryInput.SetPageSize(m.height)
+		}
 	}
 
 	switch m.inputType {
@@ -76,11 +89,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case InputTypeRecord:
 		if m.recordInput.State == RecordStateSuccess {
 			if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "esc" {
+				if m.recordInput.Origin == RecordOriginQuery {
+					m.recordInput = NewRecordModel(m.service)
+					m.inputType = InputTypeQuery
+					m.queryInput.RefreshResults()
+					return m, nil
+				}
 				m.recordInput = NewRecordModel(m.service)
 				return m.EnterListInput()
 			}
 		}
 		return m.UpdateRecordInput(msg)
+	case InputTypeQuery:
+		return m.UpdateQueryInput(msg)
 	}
 
 	return m, nil
@@ -100,7 +121,49 @@ func (m Model) View() tea.View {
 		sb.WriteString(m.listInput.View())
 	case InputTypeRecord:
 		sb.WriteString(m.recordInput.View())
+	case InputTypeQuery:
+		sb.WriteString(m.queryInput.View())
 	}
 
 	return tea.NewView(sb.String())
+}
+
+func (m Model) EnterQueryInput() (Model, tea.Cmd) {
+	m.inputType = InputTypeQuery
+	m.queryInput = NewQueryModel(m.service)
+	if m.height > 0 {
+		m.queryInput.SetPageSize(m.height)
+	}
+	return m, nil
+}
+
+func (m Model) UpdateQueryInput(msg tea.Msg) (Model, tea.Cmd) {
+	// handle esc from non-filtering query menu → app menu
+	if m.queryInput.State == QueryStateMenu {
+		if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "esc" &&
+			m.queryInput.menuInput.FilterState() != list.Filtering {
+			m.queryInput = NewQueryModel(m.service)
+			return m.EnterListInput()
+		}
+	}
+
+	var cmd tea.Cmd
+	m.queryInput, cmd = m.queryInput.Update(msg)
+
+	// handle record edit request from results
+	if m.queryInput.selectedID != 0 {
+		id := m.queryInput.selectedID
+		m.queryInput.selectedID = 0
+
+		full, err := m.service.GetRecordFull(context.Background(), id)
+		if err != nil {
+			m.queryInput.setError(fmt.Sprintf("Failed to load record: %v", err))
+			return m, nil
+		}
+		m.inputType = InputTypeRecord
+		m.recordInput = NewEditRecordModel(m.service, full, RecordOriginQuery)
+		return m, nil
+	}
+
+	return m, cmd
 }

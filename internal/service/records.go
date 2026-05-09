@@ -181,6 +181,123 @@ func (s *Service) AddRecordTag(ctx context.Context, recordID int64, tagID int64,
 	})
 }
 
+type RecordFull struct {
+	Record       db.Record
+	CurrencyCode string
+	Tags         []db.Tag
+	Parents      []LinkCandidate
+}
+
+func (s *Service) GetRecordFull(ctx context.Context, id int64) (*RecordFull, error) {
+	record, err := s.queries.GetRecord(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	tags, err := s.queries.GetRecordTags(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	currency, err := s.queries.GetCurrency(ctx, record.CurrencyID)
+	if err != nil {
+		return nil, err
+	}
+
+	parentRecords, err := s.queries.GetRecordParents(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	parents := make([]LinkCandidate, 0, len(parentRecords))
+	if len(parentRecords) > 0 {
+		parentIDs := make([]int64, len(parentRecords))
+		for i, p := range parentRecords {
+			parentIDs[i] = p.ID
+		}
+
+		tagRows, err := s.queries.GetRecordTagsByIDs(ctx, parentIDs)
+		if err != nil {
+			return nil, err
+		}
+		parentTagMap := make(map[int64][]string)
+		for _, t := range tagRows {
+			parentTagMap[t.RecordID] = append(parentTagMap[t.RecordID], t.Name)
+		}
+
+		for _, p := range parentRecords {
+			parents = append(parents, LinkCandidate{
+				ID:          p.ID,
+				Date:        p.Date,
+				AmountCents: p.AmountCents,
+				CurrencyID:  p.CurrencyID,
+				Notes:       p.Notes,
+				TagNames:    parentTagMap[p.ID],
+			})
+		}
+	}
+
+	return &RecordFull{
+		Record:       record,
+		CurrencyCode: currency.Code,
+		Tags:         tags,
+		Parents:      parents,
+	}, nil
+}
+
+func (s *Service) UpdateRecordWithTagsAndLinks(ctx context.Context, id int64, date string, amountCents int64, currencyID int64, notes string, updatedBy int64, tagIDs []int64, parentIDs []int64) (db.Record, error) {
+	return s.WithTransactionResult(func(q *db.Queries) (db.Record, error) {
+		now := time.Now().Unix()
+
+		record, err := q.UpdateRecord(ctx, db.UpdateRecordParams{
+			ID:           id,
+			Date:         date,
+			AmountCents:  amountCents,
+			CurrencyID:   currencyID,
+			Notes:        notes,
+			UpdatedAt:    now,
+			UpdatedBy:    updatedBy,
+		})
+		if err != nil {
+			return record, err
+		}
+
+		if err := q.RemoveAllRecordTags(ctx, id); err != nil {
+			return record, err
+		}
+
+		for _, tagID := range tagIDs {
+			if err := q.AddRecordTag(ctx, db.AddRecordTagParams{
+				RecordID:  record.ID,
+				TagID:     tagID,
+				CreatedAt: now,
+				CreatedBy: updatedBy,
+				UpdatedAt: now,
+				UpdatedBy: updatedBy,
+			}); err != nil {
+				return record, err
+			}
+		}
+
+		if err := q.RemoveAllRecordLinks(ctx, id); err != nil {
+			return record, err
+		}
+
+		for _, parentID := range parentIDs {
+			if err := q.AddRecordLink(ctx, db.AddRecordLinkParams{
+				ParentID:  parentID,
+				ChildID:   record.ID,
+				CreatedAt: now,
+				CreatedBy: updatedBy,
+			}); err != nil {
+				return record, err
+			}
+		}
+
+		return record, nil
+	})
+}
+
 func (s *Service) RemoveRecordTag(ctx context.Context, recordID int64, tagID int64) error {
 	return s.queries.RemoveRecordTag(ctx, db.RemoveRecordTagParams{
 		RecordID: recordID,

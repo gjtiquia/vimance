@@ -41,7 +41,6 @@ func (m Model) EnterListInput() (Model, tea.Cmd) {
 	items := []list.Item{
 		NewListItem("create", "create a new record", "c", "new", "n"),
 		NewListItem("query", "query existing records", "q", "list", "ls", "l"),
-		NewListItem("test", "test", "t", "e"),
 	}
 
 	cmd := m.listInput.SetItems(items)
@@ -105,6 +104,10 @@ func (m Model) UpdateListInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// TODO : not sure if there is a more elegant way to do this
 				if item.title == "create" {
 					return m.EnterRecordInput()
+				}
+
+				if item.title == "query" {
+					return m.EnterQueryInput()
 				}
 
 				// re-enter for sub commands
