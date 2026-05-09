@@ -24,3 +24,6 @@ sqlc generate     # regenerate db code
 - tag templates? commonly used group of tags together (or perhaps a whole record template itself)
 - links between records (implemented) for top-down drill-down: balance snapshots → transaction breakdowns. multiple parents supported.
 
+## development
+
+if you are an agent, please first read AGENTS.md
