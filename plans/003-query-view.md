@@ -49,7 +49,8 @@ CREATE TABLE saved_query_tags (
 );
 ```
 
-Add Down section:
+Add Down section — must be placed BEFORE existing table drops (before `DROP TABLE IF EXISTS pinned_tags;`) since `saved_query_tags` references `tags` and `saved_queries` references `currencies/users`:
+
 ```sql
 DROP TABLE IF EXISTS saved_query_tags;
 DROP TABLE IF EXISTS saved_queries;
@@ -111,17 +112,21 @@ DELETE FROM record_links WHERE child_id = ?;
 
 ### `db/queries/saved_queries.sql` — note
 
-`ListSavedQueries` returns `[]db.SavedQuery` (no tags). TUI maps to internal `SavedQueryItem` with name + date range display. Tags optionally fetched per query for display.
+`ListSavedQueries` returns `[]db.SavedQuery` (no tags). TUI maps to internal `SavedQueryItem` with name + date range display (see Phase 7). Tags optionally fetched per query for display.
+
+`currency_id` is nullable → sqlc generates `sql.NullInt64` in struct fields (CreateSavedQueryParams, UpdateSavedQueryParams, etc.). Service layer converts between `*int64` and `sql.NullInt64`.
 
 ### Saved query loading into filter form
 
 When a saved query is picked from list:
 
-1. `GetSavedQuery(id)` → get row
+1. `GetSavedQuery(id)` → get row as `db.SavedQuery` (handle `sql.NullInt64` for currency_id)
 2. `GetSavedQueryTags(id)` → get `[]db.Tag` → extract `[]int64` tag IDs
-3. Set `QueryModel.DateFrom`, `.DateTo`, `.Currency.Selected`, `.Tags.SelectedTags`, `.Fuzzy`
-4. Execute immediately → show results
-5. Esc from results → filter form (pre-filled from step 3)
+3. Lookup currency code: if `currency_id` is set, call `GetCurrency(id)` for the code
+4. Set `QueryModel.DateFrom`, `.DateTo`, `.Currency.Selected`, `.Tags.SelectedTags`, `.Fuzzy`
+5. Call `svc.QueryRecords(dateFrom, dateTo, currencyID, tagIDs, fuzzyText)` → populate `results`
+6. Show results immediately
+7. Esc from results → filter form (pre-filled from step 4)
 
 Need a method on `QueryModel`:
 
@@ -135,6 +140,8 @@ This sets all filter form fields. `CurrencyModel` must load currencies first bef
 
 Each item shows: `name` + `date_from → date_to` (e.g., "Monthly groceries  |  2026-05-01 → 2026-05-31").
 Tags not shown in list (to keep items compact). Full details visible on save confirm.
+
+`ListItem` lacks an `ID` field. For saved queries, create a `SavedQueryListItem` type implementing `list.Item` with an `ID` field so selected queries can be identified by ID, not by name.
 
 ### `db/queries/records_tags.sql` — note
 
@@ -198,13 +205,9 @@ Use inline tx pattern with `WithTransaction` for `CreateSavedQueryWithTags` (ins
 type RecordFull struct {
     Record       db.Record
     CurrencyCode string
-    TagItems     []TagItem  // {ID, Name}
+    Tags         []db.Tag    // tags for this record
     Parents      []LinkCandidate
 }
-
-func (s *Service) GetRecordFull(ctx, id int64) (*RecordFull, error)
-
-func (s *Service) UpdateRecordWithTagsAndLinks(ctx, id int64, date string, amountCents int64, currencyID int64, notes string, updatedBy int64, tagIDs []int64, parentIDs []int64) (db.Record, error)
 ```
 
 ### Tests — service layer
@@ -224,7 +227,15 @@ Write tests alongside service files:
   - `TestUpdateRecordWithTagsAndLinks` — verify links updated (old removed, new added)
 - `validation_test.go` — `TestFormatCents` (0, 100, 150, 1500, -500)
 
-`GetRecordFull`: loads record + tags (from `GetRecordTags`) + currency code + parent records + parent tags.
+`GetRecordFull`:
+1. Get record by ID → `db.Record`
+2. Get tags for this record → `[]db.Tag` directly (no need for custom TagItem here)
+3. Get currency code: `GetCurrency(record.CurrencyID)` → extract `Code`
+4. Get parent records: `GetRecordParents(id)` → `[]db.ActiveRecord`
+5. Get parents' tags: collect parent IDs → `GetRecordTagsByIDs(parentIDs)` → map of `recordID → []string`
+6. Build `[]LinkCandidate` for parents (with tag names, dates, amounts, notes)
+
+`RecordFull.Parents` uses `[]LinkCandidate` from `record_links.go` (already has tag names).
 
 `UpdateRecordWithTagsAndLinks`: wraps `UpdateRecord` + `RemoveAllRecordTags` + re-add tags + `RemoveAllRecordLinks` + re-add links in a single tx.
 
@@ -236,19 +247,23 @@ func (s *Service) RemoveAllRecordLinks(ctx, childID int64) error
 
 ## Phase 4: TUI — Refactor
 
-### `internal/tui/validation.go` — add `FormatCents`
+### `FormatCents` — shared utility
+
+`FormatCents` needed by both service (to build `QueryResult.AmountStr`) and TUI (links.go refactor).
+
+Add as method on `Service` in `internal/service/currencies.go` (or new `internal/service/format.go`):
 
 ```go
-func FormatCents(cents int64) string
+func (s *Service) FormatCents(cents int64) string
 ```
 
-Replaces inline formatting in `links.go` (lines 271-274).
+Service calls `s.FormatCents()` when building `QueryResult`. TUI calls `s.service.FormatCents()` for links.go.
 
-Add test in `validation_test.go` (create if needed): covers 0, positive cents (<100, exact 100, >100), negative, large values.
+Test in `currencies_test.go` or new `format_test.go`: covers 0, <100, exact 100, >100, negative, large values.
 
-### `internal/tui/links.go` — use `FormatCents`
+### `internal/tui/links.go` — use `s.service.FormatCents`
 
-Replace inline cents formatting with call to `FormatCents`.
+Replace inline cents formatting with call to `s.service.FormatCents()`.
 
 ## Phase 5: TUI — app.go changes
 
@@ -277,6 +292,37 @@ case tea.WindowSizeMsg:
 ```
 
 Wire `Update`/`View` for `InputTypeQuery`.
+
+In `Update()` for `InputTypeQuery`, after calling `queryInput.Update(msg)`:
+
+```go
+case InputTypeQuery:
+    # handle esc from query menu → app menu
+    if m.queryInput.State == QueryStateMenu {
+        if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "esc" {
+            m.queryInput = NewQueryModel(m.service)  // reset
+            return m.EnterListInput()
+        }
+    }
+
+    # handle record edit request from results
+    if m.queryInput.selectedID != 0 {
+        id := m.queryInput.selectedID
+        m.queryInput.selectedID = 0  // clear
+        full, err := m.service.GetRecordFull(ctx.Background(), id)
+        if err != nil {
+            m.queryInput.errorMsg = fmt.Sprintf("Failed to load record: %v", err)
+            return m, nil
+        }
+        m.inputType = InputTypeRecord
+        m.recordInput = NewEditRecordModel(m.service, full, RecordOriginQuery)
+        return m, nil
+    }
+
+    var queryCmd tea.Cmd
+    m.queryInput, queryCmd = m.queryInput.Update(msg)
+    return m, queryCmd
+```
 
 Wire `RecordModel` success with `RecordOriginQuery`:
 - In `app.go Update()`, modify existing `RecordStateSuccess` handler (currently always goes to list menu):
@@ -333,6 +379,18 @@ const (
 
 var filterFieldOrder = []FilterField{FilterDateFrom, FilterDateTo, FilterCurrency, FilterTags, FilterFuzzy}
 
+type SavedQueryItem struct {
+    ID         int64
+    Name       string
+    DateFrom   string
+    DateTo     string
+    CurrencyID sql.NullInt64   // nullable
+    FuzzyText  string
+    TagIDs     []int64
+}
+
+func (i SavedQueryItem) FilterValue() string { return i.Name }
+
 type QueryModel struct {
     State         QueryState
     svc           *service.Service
@@ -352,23 +410,26 @@ type QueryModel struct {
 
     // saved queries
     savedList     list.Model
-    savedQueries  []db.SavedQuery
+    savedQueries  []SavedQueryItem
 
     // delete
-    deleteTarget  db.SavedQuery
+    deleteTarget  SavedQueryItem
 
     // save name
     saveNameInput textinput.Model
     queryParams   string  // filter summary for save confirm
 
     // results
-    results       []service.QueryResult
-    cursorIndex   int
-    pageSize      int
-    currentPage   int
+    results         []service.QueryResult
+    cursorIndex     int
+    pageSize        int
+    needsRefresh    bool   // results stale, re-query needed
 
-    // cached filter params (used when returning from results)
-    pendingQuery  bool
+    // record editing (signal to app.go)
+    selectedID      int64  // non-zero when user picked a record for editing
+
+    // error state
+    errorMsg        string  // displayed in results area, dismissed on any key
 }
 ```
 
@@ -382,22 +443,25 @@ State transitions:
 | FilterForm | enter on last field | Confirm |
 | FilterForm | tab/shift+tab | Next/prev field |
 | FilterForm | esc | Menu |
-| Confirm | enter | QueryRecords → Results |
+| Confirm | enter | QueryRecords → Results (or ErrorMsg on failure) |
 | Confirm | esc | FilterForm |
-| Confirm | 1-4 | FilterForm (jump to field) |
-| SavedList | enter | Load query data → Results (immediate) |
+| Confirm | 1-4 | FilterForm (jump to field; 1=DateFrom, 2=Currency, 3=Tags, 4=Fuzzy) |
+| SavedList | enter | Load query data → QueryRecords → Results (or ErrorMsg) |
 | SavedList | d | DeleteConfirm |
 | SavedList | esc | Menu |
+| SavedList (empty) | — | Show "No saved queries" message |
 | DeleteConfirm | y | Delete → SavedList (refreshed) |
 | DeleteConfirm | n/esc | SavedList |
 | SaveName | enter | Save → Results |
 | SaveName | esc | Results |
-| Results | enter | Edit record (RecordModel with origin=query) |
+| Results | enter | Set selectedID → app.go picks up and opens edit |
 | Results | s | SaveName |
 | Results | esc | FilterForm (pre-filled) |
-| Results | j/k | Cursor up/down |
-| Results | n/p | Page next/prev |
+| Results | j/k | Cursor up/down (absolute index, page derived) |
+| Results | n/p | Page next/prev (cursor ± pageSize) |
 | Results | g/G | Top/bottom |
+| Results (0 results) | — | Show "No records match filters" message |
+| ErrorMsg | any key | Return to filter form or saved list (context-dependent) |
 
 Filter form fields (sequential, tab/enter to advance, shift+tab to go back):
 
@@ -411,10 +475,24 @@ Filter form fields (sequential, tab/enter to advance, shift+tab to go back):
 
 Date auto-shift: when tab/enter leaves DateFrom, recalculate DateTo to last day of DateFrom's month (unless user manually changed DateTo — tracked by `dateToManual` flag).
 
+Confirm step field mapping: confirm view shows 4 items (Date combined, Currency, Tags, Fuzzy).
+- Press 1 → jump to FilterDateFrom (user tabs to DateTo if needed)
+- Press 2 → jump to FilterCurrency
+- Press 3 → jump to FilterTags
+- Press 4 → jump to FilterFuzzy
+
+Results pagination: `cursorIndex` is absolute (0 to total-1). Page is derived:
+- `pageSize = max(height - <header_footer_lines>, 1)`
+- Current visible page: index `cursorIndex - (cursorIndex % pageSize)` to that + pageSize
+- `n`: `cursorIndex += pageSize` (clamped)
+- `p`: `cursorIndex -= pageSize` (clamped)
+- `g`: `cursorIndex = 0`
+- `G`: `cursorIndex = len(results) - 1`
+
 Key functions:
 - `NewQueryModel(svc) QueryModel`
 - `(m *QueryModel) Reset()` — factory reset to menu
-- `(m *QueryModel) RefreshResults()` — re-execute current query params
+- `(m *QueryModel) RefreshResults()` — re-execute current query params, called by app.go after edit save
 - `(m *QueryModel) Update(msg) QueryModel`
 - `(m *QueryModel) View() string`
 
@@ -444,6 +522,12 @@ Filter:
   Fuzzy: coffee
 ```
 
+### Empty saved queries list
+
+```
+No saved queries yet.
+```
+
 ### Delete confirm view
 
 ```
@@ -469,9 +553,22 @@ Custom render function (part of QueryModel, or QueryModel has a method):
 - Page size from `pageSize` (based on terminal height)
 - No lipgloss except truncation
 
+Empty state (no results):
+```
+No records match the current filters.
+Press esc to go back to filter form.
+```
+
+Error state (query failed):
+```
+Error: <error message>
+Press any key to go back.
+```
+
 Pagination:
-- `currentPage` tracks page index
-- `n` = next page, `p` = prev page
+- `cursorIndex` is absolute (0 to total-1)
+- Visible page derived from `cursorIndex - (cursorIndex % pageSize)`
+- `n` = next page (cursor + pageSize), `p` = prev page (cursor - pageSize)
 - `g` = first page, `G` = last page
 
 ## Phase 9: TUI — RecordModel edit support
@@ -500,7 +597,7 @@ func NewEditRecordModel(svc, full *service.RecordFull, origin RecordOrigin) Reco
 Pre-fills:
 - Date: split `full.Record.Date` (YYYY-MM-DD) into year/month/day inputs
 - Currency: load all currencies, find by `full.Record.CurrencyID`, set Selected
-- Tags: load all tags, find matching IDs from `full.TagItems`, set SelectedTags
+- Tags: load all tags, find matching IDs from `full.Tags`, set SelectedTags
 - Amount: `FormatCents(full.Record.AmountCents)` into AmountInput
 - Links: set SelectedParents from `full.Parents` (already have structured data with dates, amounts, notes, tags)
 - Notes: set NotesInput from `full.Record.Notes`
@@ -510,9 +607,18 @@ Confirm behavior:
 - If `Origin == RecordOriginCreate` → call `CreateRecordWithTagsAndLinks` (existing)
 
 Success view: different message for edit vs create.
+- Edit: "Record updated successfully" + "Press esc to return to results"
+- Create: "Record created successfully" + "Press enter to add another, esc to return"
+
 On esc from success:
-- OriginQuery → signal app to return to query results + refresh
+- OriginQuery → signal app to switch to `InputTypeQuery` + `RefreshResults()`
 - OriginCreate → existing behavior (new record prompt)
+
+When entering edit from results, the flow is:
+1. QueryModel sets `selectedID = record.ID` in its Update method
+2. app.go detects `selectedID != 0`, calls `GetRecordFull`, creates `NewEditRecordModel`, sets `InputTypeRecord`
+3. User edits record, confirms, sees success message
+4. User presses esc → app.go checks `Origin == RecordOriginQuery` → switches back to `InputTypeQuery` → calls `queryInput.RefreshResults()`
 
 ## Implementation Order
 
@@ -525,8 +631,8 @@ On esc from success:
 7. Service: query_records.go + query_records_test.go
 8. Service: records.go additions (GetRecordFull, UpdateRecordWithTagsAndLinks) + tests
 9. `go test ./...` — verify all new service tests pass
-10. TUI: validation.go (FormatCents) + test
-11. TUI: links.go (use FormatCents)
+10. Service: FormatCents utility + test (used by both service and TUI)
+11. TUI: links.go (use FormatCents via service)
 12. TUI: app.go (InputTypeQuery, window size, wiring)
 13. TUI: list.go (remove test, add query)
 14. TUI: record.go (edit mode, pre-fill, origin tracking)
