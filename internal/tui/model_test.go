@@ -1,9 +1,11 @@
 package tui_test
 
 import (
+	"context"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/gjtiquia/vimance/internal/service"
 	"github.com/gjtiquia/vimance/internal/tui"
 )
 
@@ -154,5 +156,114 @@ func TestModelRecordCreateIntegration(t *testing.T) {
 	}
 	if m.RecordInput.ActiveField != tui.FieldDateYear {
 		t.Errorf("expected FieldDateYear after reset, got %v", m.RecordInput.ActiveField)
+	}
+}
+
+func TestModelEditFromQueryIntegration(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestDB(t, db)
+	svc := service.New(db)
+
+	_, err := svc.CreateRecordWithTagsAndLinks(context.Background(), "2026-05-01", 1000, 1, "test record", 1, nil, nil)
+	if err != nil {
+		t.Fatalf("create record: %v", err)
+	}
+
+	m := tui.NewModel(db)
+
+	// Navigate to query menu
+	r, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	m = r.(tui.Model)
+	r, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = r.(tui.Model)
+	if m.InputType != tui.InputTypeQuery {
+		t.Fatalf("expected InputTypeQuery, got %v", m.InputType)
+	}
+
+	// Select "new" from query menu
+	r, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = r.(tui.Model)
+	if m.QueryInput.State != tui.QueryStateFilterForm {
+		t.Fatalf("expected QueryStateFilterForm, got %v", m.QueryInput.State)
+	}
+
+	// Set date range to cover our record
+	m.QueryInput.DateFrom.SetValue("2026-05-01")
+	m.QueryInput.DateTo.SetValue("2026-05-31")
+
+	// Tab through to confirm: DateFrom → DateTo → Currency → Tags → Fuzzy → Confirm
+	for i := 0; i < 5; i++ {
+		r, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+		m = r.(tui.Model)
+	}
+	if m.QueryInput.State != tui.QueryStateConfirm {
+		t.Fatalf("expected QueryStateConfirm, got %v", m.QueryInput.State)
+	}
+
+	// Execute query
+	r, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = r.(tui.Model)
+	if m.QueryInput.State != tui.QueryStateResults {
+		t.Fatalf("expected QueryStateResults, got %v", m.QueryInput.State)
+	}
+	if len(m.QueryInput.Results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(m.QueryInput.Results))
+	}
+	if m.QueryInput.Results[0].Notes != "test record" {
+		t.Errorf("expected notes 'test record', got %q", m.QueryInput.Results[0].Notes)
+	}
+
+	// Enter on the record to edit
+	r, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = r.(tui.Model)
+	if m.InputType != tui.InputTypeRecord {
+		t.Fatalf("expected InputTypeRecord, got %v", m.InputType)
+	}
+	if m.RecordInput.Origin != tui.RecordOriginQuery {
+		t.Errorf("expected RecordOriginQuery, got %v", m.RecordInput.Origin)
+	}
+	if m.RecordInput.AmountInput.Value() != "10.00" {
+		t.Errorf("expected amount 10.00, got %q", m.RecordInput.AmountInput.Value())
+	}
+	if m.RecordInput.NotesInput.Value() != "test record" {
+		t.Errorf("expected notes 'test record', got %q", m.RecordInput.NotesInput.Value())
+	}
+
+	// Tab to Notes and confirm
+	for i := 0; i < 7; i++ {
+		r, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+		m = r.(tui.Model)
+	}
+	if m.RecordInput.ActiveField != tui.FieldNotes {
+		t.Fatalf("expected FieldNotes, got %v", m.RecordInput.ActiveField)
+	}
+
+	r, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = r.(tui.Model)
+	if m.RecordInput.State != tui.RecordStateConfirm {
+		t.Fatalf("expected RecordStateConfirm, got %v", m.RecordInput.State)
+	}
+	if m.RecordInput.ConfirmModel.Errors.HasErrors() {
+		t.Fatalf("expected no errors, got %v", m.RecordInput.ConfirmModel.Errors)
+	}
+
+	// Enter to save
+	r, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = r.(tui.Model)
+	if m.RecordInput.State != tui.RecordStateSuccess {
+		t.Fatalf("expected RecordStateSuccess, got %v", m.RecordInput.State)
+	}
+
+	// Esc to return to results
+	r, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+	m = r.(tui.Model)
+	if m.InputType != tui.InputTypeQuery {
+		t.Fatalf("expected InputTypeQuery, got %v", m.InputType)
+	}
+	if m.QueryInput.State != tui.QueryStateResults {
+		t.Errorf("expected QueryStateResults, got %v", m.QueryInput.State)
+	}
+	if len(m.QueryInput.Results) != 1 {
+		t.Errorf("expected 1 result after refresh, got %d", len(m.QueryInput.Results))
 	}
 }
