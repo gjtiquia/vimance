@@ -242,10 +242,11 @@ func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 		case "enter":
 			if isDateField(m.ActiveField) {
 				m.fillCurrentDateDefault()
-				next := m.nextField()
-				if next != m.ActiveField {
-					m.setActiveField(next)
-				}
+				m.setActiveField(m.nextField())
+				return m, nil
+			}
+			if m.ActiveField == FieldAmount {
+				m.setActiveField(m.nextField())
 				return m, nil
 			}
 			if m.ActiveField == FieldNotes {
