@@ -231,6 +231,34 @@ func TestQueryModelResultsEmpty(t *testing.T) {
 	}
 }
 
+func TestQueryModelResultsErrorDismissal(t *testing.T) {
+	tests := []struct {
+		name         string
+		origin       tui.QueryState
+		expected     tui.QueryState
+	}{
+		{"saved list origin", tui.QueryStateSavedList, tui.QueryStateSavedList},
+		{"filter form origin", tui.QueryStateFilterForm, tui.QueryStateFilterForm},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			m := setupQueryModel(t)
+			m.State = tui.QueryStateResults
+			m.Results = []service.QueryResult{{ID: 1, Date: "2026-05-01"}}
+			m.ResultsOrigin = tc.origin
+			m.ErrorMsg = "some error"
+
+			m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+			if m.State != tc.expected {
+				t.Errorf("expected %v, got %v", tc.expected, m.State)
+			}
+			if m.ErrorMsg != "" {
+				t.Error("expected ErrorMsg cleared after dismissal")
+			}
+		})
+	}
+}
+
 func TestQueryModelDeleteConfirm(t *testing.T) {
 	m := setupQueryModel(t)
 	m.State = tui.QueryStateDeleteConfirm
