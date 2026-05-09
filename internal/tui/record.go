@@ -293,7 +293,7 @@ func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 
 	if m.CurrencyInput.ShouldAdvance {
 		m.CurrencyInput.ShouldAdvance = false
-		m.setActiveField(FieldAmount)
+		m.setActiveField(FieldTags)
 		return m, tea.Batch(yearCmd, monthCmd, dayCmd, tagsCmd, currencyCmd, amountCmd, linksCmd, notesCmd)
 	}
 
