@@ -642,3 +642,173 @@ func TestRecordModelInactiveSubModelsIgnoreKeys(t *testing.T) {
 		t.Errorf("ctrl+z on Tags should remove tag: got %d", len(m.TagsInput.SelectedTags))
 	}
 }
+
+// --- Link picker integration tests ---
+
+func TestRecordModelLinkPickerOpensOnEnter(t *testing.T) {
+	m := setupRecordModel(t)
+	// tab to Links field
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab}) // month
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab}) // day
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab}) // currency
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab}) // tags
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab}) // amount
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab}) // links
+
+	if m.ActiveField != tui.FieldLinks {
+		t.Fatalf("expected FieldLinks, got %v", m.ActiveField)
+	}
+
+	// enter opens picker
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if m.State != tui.RecordStateLinkPicker {
+		t.Fatalf("expected RecordStateLinkPicker, got %v", m.State)
+	}
+	if !m.LinkPickerQuery.PickerMode {
+		t.Error("expected LinkPickerQuery.PickerMode true")
+	}
+	if m.LinkPickerQuery.State != tui.QueryStatePickerMenu {
+		t.Errorf("expected QueryStatePickerMenu, got %v", m.LinkPickerQuery.State)
+	}
+}
+
+func TestRecordModelLinkPickerCancelReturnsToLinks(t *testing.T) {
+	m := setupRecordModel(t)
+	// tab to Links, enter to open picker
+	for i := 0; i < 6; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter}) // open picker
+
+	// esc from picker menu → cancels
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+
+	if m.State != tui.RecordStateEditing {
+		t.Fatalf("expected RecordStateEditing after cancel, got %v", m.State)
+	}
+	if m.ActiveField != tui.FieldLinks {
+		t.Errorf("expected FieldLinks after cancel, got %v", m.ActiveField)
+	}
+	if len(m.LinksInput.SelectedParents) != 0 {
+		t.Errorf("expected no parents after cancel, got %d", len(m.LinksInput.SelectedParents))
+	}
+}
+
+func TestRecordModelLinkPickerSelectAndConfirm(t *testing.T) {
+	svc := newTestService(t)
+	// seed data: user=1, currency=1 (USD), tag=1
+	userID := int64(1)
+	usdID := int64(1)
+	m := tui.NewRecordModel(svc)
+
+	// seed some records to pick from
+	r1, _ := svc.CreateRecord(t.Context(), "2026-05-01", 1000, usdID, "first record", userID)
+	r2, _ := svc.CreateRecord(t.Context(), "2026-05-02", 2000, usdID, "second record", userID)
+
+	// pre-fill date so picker pre-fills date range
+	m.DateYearInput.SetValue("2026")
+	m.DateMonthInput.SetValue("05")
+
+	// tab to Links, enter to open picker
+	for i := 0; i < 6; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter}) // open picker → PickerMenu
+
+	// select "new query" → FilterForm
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if m.LinkPickerQuery.State != tui.QueryStateFilterForm {
+		t.Fatalf("expected FilterForm, got %v", m.LinkPickerQuery.State)
+	}
+
+	// tab through filter fields to reach confirm
+	for i := 0; i < 4; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	// now on Fuzzy field, tab → Confirm
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	if m.LinkPickerQuery.State != tui.QueryStateConfirm {
+		t.Fatalf("expected Confirm, got %v", m.LinkPickerQuery.State)
+	}
+
+	// enter → execute query → Results
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if m.LinkPickerQuery.State != tui.QueryStateResults {
+		t.Fatalf("expected Results, got %v", m.LinkPickerQuery.State)
+	}
+	if len(m.LinkPickerQuery.Results) < 2 {
+		t.Fatalf("expected at least 2 results, got %d", len(m.LinkPickerQuery.Results))
+	}
+
+	// select both records with space
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "}) // select first
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'j', Text: "j"})          // move down
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "}) // select second
+
+	if len(m.LinkPickerQuery.PickerSelected) != 2 {
+		t.Fatalf("expected 2 selected, got %d", len(m.LinkPickerQuery.PickerSelected))
+	}
+
+	// enter to confirm picker
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if m.State != tui.RecordStateEditing {
+		t.Fatalf("expected RecordStateEditing after picker confirm, got %v", m.State)
+	}
+	if m.ActiveField != tui.FieldLinks {
+		t.Errorf("expected FieldLinks after picker confirm, got %v", m.ActiveField)
+	}
+	if len(m.LinksInput.SelectedParents) != 2 {
+		t.Fatalf("expected 2 parents after confirm, got %d", len(m.LinksInput.SelectedParents))
+	}
+
+	// verify the correct records were added
+	ids := map[int64]bool{}
+	for _, p := range m.LinksInput.SelectedParents {
+		ids[p.ID] = true
+	}
+	if !ids[r1.ID] {
+		t.Errorf("missing parent r1 (ID=%d)", r1.ID)
+	}
+	if !ids[r2.ID] {
+		t.Errorf("missing parent r2 (ID=%d)", r2.ID)
+	}
+}
+
+func TestRecordModelLinkPickerDoesNotDuplicateParents(t *testing.T) {
+	svc := newTestService(t)
+	userID := int64(1)
+	usdID := int64(1)
+	m := tui.NewRecordModel(svc)
+
+	svc.CreateRecord(t.Context(), "2026-05-01", 1000, usdID, "record one", userID)
+
+	m.DateYearInput.SetValue("2026")
+	m.DateMonthInput.SetValue("05")
+
+	// add one parent manually
+	m.LinksInput.AddParent(tui.LinkedRecord{ID: 1, Date: "2026-05-01", Notes: "record one"})
+
+	// tab to Links, enter to open picker
+	for i := 0; i < 6; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	// new query → filter → confirm → results
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	for i := 0; i < 4; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab}) // confirm
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter}) // execute → results
+
+	// select the record (same ID as existing parent)
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter}) // confirm
+
+	// should still only have 1 parent (duplicate ignored by AddParent)
+	if len(m.LinksInput.SelectedParents) != 1 {
+		t.Errorf("expected 1 parent (duplicate ignored), got %d", len(m.LinksInput.SelectedParents))
+	}
+}

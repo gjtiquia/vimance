@@ -10,10 +10,11 @@ import (
 type RecordState string
 
 const (
-	RecordStateEditing   RecordState = "editing"
-	RecordStateConfirm   RecordState = "confirm"
-	RecordStateSuccess   RecordState = "success"
-	RecordStateFatal     RecordState = "fatal"
+	RecordStateEditing    RecordState = "editing"
+	RecordStateConfirm    RecordState = "confirm"
+	RecordStateSuccess    RecordState = "success"
+	RecordStateFatal      RecordState = "fatal"
+	RecordStateLinkPicker RecordState = "link_picker"
 )
 
 type RecordOrigin string

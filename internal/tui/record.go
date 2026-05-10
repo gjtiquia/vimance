@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -76,8 +77,6 @@ func (m RecordModel) isInInsertMode() bool {
 		return m.CurrencyInput.Mode == CurrencyModeInsert
 	case FieldTags:
 		return m.TagsInput.Mode == TagModeInsert
-	case FieldLinks:
-		return m.LinksInput.Mode == LinkModeInsert
 	}
 	return false
 }
@@ -95,14 +94,15 @@ type RecordModel struct {
 	LinksInput    LinksModel
 	NotesInput    textinput.Model
 
-	ConfirmModel   ConfirmModel
-	SuccessModel   SuccessModel
-	FatalErr       error
-	InlineErrors   map[string]string
-	InlineWarnings map[string]string
-	service        *service.Service
-	Origin         RecordOrigin
-	EditRecordID   int64
+	ConfirmModel    ConfirmModel
+	SuccessModel    SuccessModel
+	FatalErr        error
+	InlineErrors    map[string]string
+	InlineWarnings  map[string]string
+	service         *service.Service
+	Origin          RecordOrigin
+	EditRecordID    int64
+	LinkPickerQuery QueryModel
 }
 
 func NewRecordModel(svc *service.Service) RecordModel {
@@ -194,24 +194,15 @@ func NewEditRecordModel(svc *service.Service, full *service.RecordFull, origin R
 	}
 
 	// pre-fill links
-	if len(full.Parents) > 0 {
-		year := m.DateYearInput.Value()
-		month := m.DateMonthInput.Value()
-		m.LinksInput.SetDateRange(year, month)
-		if m.CurrencyInput.Selected != nil {
-			m.LinksInput.SetCurrencyID(m.CurrencyInput.Selected.ID)
-		}
-		m.LinksInput.SelectedParents = make([]LinkedRecord, len(full.Parents))
-		for i, p := range full.Parents {
-			m.LinksInput.SelectedParents[i] = LinkedRecord{
-				ID:          p.ID,
-				Date:        p.Date,
-				AmountCents: p.AmountCents,
-				CurrencyID:  p.CurrencyID,
-				Notes:       p.Notes,
-				TagNames:    p.TagNames,
-			}
-		}
+	for _, p := range full.Parents {
+		m.LinksInput.AddParent(LinkedRecord{
+			ID:          p.ID,
+			Date:        p.Date,
+			AmountCents: p.AmountCents,
+			CurrencyID:  p.CurrencyID,
+			Notes:       p.Notes,
+			TagNames:    p.TagNames,
+		})
 	}
 
 	return m
@@ -224,7 +215,6 @@ func (m *RecordModel) focusActiveField() {
 	m.TagsInput.SearchInput.Blur()
 	m.CurrencyInput.SearchInput.Blur()
 	m.AmountInput.Blur()
-	m.LinksInput.SearchInput.Blur()
 	m.NotesInput.Blur()
 
 	switch m.ActiveField {
@@ -241,7 +231,7 @@ func (m *RecordModel) focusActiveField() {
 	case FieldAmount:
 		m.AmountInput.Focus()
 	case FieldLinks:
-		m.LinksInput.SearchInput.Focus()
+		// no input to focus — shows parent list with enter hint
 	case FieldNotes:
 		m.NotesInput.Focus()
 	}
@@ -292,12 +282,7 @@ func (m *RecordModel) setActiveField(field ActiveField) {
 		m.CurrencyInput.Mode = CurrencyModeInsert
 		m.CurrencyInput.LoadCurrencies(context.Background())
 	case FieldLinks:
-		m.LinksInput.Mode = LinkModeInsert
-		m.LinksInput.SetDateRange(m.DateYearInput.Value(), m.DateMonthInput.Value())
-		if m.CurrencyInput.Selected != nil {
-			m.LinksInput.SetCurrencyID(m.CurrencyInput.Selected.ID)
-		}
-		m.LinksInput.LoadCandidates(context.Background(), m.EditRecordID)
+		// links field — just shows selected parents, picker opens on enter
 	}
 
 	m.ActiveField = field
@@ -317,8 +302,60 @@ func (m Model) UpdateRecordInput(msg tea.Msg) (Model, tea.Cmd) {
 	return m, recordCmd
 }
 
+func (m RecordModel) openLinkPicker() (RecordModel, tea.Cmd) {
+	m.LinkPickerQuery = NewQueryModel(m.service)
+	m.LinkPickerQuery.PickerMode = true
+	m.LinkPickerQuery.State = QueryStatePickerMenu
+
+	year := m.DateYearInput.Value()
+	month := m.DateMonthInput.Value()
+	if year != "" && month != "" && len(year) == 4 && len(month) >= 1 && len(month) <= 2 {
+		dateFrom := year + "-" + month + "-01"
+		m.LinkPickerQuery.DateFrom.SetValue(dateFrom)
+		m.LinkPickerQuery.DateFrom.Placeholder = dateFrom
+
+		y, errY := strconv.Atoi(year)
+		mo, errM := strconv.Atoi(month)
+		if errY == nil && errM == nil && y >= 1 && mo >= 1 && mo <= 12 {
+			lastDay := time.Date(y, time.Month(mo)+1, 0, 0, 0, 0, 0, time.UTC).Day()
+			dateTo := fmt.Sprintf("%s-%s-%02d", year, month, lastDay)
+			m.LinkPickerQuery.DateTo.SetValue(dateTo)
+			m.LinkPickerQuery.DateTo.Placeholder = dateTo
+		}
+	}
+
+	m.State = RecordStateLinkPicker
+	return m, nil
+}
+
+func (m RecordModel) updateLinkPicker(msg tea.Msg) (RecordModel, tea.Cmd) {
+	var pickerCmd tea.Cmd
+	m.LinkPickerQuery, pickerCmd = m.LinkPickerQuery.Update(msg)
+
+	if m.LinkPickerQuery.PickerDone {
+		if !m.LinkPickerQuery.PickerCancelled {
+			for _, r := range m.LinkPickerQuery.PickerSelected {
+				m.LinksInput.AddParent(LinkedRecord{
+					ID:          r.ID,
+					Date:        r.Date,
+					AmountCents: r.AmountCents,
+					CurrencyID:  r.CurrencyID,
+					Notes:       r.Notes,
+					TagNames:    r.TagNames,
+				})
+			}
+		}
+		m.State = RecordStateEditing
+		m.setActiveField(FieldLinks)
+	}
+
+	return m, pickerCmd
+}
+
 func (m RecordModel) Update(msg tea.Msg) (RecordModel, tea.Cmd) {
 	switch m.State {
+	case RecordStateLinkPicker:
+		return m.updateLinkPicker(msg)
 	case RecordStateEditing:
 		return m.updateEditing(msg)
 	case RecordStateConfirm:
@@ -352,8 +389,14 @@ func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 			}
 			return m, nil
 
-		case "enter":
-			switch m.ActiveField {
+	case "ctrl+z":
+		if m.ActiveField == FieldLinks {
+			m.LinksInput.RemoveLastParent()
+			return m, nil
+		}
+
+	case "enter":
+		switch m.ActiveField {
 			case FieldDateYear, FieldDateMonth, FieldDateDay:
 				m.fillCurrentDateDefault()
 				m.setActiveField(m.nextField())
@@ -372,12 +415,7 @@ func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 				m.setActiveField(m.nextField())
 				return m, nil
 			case FieldLinks:
-				if len(m.LinksInput.FilteredCandidates) == 0 {
-					m.setActiveField(m.nextField())
-					return m, nil
-				}
-				m.LinksInput, _ = m.LinksInput.Update(msg)
-				return m, nil
+				return m.openLinkPicker()
 			case FieldNotes:
 				m.State = RecordStateConfirm
 				m.ConfirmModel.Errors = m.Validate()
@@ -396,23 +434,21 @@ func (m RecordModel) updateEditing(msg tea.Msg) (RecordModel, tea.Cmd) {
 	m.AmountInput, amountCmd = m.AmountInput.Update(msg)
 	m.NotesInput, notesCmd = m.NotesInput.Update(msg)
 
-	var tagsCmd, currencyCmd, linksCmd tea.Cmd
+	var tagsCmd, currencyCmd tea.Cmd
 	switch m.ActiveField {
 	case FieldTags:
 		m.TagsInput, tagsCmd = m.TagsInput.Update(msg)
 	case FieldCurrency:
 		m.CurrencyInput, currencyCmd = m.CurrencyInput.Update(msg)
-	case FieldLinks:
-		m.LinksInput, linksCmd = m.LinksInput.Update(msg)
 	}
 
 	if m.CurrencyInput.ShouldAdvance {
 		m.CurrencyInput.ShouldAdvance = false
 		m.setActiveField(FieldTags)
-		return m, tea.Batch(yearCmd, monthCmd, dayCmd, tagsCmd, currencyCmd, amountCmd, linksCmd, notesCmd)
+		return m, tea.Batch(yearCmd, monthCmd, dayCmd, tagsCmd, currencyCmd, amountCmd, notesCmd)
 	}
 
-	return m, tea.Batch(yearCmd, monthCmd, dayCmd, tagsCmd, currencyCmd, amountCmd, linksCmd, notesCmd)
+	return m, tea.Batch(yearCmd, monthCmd, dayCmd, tagsCmd, currencyCmd, amountCmd, notesCmd)
 }
 
 func (m RecordModel) updateConfirm(msg tea.Msg) (RecordModel, tea.Cmd) {
@@ -589,6 +625,8 @@ func (m RecordModel) viewFatal() string {
 
 func (m RecordModel) View() string {
 	switch m.State {
+	case RecordStateLinkPicker:
+		return m.LinkPickerQuery.View()
 	case RecordStateEditing:
 		return m.viewEditing()
 	case RecordStateConfirm:
@@ -707,6 +745,7 @@ func (m RecordModel) viewEditing() string {
 			if m.ActiveField == FieldLinks {
 				sb.WriteString("> ")
 				sb.WriteString(m.LinksInput.View())
+				sb.WriteString("  enter: search for links | ctrl+z: remove last | tab: next\n")
 			} else {
 				sb.WriteString("  Links: ")
 				if len(m.LinksInput.SelectedParents) > 0 {
