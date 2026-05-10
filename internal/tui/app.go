@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"charm.land/bubbles/v2/list"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"github.com/gjtiquia/vimance/internal/service"
@@ -26,10 +25,9 @@ type Model struct {
 	database    *sql.DB
 	service     *service.Service
 	history     []string
-	inputChain  []string
 	InputType   InputType
 	textInput   textinput.Model
-	listInput   list.Model
+	menuInput   MenuModel
 	RecordInput RecordModel
 	QueryInput  QueryModel
 	Width       int
@@ -41,7 +39,6 @@ func NewModel(database *sql.DB) Model {
 	history := []string{header}
 
 	textInput := textinput.New()
-	listInput := NewUnstyledList()
 	svc := service.New(database)
 	recordInput := NewRecordModel(svc)
 
@@ -50,7 +47,6 @@ func NewModel(database *sql.DB) Model {
 		service:     svc,
 		history:     history,
 		textInput:   textInput,
-		listInput:   listInput,
 		RecordInput: recordInput,
 		QueryInput:  NewQueryModel(svc),
 	}
@@ -76,9 +72,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.Width = msg.Width
 		m.Height = msg.Height
-		if m.InputType == InputTypeQuery {
-			m.QueryInput.SetPageSize(m.Height)
-		}
 	}
 
 	switch m.InputType {
@@ -114,7 +107,7 @@ func (m Model) View() tea.View {
 	case InputTypeText:
 		sb.WriteString(m.textInput.View())
 	case InputTypeList:
-		sb.WriteString(m.listInput.View())
+		sb.WriteString(m.menuInput.View())
 	case InputTypeRecord:
 		sb.WriteString(m.RecordInput.View())
 	case InputTypeQuery:
@@ -122,13 +115,65 @@ func (m Model) View() tea.View {
 			if m.QueryInput.ErrorMsg != "" {
 				sb.WriteString(fmt.Sprintf("Error: %s\n\n", m.QueryInput.ErrorMsg))
 			}
-			sb.WriteString(m.listInput.View())
+			sb.WriteString(m.menuInput.View())
 		} else {
 			sb.WriteString(m.QueryInput.View())
 		}
 	}
 
 	return tea.NewView(sb.String())
+}
+
+func (m Model) EnterListInput() (Model, tea.Cmd) {
+	m.InputType = InputTypeList
+	m.menuInput = NewMenuModel("commands:", []MenuItem{
+		{Title: "create", Desc: "create a new record"},
+		{Title: "query", Desc: "query existing records"},
+	})
+	return m, nil
+}
+
+func (m Model) UpdateListInput(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		switch msg.String() {
+		case "q":
+			return m, tea.Quit
+		case "esc":
+			return m, tea.Quit
+		case "up", "k", "shift+tab":
+			m.menuInput.CursorUp()
+			return m, nil
+		case "down", "j", "tab":
+			m.menuInput.CursorDown()
+			return m, nil
+		case "enter":
+			if item, ok := m.menuInput.SelectedItem(); ok {
+				m.history = append(m.history, m.textInput.Prompt+item.Title+"\n")
+				return m.routeListSelection(item.Title)
+			}
+		default:
+			if n := numberKey(msg.String()); n >= 0 {
+				if m.menuInput.SelectByIndex(n) {
+					if item, ok := m.menuInput.SelectedItem(); ok {
+						m.history = append(m.history, m.textInput.Prompt+item.Title+"\n")
+						return m.routeListSelection(item.Title)
+					}
+				}
+			}
+		}
+	}
+	return m, nil
+}
+
+func (m Model) routeListSelection(title string) (Model, tea.Cmd) {
+	switch title {
+	case "create":
+		return m.EnterRecordInput()
+	case "query":
+		return m.EnterQueryInput()
+	}
+	return m.EnterListInput()
 }
 
 func (m Model) routeBackFromRecord() (Model, tea.Cmd) {
@@ -149,17 +194,12 @@ func (m Model) EnterQueryInput() (Model, tea.Cmd) {
 		m.QueryInput.SetPageSize(m.Height)
 	}
 
-	m.listInput.SetItems([]list.Item{
-		NewListItem("new", "create a new query", "n"),
-		NewListItem("saved", "use a saved query", "s"),
+	m.menuInput = NewMenuModel("query:", []MenuItem{
+		{Title: "new", Desc: "create a new query"},
+		{Title: "saved", Desc: "use a saved query"},
 	})
-	m.listInput.Title = "query:"
-	m.listInput.ResetSelected()
-	listHeight := 2 + 3 + 2 + 1 + 3
-	m.listInput.SetHeight(listHeight)
-	m.listInput.SetFilterText("")
-	m.listInput.SetFilterState(list.Filtering)
 
+	m.QueryInput.State = QueryStateMenu
 	return m, nil
 }
 
@@ -171,44 +211,30 @@ func (m Model) UpdateQueryInput(msg tea.Msg) (Model, tea.Cmd) {
 		case tea.KeyPressMsg:
 			switch msg.String() {
 			case "esc":
-				if m.listInput.FilterState() != list.Filtering {
-					m.QueryInput = NewQueryModel(m.service)
-					return m.EnterListInput()
-				}
-				m.listInput.SetFilterState(list.FilterApplied)
-				m.listInput.Help.ShowAll = true
+				m.QueryInput = NewQueryModel(m.service)
+				return m.EnterListInput()
+			case "up", "k", "shift+tab":
+				m.menuInput.CursorUp()
+				return m, nil
+			case "down", "j", "tab":
+				m.menuInput.CursorDown()
 				return m, nil
 			case "enter":
-				if item, ok := visibleItem(m.listInput); ok {
-					li := item.(ListItem)
-					if li.title == "new" {
-						m.QueryInput.State = QueryStateFilterForm
-						m.QueryInput.ActiveField = FilterDateFrom
-						m.QueryInput.FocusActiveField()
-						return m, nil
-					}
-					if li.title == "saved" {
-						m.QueryInput.loadSavedQueries()
-						return m, nil
+				if item, ok := m.menuInput.SelectedItem(); ok {
+					return m.routeQuerySelection(item.Title)
+				}
+			default:
+				if n := numberKey(msg.String()); n >= 0 {
+					if m.menuInput.SelectByIndex(n) {
+						if item, ok := m.menuInput.SelectedItem(); ok {
+							return m.routeQuerySelection(item.Title)
+						}
 					}
 				}
-			case "up":
-				if m.listInput.FilterState() == list.Filtering {
-					m.listInput.CursorUp()
-				}
-				return m, nil
-			case "down":
-				if m.listInput.FilterState() == list.Filtering {
-					m.listInput.CursorDown()
-				}
-				return m, nil
 			}
 		}
 
-		var cmd tea.Cmd
-		m.listInput, cmd = m.listInput.Update(msg)
-		m.listInput = clampListCursor(m.listInput)
-		return m, cmd
+		return m, nil
 	}
 
 	var cmd tea.Cmd
@@ -229,4 +255,26 @@ func (m Model) UpdateQueryInput(msg tea.Msg) (Model, tea.Cmd) {
 	}
 
 	return m, cmd
+}
+
+func (m Model) routeQuerySelection(title string) (Model, tea.Cmd) {
+	if title == "new" {
+		m.QueryInput.State = QueryStateFilterForm
+		m.QueryInput.ActiveField = FilterDateFrom
+		m.QueryInput.FocusActiveField()
+		return m, nil
+	}
+	if title == "saved" {
+		var cmd tea.Cmd
+		m.QueryInput, cmd = m.QueryInput.loadSavedQueries()
+		return m, cmd
+	}
+	return m, nil
+}
+
+func numberKey(s string) int {
+	if len(s) == 1 && s[0] >= '1' && s[0] <= '9' {
+		return int(s[0] - '1')
+	}
+	return -1
 }

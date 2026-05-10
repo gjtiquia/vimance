@@ -22,12 +22,8 @@ sqlc generate     # regenerate db code
 
 ## ideas
 - tag templates? commonly used group of tags together (or perhaps a whole record template itself)
-- links between records (implemented) for top-down drill-down: balance snapshots → transaction breakdowns. multiple parents supported.
 
 ## todos
-- menus no need type to search, is only useful if there are A LOT of menu items. 
-  but if within 10, can navigate via numbers and arrows, vim-style by default, no insert mode.
-  this makes things much simpler too on the code-side
 - input fields should change appearance based on whether it is focused or not.
   specifically for create record, the date should only "explode" to three fields when either one of the three fields are focused, and collapse into a single date when other fields are focused.
   same with tags / links, should only show the prompt to type when it is focused, and simplify it when its not focused.

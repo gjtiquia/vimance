@@ -3,15 +3,12 @@ package tui
 import (
 	"context"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 	"time"
 
-	"charm.land/bubbles/v2/list"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	"github.com/gjtiquia/vimance/internal/service"
 )
 
@@ -49,8 +46,6 @@ type SavedQueryItem struct {
 	TagIDs     []int64
 }
 
-func (i SavedQueryItem) FilterValue() string { return i.Name }
-
 type QueryModel struct {
 	State         QueryState
 	svc           *service.Service
@@ -64,7 +59,7 @@ type QueryModel struct {
 	ActiveField   FilterField
 	dateToManual  bool
 
-	savedList    list.Model
+	savedList    FilteredListModel
 	savedQueries []SavedQueryItem
 
 	saveNameInput textinput.Model
@@ -116,56 +111,10 @@ func NewQueryModel(svc *service.Service) QueryModel {
 		Tags:          NewTagsModel(svc),
 		Fuzzy:         fuzzy,
 		ActiveField:   FilterDateFrom,
-		savedList:     newSavedQueryList(),
+		savedList:     NewFilteredListModel("saved queries:"),
 		saveNameInput: saveNameInput,
 		pageSize:      10,
 	}
-}
-
-func newSavedQueryList() list.Model {
-	const listWidth = 20
-
-	l := list.New(make([]list.Item, 0), SavedQueryListItemDelegate{}, listWidth, 0)
-	l.Styles = list.Styles{}
-	l.Title = "saved queries:"
-	l.Styles.TitleBar = lipgloss.NewStyle().Padding(1, 0)
-	l.SetShowStatusBar(false)
-	l.FilterInput.Prompt = "type to filter: "
-	l.SetShowHelp(false)
-	l.Help.ShowAll = true
-	l.KeyMap = CustomKeyMap()
-
-	return l
-}
-
-type SavedQueryListItem struct {
-	ID       int64
-	Name     string
-	DateFrom string
-	DateTo   string
-}
-
-func (i SavedQueryListItem) FilterValue() string { return i.Name }
-
-type SavedQueryListItemDelegate struct{}
-
-func (d SavedQueryListItemDelegate) Height() int                             { return 1 }
-func (d SavedQueryListItemDelegate) Spacing() int                            { return 0 }
-func (d SavedQueryListItemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
-func (d SavedQueryListItemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	item, ok := listItem.(SavedQueryListItem)
-	if !ok {
-		return
-	}
-
-	var cursor string
-	if index == m.Index() {
-		cursor = ">"
-	} else {
-		cursor = " "
-	}
-
-	fmt.Fprintf(w, "%s %s  |  %s \u2192 %s\n", cursor, item.Name, item.DateFrom, item.DateTo)
 }
 
 func (m *QueryModel) SetPageSize(height int) {
@@ -243,19 +192,19 @@ func (m QueryModel) Update(msg tea.Msg) (QueryModel, tea.Cmd) {
 	return m, nil
 }
 
-func (m *QueryModel) loadSavedQueries() {
+func (m QueryModel) loadSavedQueries() (QueryModel, tea.Cmd) {
 	saved, err := m.svc.ListSavedQueries(context.Background())
 	if err != nil {
 		m.ErrorMsg = fmt.Sprintf("Failed to load saved queries: %v", err)
 		m.State = QueryStateMenu
-		return
+		return m, nil
 	}
 
 	m.savedQueries = make([]SavedQueryItem, len(saved))
-	items := make([]list.Item, len(saved))
+	items := make([]FilterListItem, len(saved))
 
 	for i, sq := range saved {
-		item := SavedQueryItem{
+		sqItem := SavedQueryItem{
 			ID:        sq.ID,
 			Name:      sq.Name,
 			DateFrom:  sq.DateFrom,
@@ -264,32 +213,28 @@ func (m *QueryModel) loadSavedQueries() {
 		}
 		if sq.CurrencyID.Valid {
 			v := sq.CurrencyID.Int64
-			item.CurrencyID = &v
+			sqItem.CurrencyID = &v
 		}
 
 		tags, err := m.svc.GetSavedQueryTags(context.Background(), sq.ID)
 		if err == nil {
-			item.TagIDs = make([]int64, len(tags))
+			sqItem.TagIDs = make([]int64, len(tags))
 			for j, t := range tags {
-				item.TagIDs[j] = t.ID
+				sqItem.TagIDs[j] = t.ID
 			}
 		}
 
-		m.savedQueries[i] = item
-		items[i] = SavedQueryListItem{
-			ID:       sq.ID,
-			Name:     sq.Name,
-			DateFrom: sq.DateFrom,
-			DateTo:   sq.DateTo,
+		m.savedQueries[i] = sqItem
+		items[i] = FilterListItem{
+			ID:    sq.ID,
+			Title: sq.Name,
+			Desc:  fmt.Sprintf("%s \u2192 %s", sq.DateFrom, sq.DateTo),
 		}
 	}
 
 	m.savedList.SetItems(items)
-	m.savedList.SetFilterText("")
-	m.savedList.SetFilterState(list.Filtering)
-	listHeight := len(items) + 3 + 2 + 1 + 3
-	m.savedList.SetHeight(listHeight)
 	m.State = QueryStateSavedList
+	return m, textinput.Blink
 }
 
 func (m QueryModel) updateSavedList(msg tea.Msg) (QueryModel, tea.Cmd) {
@@ -297,22 +242,21 @@ func (m QueryModel) updateSavedList(msg tea.Msg) (QueryModel, tea.Cmd) {
 	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "enter":
-			if item, ok := visibleItem(m.savedList); ok {
-				sqItem := item.(SavedQueryListItem)
-				m.executeSavedQuery(sqItem.ID)
+			if item, ok := m.savedList.SelectedItem(); ok {
+				m.executeSavedQuery(item.ID)
 			}
 			return m, nil
 		case "d":
-			if item, ok := visibleItem(m.savedList); ok {
-				sqItem := item.(SavedQueryListItem)
+			if item, ok := m.savedList.SelectedItem(); ok {
 				for _, sq := range m.savedQueries {
-					if sq.ID == sqItem.ID {
+					if sq.ID == item.ID {
 						m.DeleteTarget = sq
 						m.State = QueryStateDeleteConfirm
 						return m, nil
 					}
 				}
 			}
+			return m, nil
 		case "esc":
 			m.State = QueryStateMenu
 			return m, nil
@@ -321,7 +265,6 @@ func (m QueryModel) updateSavedList(msg tea.Msg) (QueryModel, tea.Cmd) {
 
 	var cmd tea.Cmd
 	m.savedList, cmd = m.savedList.Update(msg)
-	m.savedList = clampListCursor(m.savedList)
 	return m, cmd
 }
 
@@ -389,8 +332,9 @@ func (m QueryModel) updateDeleteConfirm(msg tea.Msg) (QueryModel, tea.Cmd) {
 			if err := m.svc.DeleteSavedQuery(context.Background(), m.DeleteTarget.ID); err != nil {
 				m.ErrorMsg = fmt.Sprintf("Failed to delete: %v", err)
 			}
-			m.loadSavedQueries()
-			return m, nil
+			var cmd tea.Cmd
+			m, cmd = m.loadSavedQueries()
+			return m, cmd
 		case "n", "N", "esc":
 			m.State = QueryStateSavedList
 			return m, nil
@@ -830,8 +774,7 @@ func (m *QueryModel) viewSavedList() string {
 		sb.WriteString(fmt.Sprintf("Error: %s\n\n", m.ErrorMsg))
 	}
 
-	visibleItems := m.savedList.VisibleItems()
-	if len(visibleItems) == 0 && len(m.savedQueries) == 0 {
+	if len(m.savedList.Items) == 0 && len(m.savedQueries) == 0 {
 		sb.WriteString("No saved queries yet.\n\n")
 		sb.WriteString("Press esc to go back.\n")
 		return sb.String()

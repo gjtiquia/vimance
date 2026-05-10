@@ -59,12 +59,7 @@ func TestModelListToQueryAndBack(t *testing.T) {
 	r, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
 	m = r.(tui.Model)
 	if m.InputType != tui.InputTypeList {
-		// First esc only changes filter state, need a second esc to actually leave
-		r, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
-		m = r.(tui.Model)
-	}
-	if m.InputType != tui.InputTypeList {
-		t.Errorf("expected InputTypeList after two esc presses, got %v", m.InputType)
+		t.Errorf("expected InputTypeList after esc, got %v", m.InputType)
 	}
 }
 
