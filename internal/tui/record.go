@@ -95,10 +95,12 @@ type RecordModel struct {
 	LinksInput    LinksModel
 	NotesInput    textinput.Model
 
-	ConfirmModel ConfirmModel
-	SuccessModel SuccessModel
-	FatalErr     error
-	service      *service.Service
+	ConfirmModel   ConfirmModel
+	SuccessModel   SuccessModel
+	FatalErr       error
+	InlineErrors   map[string]string
+	InlineWarnings map[string]string
+	service        *service.Service
 	Origin       RecordOrigin
 	EditRecordID int64
 }
@@ -148,6 +150,8 @@ func NewRecordModel(svc *service.Service) RecordModel {
 		NotesInput:     notesInput,
 		ConfirmModel:   NewConfirmModel(),
 		SuccessModel:   NewSuccessModel(),
+		InlineErrors:   make(map[string]string),
+		InlineWarnings: make(map[string]string),
 		service:        svc,
 	}
 
@@ -243,11 +247,41 @@ func (m *RecordModel) focusActiveField() {
 	}
 }
 
+func (m *RecordModel) validateCurrentField() {
+	switch m.ActiveField {
+	case FieldDateYear, FieldDateMonth, FieldDateDay:
+		if err := ValidateDate(m.DateYearInput.Value(), m.DateMonthInput.Value(), m.DateDayInput.Value()); err != nil {
+			m.InlineErrors["date"] = err.Error()
+		} else {
+			delete(m.InlineErrors, "date")
+		}
+	case FieldCurrency:
+		if m.CurrencyInput.Selected == nil {
+			m.InlineErrors["currency"] = "currency is required"
+		} else {
+			delete(m.InlineErrors, "currency")
+		}
+	case FieldAmount:
+		if err := ValidateAmount(m.AmountInput.Value()); err != nil {
+			m.InlineErrors["amount"] = err.Error()
+		} else {
+			delete(m.InlineErrors, "amount")
+		}
+	case FieldTags:
+		if len(m.TagsInput.SelectedTags) == 0 {
+			m.InlineWarnings["tags"] = "no tags selected"
+		} else {
+			delete(m.InlineWarnings, "tags")
+		}
+	}
+}
+
 func (m *RecordModel) setActiveField(field ActiveField) {
 	if m.ActiveField == field {
 		return
 	}
 
+	m.validateCurrentField()
 	m.CurrencyInput.ShouldAdvance = false
 
 	switch field {
@@ -572,25 +606,122 @@ func (m RecordModel) viewEditing() string {
 	for _, f := range fieldOrder {
 		switch f {
 		case FieldDateYear:
-			sb.WriteString(m.DateYearInput.View())
-			sb.WriteString("\n")
-		case FieldDateMonth:
-			sb.WriteString(m.DateMonthInput.View())
-			sb.WriteString("\n")
-		case FieldDateDay:
-			sb.WriteString(m.DateDayInput.View())
-			sb.WriteString("\n")
+			if isDateField(m.ActiveField) {
+				prefixY, prefixM, prefixD := "  ", "  ", "  "
+				switch m.ActiveField {
+				case FieldDateYear:
+					prefixY = "> "
+				case FieldDateMonth:
+					prefixM = "> "
+				case FieldDateDay:
+					prefixD = "> "
+				}
+				sb.WriteString(prefixY)
+				sb.WriteString(m.DateYearInput.View())
+				sb.WriteString("\n")
+				sb.WriteString(prefixM)
+				sb.WriteString(m.DateMonthInput.View())
+				sb.WriteString("\n")
+				sb.WriteString(prefixD)
+				sb.WriteString(m.DateDayInput.View())
+				sb.WriteString("\n")
+			} else {
+				sb.WriteString("  Date: ")
+				year := m.DateYearInput.Value()
+				month := m.DateMonthInput.Value()
+				day := m.DateDayInput.Value()
+				if year != "" && month != "" && day != "" {
+					sb.WriteString(FormatDate(year, month, day))
+				} else {
+					sb.WriteString("(empty)")
+				}
+				if errMsg := m.InlineErrors["date"]; errMsg != "" {
+					sb.WriteString(fmt.Sprintf("  ← %s", errMsg))
+				}
+				sb.WriteString("\n")
+			}
+		case FieldDateMonth, FieldDateDay:
+			continue
 		case FieldCurrency:
-			sb.WriteString(m.CurrencyInput.View())
+			if m.ActiveField == FieldCurrency {
+				sb.WriteString("> ")
+				sb.WriteString(m.CurrencyInput.View())
+			} else {
+				sb.WriteString("  Currency: ")
+				if m.CurrencyInput.Selected != nil {
+					sb.WriteString(m.CurrencyInput.Selected.Code)
+					if m.CurrencyInput.Selected.IsNew {
+						sb.WriteString("*")
+					}
+				} else {
+					sb.WriteString("(empty)")
+				}
+				if errMsg := m.InlineErrors["currency"]; errMsg != "" {
+					sb.WriteString(fmt.Sprintf("  ← %s", errMsg))
+				}
+				sb.WriteString("\n")
+			}
 		case FieldTags:
-			sb.WriteString(m.TagsInput.View())
+			if m.ActiveField == FieldTags {
+				sb.WriteString("> ")
+				sb.WriteString(m.TagsInput.View())
+			} else {
+				sb.WriteString("  Tags: ")
+				if len(m.TagsInput.SelectedTags) > 0 {
+					for i, t := range m.TagsInput.SelectedTags {
+						if i > 0 {
+							sb.WriteString(", ")
+						}
+						sb.WriteString(t.Name)
+						if t.IsNew {
+							sb.WriteString("*")
+						}
+					}
+				} else {
+					sb.WriteString("(none)")
+				}
+				if warnMsg := m.InlineWarnings["tags"]; warnMsg != "" {
+					sb.WriteString(fmt.Sprintf("  ⚠ %s", warnMsg))
+				}
+				sb.WriteString("\n")
+			}
 		case FieldAmount:
+			prefix := "  "
+			if m.ActiveField == FieldAmount {
+				prefix = "> "
+			}
+			sb.WriteString(prefix)
 			sb.WriteString(m.AmountInput.View())
+			if errMsg := m.InlineErrors["amount"]; errMsg != "" {
+				sb.WriteString(fmt.Sprintf("  ← %s", errMsg))
+			}
 			sb.WriteString("\n")
 		case FieldLinks:
-			sb.WriteString(m.LinksInput.View())
+			if m.ActiveField == FieldLinks {
+				sb.WriteString("> ")
+				sb.WriteString(m.LinksInput.View())
+			} else {
+				sb.WriteString("  Links: ")
+				if len(m.LinksInput.SelectedParents) > 0 {
+					for i, p := range m.LinksInput.SelectedParents {
+						if i > 0 {
+							sb.WriteString(", ")
+						}
+						sb.WriteString(fmt.Sprintf("[%s]", Truncate(p.Notes, 20)))
+					}
+				} else {
+					sb.WriteString("(none)")
+				}
+				sb.WriteString("\n")
+			}
 		case FieldNotes:
+			prefix := "  "
+			if m.ActiveField == FieldNotes {
+				prefix = "> "
+			}
+			sb.WriteString(prefix)
 			sb.WriteString(m.NotesInput.View())
+			sb.WriteString("\n")
 		}
 	}
 	return sb.String()

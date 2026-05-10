@@ -1,11 +1,19 @@
 package tui_test
 
 import (
+	"regexp"
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/gjtiquia/vimance/internal/tui"
 )
+
+var ansiRe = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+func cleanView(v string) string {
+	return ansiRe.ReplaceAllString(v, "")
+}
 
 func setupRecordModel(t *testing.T) tui.RecordModel {
 	t.Helper()
@@ -232,6 +240,223 @@ func TestRecordModelConfirmEnterNoErrors(t *testing.T) {
 	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if m.State != tui.RecordStateSuccess {
 		t.Errorf("expected RecordStateSuccess, got %v", m.State)
+	}
+}
+
+func TestRecordViewInitialState_DateExpandedOthersCollapsed(t *testing.T) {
+	m := setupRecordModel(t)
+	view := m.View()
+	cv := cleanView(view)
+
+	if !strings.Contains(cv, "> Year:") {
+		t.Error("active Year should have > caret")
+	}
+	if !strings.Contains(cv, "  Month:") {
+		t.Error("unfocused Month should show without caret")
+	}
+	if !strings.Contains(cv, "  Day:") {
+		t.Error("unfocused Day should show without caret")
+	}
+	if strings.Contains(cv, "  Date:") {
+		t.Error("collapsed date line should NOT appear when date is focused")
+	}
+
+	if !strings.Contains(cv, "  Currency:") {
+		t.Error("collapsed Currency should appear")
+	}
+	if !strings.Contains(cv, "  Tags:") {
+		t.Error("collapsed Tags should appear")
+	}
+	if !strings.Contains(cv, "  Links:") {
+		t.Error("collapsed Links should appear")
+	}
+	if !strings.Contains(cv, "  Amount:") {
+		t.Error("collapsed Amount should appear")
+	}
+	if !strings.Contains(cv, "  Notes:") {
+		t.Error("collapsed Notes should appear")
+	}
+
+	// No inline errors at start (no field has been left yet)
+	if strings.Contains(cv, "←") {
+		t.Error("no inline errors should appear at initial state")
+	}
+	if strings.Contains(cv, "⚠") {
+		t.Error("no inline warnings should appear at initial state")
+	}
+}
+
+func TestRecordView_DateCaretMovesWithinGroup(t *testing.T) {
+	m := setupRecordModel(t)
+
+	// Tab from Year to Month
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	cv := cleanView(m.View())
+
+	if !strings.Contains(cv, "  Year:") {
+		t.Error("Year should lose caret after tab")
+	}
+	if !strings.Contains(cv, "> Month:") {
+		t.Error("Month should gain caret after tab")
+	}
+	if !strings.Contains(cv, "  Day:") {
+		t.Error("Day should still show without caret")
+	}
+}
+
+func TestRecordView_DateCollapsesAfterLeaving(t *testing.T) {
+	m := setupRecordModel(t)
+
+	// Tab through all date fields to Currency
+	for i := 0; i < 3; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	if m.ActiveField != tui.FieldCurrency {
+		t.Fatalf("expected FieldCurrency, got %v", m.ActiveField)
+	}
+
+	view := m.View()
+
+	// Date should be collapsed now
+	if !strings.Contains(view, "  Date:") {
+		t.Error("collapsed date line should appear after leaving date fields")
+	}
+	if strings.Contains(view, "> Year:") || strings.Contains(view, "> Month:") || strings.Contains(view, "> Day:") {
+		t.Error("no date fields should have caret after leaving date group")
+	}
+
+	// Currency should be expanded
+	if !strings.Contains(view, "> Currency:") {
+		t.Error("active Currency should have > caret")
+	}
+}
+
+func TestRecordView_TagsExpandedWhenActive(t *testing.T) {
+	m := setupRecordModel(t)
+
+	// Tab through Year, Month, Day to Currency
+	for i := 0; i < 3; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	// Type USD and Enter to auto-advance to Tags
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'U', Text: "U"})
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'S', Text: "S"})
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'D', Text: "D"})
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if m.ActiveField != tui.FieldTags {
+		t.Fatalf("expected FieldTags, got %v", m.ActiveField)
+	}
+
+	view := m.View()
+	if !strings.Contains(view, "> Tags:") {
+		t.Error("active Tags should have > caret")
+	}
+	if !strings.Contains(view, "Type:") {
+		t.Error("expanded Tags should show search input prompt 'Type:'")
+	}
+}
+
+func TestRecordView_AmountShowsCaretWhenActive(t *testing.T) {
+	m := setupRecordModel(t)
+
+	// Tab through Year, Month, Day, Currency, Tags to Amount
+	for i := 0; i < 5; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	if m.ActiveField != tui.FieldAmount {
+		t.Fatalf("expected FieldAmount, got %v", m.ActiveField)
+	}
+
+	cv := cleanView(m.View())
+	if !strings.Contains(cv, "> Amount:") {
+		t.Error("active Amount should have > caret")
+	}
+}
+
+func TestRecordView_CollapsedCurrencyShowsInlineError(t *testing.T) {
+	m := setupRecordModel(t)
+
+	// Tab through all date fields to Currency
+	for i := 0; i < 3; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	// Tab through Currency to Tags (no selection = leaves currency empty)
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+
+	cv := cleanView(m.View())
+	// Currency should show inline error since we left it without selecting
+	if !strings.Contains(cv, "←") {
+		t.Error("expected inline error for currency left empty")
+	}
+}
+
+func TestRecordView_CollapsedTagsShowsInlineWarning(t *testing.T) {
+	m := setupRecordModel(t)
+
+	// Tab all the way to Notes
+	for i := 0; i < 7; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	if m.ActiveField != tui.FieldNotes {
+		t.Fatalf("expected FieldNotes, got %v", m.ActiveField)
+	}
+
+	cv := cleanView(m.View())
+	// Tags should show inline warning since no tags selected
+	if !strings.Contains(cv, "⚠") {
+		t.Error("expected inline warning for empty tags")
+	}
+}
+
+func TestRecordView_LinksCollapsedWhenNotActive(t *testing.T) {
+	m := setupRecordModel(t)
+
+	// Tab all the way to Notes
+	for i := 0; i < 7; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+
+	cv := cleanView(m.View())
+	if !strings.Contains(cv, "  Links:") {
+		t.Error("collapsed Links should appear with label")
+	}
+}
+
+func TestRecordView_ActiveFieldChangesCaret(t *testing.T) {
+	m := setupRecordModel(t)
+
+	// Tab forward checking caret moves
+	for i, expected := range []string{"> Month:", "> Day:", "> Currency:", "> Tags:", "> Amount:", "> Links:", "> Notes:"} {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+		cv := cleanView(m.View())
+		if !strings.Contains(cv, expected) {
+			t.Errorf("step %d: expected %q in view", i, expected)
+		}
+	}
+}
+
+func TestRecordView_CollapsedLinksSummary(t *testing.T) {
+	m := setupRecordModel(t)
+
+	// Tab to Links
+	for i := 0; i < 6; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	if m.ActiveField != tui.FieldLinks {
+		t.Fatalf("expected FieldLinks, got %v", m.ActiveField)
+	}
+
+	cv := cleanView(m.View())
+	if !strings.Contains(cv, "> Links:") {
+		t.Error("active Links should have > caret")
+	}
+
+	// Tab away to Notes
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	cv = cleanView(m.View())
+	if !strings.Contains(cv, "  Links:") {
+		t.Error("collapsed Links should appear with label")
 	}
 }
 
