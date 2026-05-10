@@ -24,14 +24,11 @@ sqlc generate     # regenerate db code
 - tag templates? commonly used group of tags together (or perhaps a whole record template itself)
 
 ## todos
-- input fields should change appearance based on whether it is focused or not.
-  specifically for create record, the date should only "explode" to three fields when either one of the three fields are focused, and collapse into a single date when other fields are focused.
-  same with tags / links, should only show the prompt to type when it is focused, and simplify it when its not focused.
-  simplified in a way that is similar to the confirmation page. and on simplify, perhaps also do validation and show validation errors / warnings.
-  should use the same "focus" language as the menu selection. > carets/cursors basically
-  and since its the same language, main menu should also support tab / shift tab as keybinds.
 - UX on adding links. we should do "queries" within create record flow, 
   basically users can use saved queries or build a temp query to find the record they want to link to
+- show keyboard shortcut hints consistently, and architecture makes sure logic and render wont drift (probably refactor to use keymap in bubbletea?)
+- queries should hv a way to... check trends (+/- how much per month), viewing sums...?
+- develop some concrete user journies (meaning... actually start using it and solve for pain points!)
 
 ## development
 
