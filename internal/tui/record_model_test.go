@@ -245,8 +245,7 @@ func TestRecordModelConfirmEnterNoErrors(t *testing.T) {
 
 func TestRecordViewInitialState_DateExpandedOthersCollapsed(t *testing.T) {
 	m := setupRecordModel(t)
-	view := m.View()
-	cv := cleanView(view)
+	cv := cleanView(m.View())
 
 	if !strings.Contains(cv, "> Year:") {
 		t.Error("active Year should have > caret")
@@ -315,18 +314,18 @@ func TestRecordView_DateCollapsesAfterLeaving(t *testing.T) {
 		t.Fatalf("expected FieldCurrency, got %v", m.ActiveField)
 	}
 
-	view := m.View()
+	cv := cleanView(m.View())
 
 	// Date should be collapsed now
-	if !strings.Contains(view, "  Date:") {
+	if !strings.Contains(cv, "  Date:") {
 		t.Error("collapsed date line should appear after leaving date fields")
 	}
-	if strings.Contains(view, "> Year:") || strings.Contains(view, "> Month:") || strings.Contains(view, "> Day:") {
+	if strings.Contains(cv, "> Year:") || strings.Contains(cv, "> Month:") || strings.Contains(cv, "> Day:") {
 		t.Error("no date fields should have caret after leaving date group")
 	}
 
 	// Currency should be expanded
-	if !strings.Contains(view, "> Currency:") {
+	if !strings.Contains(cv, "> Currency:") {
 		t.Error("active Currency should have > caret")
 	}
 }
@@ -433,6 +432,142 @@ func TestRecordView_ActiveFieldChangesCaret(t *testing.T) {
 		if !strings.Contains(cv, expected) {
 			t.Errorf("step %d: expected %q in view", i, expected)
 		}
+	}
+}
+
+func TestRecordView_CollapsedAmountShowsEmpty(t *testing.T) {
+	m := setupRecordModel(t)
+
+	// Tab through Year, Month, Day, Currency, Tags to Amount
+	for i := 0; i < 5; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	if m.ActiveField != tui.FieldAmount {
+		t.Fatalf("expected FieldAmount, got %v", m.ActiveField)
+	}
+	// Tab to Links (Amount stays empty)
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+
+	cv := cleanView(m.View())
+	if !strings.Contains(cv, "  Amount: (empty)") {
+		t.Error("collapsed empty Amount should show '(empty)', got view:\n" + cv)
+	}
+}
+
+func TestRecordView_CollapsedAmountShowsValue(t *testing.T) {
+	m := setupRecordModel(t)
+
+	// Tab through Year, Month, Day, Currency, Tags to Amount
+	for i := 0; i < 5; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	if m.ActiveField != tui.FieldAmount {
+		t.Fatalf("expected FieldAmount, got %v", m.ActiveField)
+	}
+	// Type a value
+	m, _ = m.Update(tea.KeyPressMsg{Code: '5', Text: "5"})
+	m, _ = m.Update(tea.KeyPressMsg{Code: '0', Text: "0"})
+	// Tab to Links (Amount has value now)
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+
+	cv := cleanView(m.View())
+	if !strings.Contains(cv, "  Amount: 50") {
+		t.Error("collapsed Amount should show value '50', got view:\n" + cv)
+	}
+	// Should NOT contain placeholder
+	if strings.Contains(cv, "0.00") {
+		t.Error("collapsed Amount should not show placeholder '0.00', got view:\n" + cv)
+	}
+}
+
+func TestRecordView_AmountInlineErrorOnlyWhenCollapsed(t *testing.T) {
+	m := setupRecordModel(t)
+
+	// Tab to Amount
+	for i := 0; i < 5; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	if m.ActiveField != tui.FieldAmount {
+		t.Fatalf("expected FieldAmount, got %v", m.ActiveField)
+	}
+	// Tab to Links leaving Amount empty → inline error stored
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	if m.ActiveField != tui.FieldLinks {
+		t.Fatalf("expected FieldLinks, got %v", m.ActiveField)
+	}
+
+	// Collapsed Amount should show inline error
+	cv := cleanView(m.View())
+	if !strings.Contains(cv, "← amount is required") {
+		t.Error("collapsed Amount should show inline error when empty, got:\n" + cv)
+	}
+	if !strings.Contains(cv, "  Amount: (empty)") {
+		t.Error("collapsed Amount should show (empty) with error, got:\n" + cv)
+	}
+
+	// Tab back to Amount
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift})
+	if m.ActiveField != tui.FieldAmount {
+		t.Fatalf("expected FieldAmount back, got %v", m.ActiveField)
+	}
+
+	// Active Amount should NOT show inline error (just caret + textinput)
+	cv = cleanView(m.View())
+	if strings.Contains(cv, "← amount is required") {
+		t.Error("active Amount should NOT show inline error when focused, got:\n" + cv)
+	}
+	if !strings.Contains(cv, "> Amount:") {
+		t.Error("active Amount should show > caret, got:\n" + cv)
+	}
+}
+
+func TestRecordView_CollapsedNotesShowsEmpty(t *testing.T) {
+	m := setupRecordModel(t)
+
+	// Tab all the way to Notes
+	for i := 0; i < 7; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	if m.ActiveField != tui.FieldNotes {
+		t.Fatalf("expected FieldNotes, got %v", m.ActiveField)
+	}
+
+	// Notes is active → should show with caret
+	cv := cleanView(m.View())
+	if !strings.Contains(cv, "> Notes:") {
+		t.Error("active Notes should show > caret, got:\n" + cv)
+	}
+
+	// Can't tab past Notes (it's last), so check its active view instead
+	// Active view should show textinput placeholder but not "(empty)"
+	if strings.Contains(cv, "  Notes:") {
+		t.Error("active Notes should NOT show collapsed format, got:\n" + cv)
+	}
+}
+
+func TestRecordView_CollapsedNotesSummary(t *testing.T) {
+	m := setupRecordModel(t)
+
+	// Tab to Notes
+	for i := 0; i < 7; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	if m.ActiveField != tui.FieldNotes {
+		t.Fatalf("expected FieldNotes, got %v", m.ActiveField)
+	}
+
+	// Type a note
+	m, _ = m.Update(tea.KeyPressMsg{Code: 't', Text: "t"})
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'e', Text: "e"})
+	m, _ = m.Update(tea.KeyPressMsg{Code: 's', Text: "s"})
+	m, _ = m.Update(tea.KeyPressMsg{Code: 't', Text: "t"})
+
+	// Enter to confirm → Notes collapses in confirm state, but for edit view:
+	// Can't tab past Notes to collapse it. But enter goes to confirm.
+	// Instead, test that active Notes shows typed value
+	cv := cleanView(m.View())
+	if !strings.Contains(cv, "> Notes: test") {
+		t.Error("active Notes should show typed value with caret, got:\n" + cv)
 	}
 }
 

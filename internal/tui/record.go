@@ -101,8 +101,8 @@ type RecordModel struct {
 	InlineErrors   map[string]string
 	InlineWarnings map[string]string
 	service        *service.Service
-	Origin       RecordOrigin
-	EditRecordID int64
+	Origin         RecordOrigin
+	EditRecordID   int64
 }
 
 func NewRecordModel(svc *service.Service) RecordModel {
@@ -686,16 +686,23 @@ func (m RecordModel) viewEditing() string {
 				sb.WriteString("\n")
 			}
 		case FieldAmount:
-			prefix := "  "
 			if m.ActiveField == FieldAmount {
-				prefix = "> "
+				sb.WriteString("> ")
+				sb.WriteString(m.AmountInput.View())
+				sb.WriteString("\n")
+			} else {
+				sb.WriteString("  Amount: ")
+				val := strings.TrimSpace(m.AmountInput.Value())
+				if val == "" {
+					sb.WriteString("(empty)")
+				} else {
+					sb.WriteString(val)
+				}
+				if errMsg := m.InlineErrors["amount"]; errMsg != "" {
+					sb.WriteString(fmt.Sprintf("  ← %s", errMsg))
+				}
+				sb.WriteString("\n")
 			}
-			sb.WriteString(prefix)
-			sb.WriteString(m.AmountInput.View())
-			if errMsg := m.InlineErrors["amount"]; errMsg != "" {
-				sb.WriteString(fmt.Sprintf("  ← %s", errMsg))
-			}
-			sb.WriteString("\n")
 		case FieldLinks:
 			if m.ActiveField == FieldLinks {
 				sb.WriteString("> ")
@@ -715,13 +722,20 @@ func (m RecordModel) viewEditing() string {
 				sb.WriteString("\n")
 			}
 		case FieldNotes:
-			prefix := "  "
 			if m.ActiveField == FieldNotes {
-				prefix = "> "
+				sb.WriteString("> ")
+				sb.WriteString(m.NotesInput.View())
+				sb.WriteString("\n")
+			} else {
+				sb.WriteString("  Notes: ")
+				val := strings.TrimSpace(m.NotesInput.Value())
+				if val == "" {
+					sb.WriteString("(empty)")
+				} else {
+					sb.WriteString(val)
+				}
+				sb.WriteString("\n")
 			}
-			sb.WriteString(prefix)
-			sb.WriteString(m.NotesInput.View())
-			sb.WriteString("\n")
 		}
 	}
 	return sb.String()
