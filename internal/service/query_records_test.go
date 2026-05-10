@@ -156,6 +156,27 @@ func TestQueryRecordsEmpty(t *testing.T) {
 	}
 }
 
+func TestQueryRecordsCurrencyIDPopulated(t *testing.T) {
+	s := setupTestService(t)
+
+	user, _ := s.CreateUser(t.Context(), "testuser")
+	usd, _ := s.CreateCurrency(t.Context(), "USD")
+
+	s.CreateRecord(t.Context(), "2026-01-15", 1000, usd.ID, "", user.ID)
+
+	results, err := s.QueryRecords(t.Context(), "2026-01-01", "2026-01-31", nil, nil, "")
+	if err != nil {
+		t.Fatalf("failed to query records: %v", err)
+	}
+
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0].CurrencyID != usd.ID {
+		t.Errorf("expected CurrencyID %d, got %d", usd.ID, results[0].CurrencyID)
+	}
+}
+
 func TestQueryRecordsSortOrder(t *testing.T) {
 	s := setupTestService(t)
 
