@@ -812,3 +812,214 @@ func TestRecordModelLinkPickerDoesNotDuplicateParents(t *testing.T) {
 		t.Errorf("expected 1 parent (duplicate ignored), got %d", len(m.LinksInput.SelectedParents))
 	}
 }
+
+func TestRecordModelCtrlZRemovesLastParentOnLinks(t *testing.T) {
+	m := setupRecordModel(t)
+	for i := 0; i < 6; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	if m.ActiveField != tui.FieldLinks {
+		t.Fatalf("expected FieldLinks, got %v", m.ActiveField)
+	}
+
+	m.LinksInput.AddParent(tui.LinkedRecord{ID: 1, Date: "2026-05-01", Notes: "first"})
+	m.LinksInput.AddParent(tui.LinkedRecord{ID: 2, Date: "2026-05-02", Notes: "second"})
+	if len(m.LinksInput.SelectedParents) != 2 {
+		t.Fatalf("expected 2 parents, got %d", len(m.LinksInput.SelectedParents))
+	}
+
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'z', Mod: tea.ModCtrl})
+	if len(m.LinksInput.SelectedParents) != 1 {
+		t.Fatalf("expected 1 parent after ctrl+z, got %d", len(m.LinksInput.SelectedParents))
+	}
+	if m.LinksInput.SelectedParents[0].ID != 1 {
+		t.Errorf("expected remaining parent ID=1, got %d", m.LinksInput.SelectedParents[0].ID)
+	}
+
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'z', Mod: tea.ModCtrl})
+	if len(m.LinksInput.SelectedParents) != 0 {
+		t.Errorf("expected 0 parents after second ctrl+z, got %d", len(m.LinksInput.SelectedParents))
+	}
+
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'z', Mod: tea.ModCtrl})
+	if len(m.LinksInput.SelectedParents) != 0 {
+		t.Errorf("expected 0 parents after ctrl+z on empty, got %d", len(m.LinksInput.SelectedParents))
+	}
+	if m.ActiveField != tui.FieldLinks {
+		t.Errorf("should remain on FieldLinks after ctrl+z, got %v", m.ActiveField)
+	}
+}
+
+func TestRecordModelLinkPickerConfirmEmptySelection(t *testing.T) {
+	svc := newTestService(t)
+	userID := int64(1)
+	usdID := int64(1)
+	m := tui.NewRecordModel(svc)
+
+	svc.CreateRecord(t.Context(), "2026-05-01", 1000, usdID, "record one", userID)
+	svc.CreateRecord(t.Context(), "2026-05-02", 2000, usdID, "record two", userID)
+
+	m.DateYearInput.SetValue("2026")
+	m.DateMonthInput.SetValue("05")
+
+	for i := 0; i < 6; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	for i := 0; i < 4; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if m.LinkPickerQuery.State != tui.QueryStateResults {
+		t.Fatalf("expected Results, got %v", m.LinkPickerQuery.State)
+	}
+	if len(m.LinkPickerQuery.Results) < 1 {
+		t.Fatalf("expected at least 1 result, got %d", len(m.LinkPickerQuery.Results))
+	}
+
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if m.State != tui.RecordStateEditing {
+		t.Fatalf("expected RecordStateEditing, got %v", m.State)
+	}
+	if m.ActiveField != tui.FieldLinks {
+		t.Errorf("expected FieldLinks, got %v", m.ActiveField)
+	}
+	if len(m.LinksInput.SelectedParents) != 0 {
+		t.Errorf("expected 0 parents from empty selection, got %d", len(m.LinksInput.SelectedParents))
+	}
+}
+
+func TestRecordModelLinkPickerPreFillsDates(t *testing.T) {
+	svc := newTestService(t)
+	m := tui.NewRecordModel(svc)
+
+	m.DateYearInput.SetValue("2026")
+	m.DateMonthInput.SetValue("07")
+
+	for i := 0; i < 6; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if m.LinkPickerQuery.DateFrom.Value() != "2026-07-01" {
+		t.Errorf("expected DateFrom 2026-07-01, got %q", m.LinkPickerQuery.DateFrom.Value())
+	}
+	if m.LinkPickerQuery.DateTo.Value() != "2026-07-31" {
+		t.Errorf("expected DateTo 2026-07-31, got %q", m.LinkPickerQuery.DateTo.Value())
+	}
+}
+
+func TestRecordModelLinkPickerPreservesExistingParents(t *testing.T) {
+	svc := newTestService(t)
+	userID := int64(1)
+	usdID := int64(1)
+	m := tui.NewRecordModel(svc)
+
+	r, _ := svc.CreateRecord(t.Context(), "2026-05-02", 2000, usdID, "second record", userID)
+
+	m.DateYearInput.SetValue("2026")
+	m.DateMonthInput.SetValue("05")
+
+	m.LinksInput.AddParent(tui.LinkedRecord{ID: 99, Date: "2026-04-01", Notes: "manual parent"})
+
+	for i := 0; i < 6; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	for i := 0; i < 4; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if len(m.LinkPickerQuery.Results) < 1 {
+		t.Fatalf("expected at least 1 result, got %d", len(m.LinkPickerQuery.Results))
+	}
+
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if len(m.LinksInput.SelectedParents) != 2 {
+		t.Fatalf("expected 2 parents (manual + picked), got %d", len(m.LinksInput.SelectedParents))
+	}
+
+	foundManual := false
+	foundSeeded := false
+	for _, p := range m.LinksInput.SelectedParents {
+		if p.ID == 99 {
+			foundManual = true
+		}
+		if p.ID == r.ID {
+			foundSeeded = true
+		}
+	}
+	if !foundManual {
+		t.Error("manual parent (ID=99) missing after picker confirm")
+	}
+	if !foundSeeded {
+		t.Error("seeded record missing after picker confirm")
+	}
+}
+
+func TestRecordModelLinkPickerFieldMapping(t *testing.T) {
+	svc := newTestService(t)
+	userID := int64(1)
+	usdID := int64(1)
+	tagFoodID := int64(1)
+	m := tui.NewRecordModel(svc)
+
+	r, _ := svc.CreateRecordWithTagsAndLinks(t.Context(), "2026-05-15", 1500, usdID, "field mapping test", userID, []int64{tagFoodID}, nil)
+
+	m.DateYearInput.SetValue("2026")
+	m.DateMonthInput.SetValue("05")
+
+	for i := 0; i < 6; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	for i := 0; i < 4; i++ {
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if len(m.LinkPickerQuery.Results) < 1 {
+		t.Fatalf("expected at least 1 result, got %d", len(m.LinkPickerQuery.Results))
+	}
+
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if len(m.LinksInput.SelectedParents) != 1 {
+		t.Fatalf("expected 1 parent, got %d", len(m.LinksInput.SelectedParents))
+	}
+
+	p := m.LinksInput.SelectedParents[0]
+	if p.ID != r.ID {
+		t.Errorf("expected ID %d, got %d", r.ID, p.ID)
+	}
+	if p.Date != "2026-05-15" {
+		t.Errorf("expected Date 2026-05-15, got %q", p.Date)
+	}
+	if p.AmountCents != 1500 {
+		t.Errorf("expected AmountCents 1500, got %d", p.AmountCents)
+	}
+	if p.CurrencyID != usdID {
+		t.Errorf("expected CurrencyID %d, got %d", usdID, p.CurrencyID)
+	}
+	if p.Notes != "field mapping test" {
+		t.Errorf("expected Notes 'field mapping test', got %q", p.Notes)
+	}
+	if len(p.TagNames) == 0 || p.TagNames[0] != "food" {
+		t.Errorf("expected TagNames to include 'food', got %v", p.TagNames)
+	}
+}
