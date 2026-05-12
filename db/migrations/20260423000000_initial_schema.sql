@@ -118,6 +118,19 @@ CREATE TABLE saved_query_tags (
     PRIMARY KEY (query_id, tag_id)
 );
 
+CREATE TABLE targets (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    saved_query_id INTEGER NOT NULL REFERENCES saved_queries(id) ON DELETE CASCADE,
+    target_cents INTEGER NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    created_by INTEGER NOT NULL REFERENCES users(id),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_by INTEGER NOT NULL REFERENCES users(id)
+);
+
+CREATE INDEX idx_targets_saved_query_id ON targets(saved_query_id);
+
 -- Indexes for common query patterns
 CREATE INDEX idx_records_date ON records(date);
 CREATE INDEX idx_records_currency_id ON records(currency_id);
@@ -137,6 +150,8 @@ DROP INDEX IF EXISTS idx_records_deleted_at;
 DROP INDEX IF EXISTS idx_records_tags_tag_id;
 DROP INDEX IF EXISTS idx_record_links_child_id;
 DROP INDEX IF EXISTS idx_record_links_parent_id;
+DROP INDEX IF EXISTS idx_targets_saved_query_id;
+DROP TABLE IF EXISTS targets;
 DROP VIEW IF EXISTS active_records;
 DROP VIEW IF EXISTS active_tags;
 DROP VIEW IF EXISTS active_users;

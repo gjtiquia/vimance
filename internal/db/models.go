@@ -121,6 +121,17 @@ type Tag struct {
 	DeletedBy   sql.NullInt64
 }
 
+type Target struct {
+	ID           int64
+	Name         string
+	SavedQueryID int64
+	TargetCents  int64
+	CreatedAt    int64
+	CreatedBy    int64
+	UpdatedAt    int64
+	UpdatedBy    int64
+}
+
 type User struct {
 	ID        int64
 	Username  string
