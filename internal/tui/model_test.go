@@ -123,8 +123,6 @@ func TestModelRecordCreateIntegration(t *testing.T) {
 
 	result, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 	m = result.(tui.Model)
-	result, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
-	m = result.(tui.Model)
 	if m.RecordInput.ActiveField != tui.FieldNotes {
 		t.Fatalf("expected FieldNotes, got %v", m.RecordInput.ActiveField)
 	}
@@ -225,7 +223,7 @@ func TestModelEditFromQueryIntegration(t *testing.T) {
 	}
 
 	// Tab to Notes and confirm
-	for i := 0; i < 7; i++ {
+	for i := 0; i < 6; i++ {
 		r, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 		m = r.(tui.Model)
 	}

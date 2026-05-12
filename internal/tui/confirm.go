@@ -10,11 +10,10 @@ import (
 type RecordState string
 
 const (
-	RecordStateEditing    RecordState = "editing"
-	RecordStateConfirm    RecordState = "confirm"
-	RecordStateSuccess    RecordState = "success"
-	RecordStateFatal      RecordState = "fatal"
-	RecordStateLinkPicker RecordState = "link_picker"
+	RecordStateEditing RecordState = "editing"
+	RecordStateConfirm RecordState = "confirm"
+	RecordStateSuccess RecordState = "success"
+	RecordStateFatal   RecordState = "fatal"
 )
 
 type RecordOrigin string
@@ -91,20 +90,7 @@ func (m ConfirmModel) View(record RecordModel) string {
 	}
 	sb.WriteString("\n")
 
-	sb.WriteString("5) Links: ")
-	if len(record.LinksInput.SelectedParents) == 0 {
-		sb.WriteString("(none)")
-	} else {
-		for i, p := range record.LinksInput.SelectedParents {
-			if i > 0 {
-				sb.WriteString(", ")
-			}
-			sb.WriteString(fmt.Sprintf("[%s]", Truncate(p.Notes, 30)))
-		}
-	}
-	sb.WriteString("\n")
-
-	sb.WriteString(fmt.Sprintf("6) Notes: %s\n", strings.TrimSpace(record.NotesInput.Value())))
+	sb.WriteString(fmt.Sprintf("5) Notes: %s\n", strings.TrimSpace(record.NotesInput.Value())))
 
 	sb.WriteString("\n")
 

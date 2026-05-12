@@ -22,7 +22,6 @@ const (
 	QueryStateSaveName      QueryState = "save_name"
 	QueryStateDeleteConfirm QueryState = "delete_confirm"
 	QueryStateResults       QueryState = "results"
-	QueryStatePickerMenu    QueryState = "picker_menu"
 )
 
 type FilterField int
@@ -73,12 +72,6 @@ type QueryModel struct {
 	ErrorMsg      string
 	ResultsOrigin QueryState
 	DeleteTarget  SavedQueryItem
-
-	PickerMode      bool
-	PickerMenu      MenuModel
-	PickerSelected  []service.QueryResult
-	PickerDone      bool
-	PickerCancelled bool
 }
 
 func NewQueryModel(svc *service.Service) QueryModel {
@@ -121,7 +114,6 @@ func NewQueryModel(svc *service.Service) QueryModel {
 		savedList:     NewFilteredListModel("saved queries:"),
 		saveNameInput: saveNameInput,
 		pageSize:      10,
-		PickerMenu:    NewMenuModel("select records:", []MenuItem{{Title: "new query", Desc: "create a new query to find records"}, {Title: "saved queries", Desc: "use a saved query"}}),
 	}
 }
 
@@ -184,8 +176,6 @@ func (m *QueryModel) currentFilterParams() filterParams {
 
 func (m QueryModel) Update(msg tea.Msg) (QueryModel, tea.Cmd) {
 	switch m.State {
-	case QueryStatePickerMenu:
-		return m.updatePickerMenu(msg)
 	case QueryStateFilterForm:
 		return m.updateFilterForm(msg)
 	case QueryStateConfirm:
@@ -202,58 +192,11 @@ func (m QueryModel) Update(msg tea.Msg) (QueryModel, tea.Cmd) {
 	return m, nil
 }
 
-func (m QueryModel) updatePickerMenu(msg tea.Msg) (QueryModel, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "esc":
-			m.PickerCancelled = true
-			m.PickerDone = true
-			return m, nil
-		case "up", "k", "shift+tab":
-			m.PickerMenu.CursorUp()
-			return m, nil
-		case "down", "j", "tab":
-			m.PickerMenu.CursorDown()
-			return m, nil
-		case "enter":
-			if item, ok := m.PickerMenu.SelectedItem(); ok {
-				return m.routePickerSelection(item.Title)
-			}
-		default:
-			if n := numberKey(msg.String()); n >= 0 {
-				if m.PickerMenu.SelectByIndex(n) {
-					if item, ok := m.PickerMenu.SelectedItem(); ok {
-						return m.routePickerSelection(item.Title)
-					}
-				}
-			}
-		}
-	}
-	return m, nil
-}
-
-func (m QueryModel) routePickerSelection(title string) (QueryModel, tea.Cmd) {
-	if title == "new query" {
-		m.State = QueryStateFilterForm
-		m.setActiveFilterField(FilterDateFrom)
-		return m, nil
-	}
-	if title == "saved queries" {
-		return m.loadSavedQueries()
-	}
-	return m, nil
-}
-
 func (m QueryModel) loadSavedQueries() (QueryModel, tea.Cmd) {
 	saved, err := m.svc.ListSavedQueries(context.Background())
 	if err != nil {
 		m.ErrorMsg = fmt.Sprintf("Failed to load saved queries: %v", err)
-		if m.PickerMode {
-			m.State = QueryStatePickerMenu
-		} else {
-			m.State = QueryStateMenu
-		}
+		m.State = QueryStateMenu
 		return m, nil
 	}
 
@@ -315,11 +258,7 @@ func (m QueryModel) updateSavedList(msg tea.Msg) (QueryModel, tea.Cmd) {
 			}
 			return m, nil
 		case "esc":
-			if m.PickerMode {
-				m.State = QueryStatePickerMenu
-			} else {
-				m.State = QueryStateMenu
-			}
+			m.State = QueryStateMenu
 			return m, nil
 		}
 	}
@@ -491,11 +430,7 @@ func (m QueryModel) updateFilterForm(msg tea.Msg) (QueryModel, tea.Cmd) {
 			} else if m.ActiveField == FilterTags && m.Tags.Mode == TagModeInsert {
 				// let sub-widget handle (toggle mode)
 			} else {
-				if m.PickerMode {
-					m.State = QueryStatePickerMenu
-				} else {
-					m.State = QueryStateMenu
-				}
+				m.State = QueryStateMenu
 				return m, nil
 			}
 		}
@@ -729,30 +664,9 @@ func (m QueryModel) updateResults(msg tea.Msg) (QueryModel, tea.Cmd) {
 				m.CursorIndex = len(m.Results) - 1
 			}
 			return m, nil
-		case "space":
-			if m.PickerMode && len(m.Results) > 0 {
-				result := m.Results[m.CursorIndex]
-				found := false
-				for i, r := range m.PickerSelected {
-					if r.ID == result.ID {
-						m.PickerSelected = append(m.PickerSelected[:i], m.PickerSelected[i+1:]...)
-						found = true
-						break
-					}
-				}
-				if !found {
-					m.PickerSelected = append(m.PickerSelected, result)
-				}
-			}
-			return m, nil
 		case "enter":
 			if len(m.Results) > 0 {
-				if m.PickerMode {
-					m.PickerDone = true
-					m.PickerCancelled = false
-				} else {
-					m.SelectedID = m.Results[m.CursorIndex].ID
-				}
+				m.SelectedID = m.Results[m.CursorIndex].ID
 			}
 			return m, nil
 		case "s":
@@ -777,8 +691,6 @@ func (m QueryModel) updateResults(msg tea.Msg) (QueryModel, tea.Cmd) {
 
 func (m *QueryModel) View() string {
 	switch m.State {
-	case QueryStatePickerMenu:
-		return m.viewPickerMenu()
 	case QueryStateFilterForm:
 		return m.viewFilterForm()
 	case QueryStateConfirm:
@@ -793,16 +705,6 @@ func (m *QueryModel) View() string {
 		return m.viewResults()
 	}
 	return ""
-}
-
-func (m *QueryModel) viewPickerMenu() string {
-	var sb strings.Builder
-	if m.ErrorMsg != "" {
-		sb.WriteString(fmt.Sprintf("Error: %s\n\n", m.ErrorMsg))
-	}
-	sb.WriteString(m.PickerMenu.View())
-	sb.WriteString("\nesc: back to links\n")
-	return sb.String()
 }
 
 func (m *QueryModel) viewFilterForm() string {
@@ -954,23 +856,8 @@ func (m *QueryModel) viewResults() string {
 			cursor = ">"
 		}
 
-		sel := " "
-		if m.PickerMode {
-			sel = " "
-			for _, s := range m.PickerSelected {
-				if s.ID == r.ID {
-					sel = "x"
-					break
-				}
-			}
-		}
-		selPrefix := ""
-		if m.PickerMode {
-			selPrefix = fmt.Sprintf("[%s] ", sel)
-		}
-
-		sb.WriteString(fmt.Sprintf("%s %s%d) %s  %s  %s  %s",
-			cursor, selPrefix, i+1, r.Date, service.FormatCents(r.AmountCents), r.CurrencyCode, Truncate(r.Notes, 30)))
+		sb.WriteString(fmt.Sprintf("%s%d) %s  %s  %s  %s",
+			cursor, i+1, r.Date, service.FormatCents(r.AmountCents), r.CurrencyCode, Truncate(r.Notes, 30)))
 
 		if len(r.TagNames) > 0 {
 			tagsToShow := filterOutFilterTags(r.TagNames, m.Tags.SelectedTags)
@@ -981,11 +868,7 @@ func (m *QueryModel) viewResults() string {
 		sb.WriteString("\n")
 	}
 
-	if m.PickerMode {
-		sb.WriteString("\nj/k: move  |  space: select  |  enter: confirm  |  n/p: page  |  g/G: top/bottom  |  s: save query  |  esc: back\n")
-	} else {
-		sb.WriteString("\nj/k: move  |  n/p: page  |  g/G: top/bottom  |  enter: edit  |  s: save query  |  esc: back\n")
-	}
+	sb.WriteString("\nj/k: move  |  n/p: page  |  g/G: top/bottom  |  enter: edit  |  s: save query  |  esc: back\n")
 
 	return sb.String()
 }
