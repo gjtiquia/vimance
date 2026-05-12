@@ -24,10 +24,7 @@ sqlc generate     # regenerate db code
 - tag templates? commonly used group of tags together (or perhaps a whole record template itself)
 
 ## todos
-- UX on adding links. we should do "queries" within create record flow, 
-  basically users can use saved queries or build a temp query to find the record they want to link to
 - show keyboard shortcut hints consistently, and architecture makes sure logic and render wont drift (probably refactor to use keymap in bubbletea?)
-- queries should hv a way to... check trends (+/- how much per month), viewing sums...?
 - develop some concrete user journies (meaning... actually start using it and solve for pain points!)
 
 ## high-level questions that users should answer
@@ -38,6 +35,34 @@ sqlc generate     # regenerate db code
 - how can i evaluate (ideally daily) if my spending is within the envelop amount i assigned myself? (see envelop / zero-based budgeting)
 - how can i evaluate the performance of my investments? (given that i can also add records of investments, eg. portfolio overall value, individual trades)
 - how can i see the overall trend of my finances? is it growing?
+
+## how it answers those questions
+
+- **aggregation**: query results show total/income/expense and breakdown by tag. press `v` to toggle trend view (monthly/weekly/daily/yearly).
+- **targets**: link a saved query to a target amount. the targets view shows actual vs planned, with `???` for untracked categories (progressive disclosure).
+- **sign convention**: positive amounts = income, negative = expense. `SUM(amount_cents)` answers everything.
+
+## keybinds
+
+### record creation
+- `tab` / `shift+tab` — next/prev field
+- `enter` — advance field / confirm
+- `esc` — back
+
+### query results
+- `j/k` — move cursor
+- `n/p` — page down/up
+- `g/G` — top/bottom
+- `enter` — edit record
+- `s` — save query
+- `v` — toggle trend view (cycles: monthly → weekly → daily → yearly → list)
+- `esc` — back
+
+### targets
+- `j/k` — move cursor
+- `a` — add target
+- `d` — delete target
+- `esc` — back to menu
 
 ## development
 
