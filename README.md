@@ -30,6 +30,15 @@ sqlc generate     # regenerate db code
 - queries should hv a way to... check trends (+/- how much per month), viewing sums...?
 - develop some concrete user journies (meaning... actually start using it and solve for pain points!)
 
+## high-level questions that users should answer
+- how long to save up to x amount of money?
+- how much can i save per month?
+- how much can i invest per month, without being broke, while still being able to travel?
+- how much do i need to allocate/envelop into different categories each month? (credit card, debit card, saving goals, investments)
+- how can i evaluate (ideally daily) if my spending is within the envelop amount i assigned myself? (see envelop / zero-based budgeting)
+- how can i evaluate the performance of my investments? (given that i can also add records of investments, eg. portfolio overall value, individual trades)
+- how can i see the overall trend of my finances? is it growing?
+
 ## development
 
 if you are an agent, please first read AGENTS.md
