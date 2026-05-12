@@ -24,6 +24,13 @@ const (
 	QueryStateResults       QueryState = "results"
 )
 
+type ResultsViewMode string
+
+const (
+	ResultsViewList   ResultsViewMode = "list"
+	ResultsViewTrend  ResultsViewMode = "trend"
+)
+
 type FilterField int
 
 const (
@@ -68,6 +75,11 @@ type QueryModel struct {
 	CursorIndex   int
 	pageSize      int
 
+	Aggregation    *service.AggregationResult
+	PeriodAgg     *service.PeriodAggregationResult
+	ViewMode       ResultsViewMode
+	PeriodGrouping service.PeriodGrouping
+
 	SelectedID    int64
 	ErrorMsg      string
 	ResultsOrigin QueryState
@@ -103,7 +115,7 @@ func NewQueryModel(svc *service.Service) QueryModel {
 	saveNameInput.CharLimit = 64
 
 	return QueryModel{
-		State:         QueryStateMenu,
+		State:          QueryStateMenu,
 		svc:           svc,
 		DateFrom:      dateFrom,
 		DateTo:        dateTo,
@@ -114,6 +126,8 @@ func NewQueryModel(svc *service.Service) QueryModel {
 		savedList:     NewFilteredListModel("saved queries:"),
 		saveNameInput: saveNameInput,
 		pageSize:      10,
+		ViewMode:      ResultsViewList,
+		PeriodGrouping: service.PeriodByMonth,
 	}
 }
 
@@ -138,6 +152,27 @@ func (m *QueryModel) RefreshResults() {
 	}
 	m.Results = results
 	m.CursorIndex = 0
+
+	agg, err := m.svc.Aggregate(context.Background(), params.dateFrom, params.dateTo, params.currencyID, params.tagIDs, params.fuzzy)
+	if err != nil {
+		m.Aggregation = nil
+	} else {
+		m.Aggregation = agg
+	}
+
+	if m.ViewMode == ResultsViewTrend {
+		m.loadPeriodAggregation()
+	}
+}
+
+func (m *QueryModel) loadPeriodAggregation() {
+	params := m.currentFilterParams()
+	periodAgg, err := m.svc.AggregateByPeriod(context.Background(), params.dateFrom, params.dateTo, params.currencyID, params.tagIDs, params.fuzzy, m.PeriodGrouping)
+	if err != nil {
+		m.PeriodAgg = nil
+	} else {
+		m.PeriodAgg = periodAgg
+	}
 }
 
 func (m *QueryModel) setError(msg string) {
@@ -321,6 +356,16 @@ func (m *QueryModel) executeSavedQuery(id int64) {
 	m.Results = results
 	m.CursorIndex = 0
 	m.ResultsOrigin = QueryStateSavedList
+	m.ViewMode = ResultsViewList
+
+	agg, aggErr := m.svc.Aggregate(context.Background(), params.dateFrom, params.dateTo, params.currencyID, params.tagIDs, params.fuzzy)
+	if aggErr != nil {
+		m.Aggregation = nil
+	} else {
+		m.Aggregation = agg
+	}
+	m.PeriodAgg = nil
+
 	m.State = QueryStateResults
 }
 
@@ -571,6 +616,16 @@ func (m QueryModel) updateConfirm(msg tea.Msg) (QueryModel, tea.Cmd) {
 			m.Results = results
 			m.CursorIndex = 0
 			m.ResultsOrigin = QueryStateFilterForm
+			m.ViewMode = ResultsViewList
+
+			agg, aggErr := m.svc.Aggregate(context.Background(), params.dateFrom, params.dateTo, params.currencyID, params.tagIDs, params.fuzzy)
+			if aggErr != nil {
+				m.Aggregation = nil
+			} else {
+				m.Aggregation = agg
+			}
+			m.PeriodAgg = nil
+
 			m.State = QueryStateResults
 			return m, nil
 		case "esc":
@@ -674,6 +729,29 @@ func (m QueryModel) updateResults(msg tea.Msg) (QueryModel, tea.Cmd) {
 				m.saveNameInput.SetValue("")
 				m.State = QueryStateSaveName
 				m.saveNameInput.Focus()
+			}
+			return m, nil
+		case "v":
+			if m.ViewMode == ResultsViewList {
+				m.ViewMode = ResultsViewTrend
+				m.PeriodGrouping = service.PeriodByMonth
+				m.loadPeriodAggregation()
+			} else {
+				switch m.PeriodGrouping {
+				case service.PeriodByMonth:
+					m.PeriodGrouping = service.PeriodByWeek
+				case service.PeriodByWeek:
+					m.PeriodGrouping = service.PeriodByDay
+				case service.PeriodByDay:
+					m.PeriodGrouping = service.PeriodByYear
+				case service.PeriodByYear:
+					m.ViewMode = ResultsViewList
+					m.PeriodAgg = nil
+					return m, nil
+				default:
+					m.PeriodGrouping = service.PeriodByMonth
+				}
+				m.loadPeriodAggregation()
 			}
 			return m, nil
 		case "esc":
@@ -833,15 +911,45 @@ func (m *QueryModel) viewResults() string {
 		return sb.String()
 	}
 
+	if m.ViewMode == ResultsViewTrend {
+		return m.viewResultsTrend()
+	}
+
+	return m.viewResultsList()
+}
+
+func (m *QueryModel) viewResultsList() string {
+	var sb strings.Builder
+
 	if len(m.Results) == 0 {
 		sb.WriteString("No records match the current filters.\n\n")
+		if m.Aggregation != nil && m.Aggregation.HasData {
+			// This shouldn't happen but handle gracefully
+		}
 		sb.WriteString("Press esc to go back to filter form.\n")
 		return sb.String()
 	}
 
-	totalPages := (len(m.Results) + m.pageSize - 1) / m.pageSize
+	// Aggregation summary
+	if m.Aggregation != nil && m.Aggregation.HasData {
+		sb.WriteString(fmt.Sprintf("Total: %s | Income: %s | Expense: %s | %d records\n",
+			service.FormatCents(m.Aggregation.TotalAmount),
+			service.FormatCents(m.Aggregation.IncomeSum),
+			service.FormatCents(m.Aggregation.ExpenseSum),
+			m.Aggregation.RecordCount))
+
+		if len(m.Aggregation.ByTag) > 0 {
+			var tagParts []string
+			for _, ts := range m.Aggregation.ByTag {
+				tagParts = append(tagParts, fmt.Sprintf("%s %s (%d)", ts.TagName, service.FormatCents(ts.Amount), ts.Count))
+			}
+			sb.WriteString(strings.Join(tagParts, " | "))
+			sb.WriteString("\n")
+		}
+		sb.WriteString("\n")
+	}
+
 	currentPage := m.CursorIndex / m.pageSize
-	sb.WriteString(fmt.Sprintf("Page %d/%d  (%d records)\n\n", currentPage+1, totalPages, len(m.Results)))
 
 	pageStart := currentPage * m.pageSize
 	pageEnd := pageStart + m.pageSize
@@ -868,7 +976,39 @@ func (m *QueryModel) viewResults() string {
 		sb.WriteString("\n")
 	}
 
-	sb.WriteString("\nj/k: move  |  n/p: page  |  g/G: top/bottom  |  enter: edit  |  s: save query  |  esc: back\n")
+	sb.WriteString("\nj/k: move | n/p: page | g/G: top/bottom | enter: edit | s: save query | v: trend | esc: back\n")
+
+	return sb.String()
+}
+
+func (m *QueryModel) viewResultsTrend() string {
+	var sb strings.Builder
+
+	if m.PeriodAgg == nil || !m.PeriodAgg.HasData {
+		sb.WriteString("No data for trend view.\n\n")
+		sb.WriteString("Press esc to go back.\n")
+		return sb.String()
+	}
+
+	groupingName := "monthly"
+	switch m.PeriodGrouping {
+	case service.PeriodByDay:
+		groupingName = "daily"
+	case service.PeriodByWeek:
+		groupingName = "weekly"
+	case service.PeriodByYear:
+		groupingName = "yearly"
+	}
+
+	sb.WriteString(fmt.Sprintf("%s Trend (%d records, total: %s)\n", strings.Title(groupingName), m.PeriodAgg.RecordCount, service.FormatCents(m.PeriodAgg.TotalAmount)))
+	sb.WriteString("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n")
+
+	for _, p := range m.PeriodAgg.Periods {
+		sb.WriteString(fmt.Sprintf("%-12s %s (%d)\n", p.Period, service.FormatCents(p.Amount), p.Count))
+	}
+
+	sb.WriteString("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n")
+	sb.WriteString("v: cycle grouping | esc: back to list\n")
 
 	return sb.String()
 }
