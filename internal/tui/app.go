@@ -14,24 +14,26 @@ import (
 type InputType string
 
 const (
-	InputTypeNone   InputType = "none"
-	InputTypeText   InputType = "text"
-	InputTypeList   InputType = "list"
-	InputTypeRecord InputType = "record"
-	InputTypeQuery  InputType = "query"
+	InputTypeNone    InputType = "none"
+	InputTypeText    InputType = "text"
+	InputTypeList    InputType = "list"
+	InputTypeRecord  InputType = "record"
+	InputTypeQuery   InputType = "query"
+	InputTypeTargets InputType = "targets"
 )
 
 type Model struct {
-	database    *sql.DB
-	service     *service.Service
-	history     []string
-	InputType   InputType
-	textInput   textinput.Model
-	menuInput   MenuModel
-	RecordInput RecordModel
-	QueryInput  QueryModel
-	Width       int
-	Height      int
+	database     *sql.DB
+	service      *service.Service
+	history      []string
+	InputType     InputType
+	textInput    textinput.Model
+	menuInput    MenuModel
+	RecordInput  RecordModel
+	QueryInput   QueryModel
+	TargetsInput TargetsModel
+	Width        int
+	Height       int
 }
 
 func NewModel(database *sql.DB) Model {
@@ -43,12 +45,13 @@ func NewModel(database *sql.DB) Model {
 	recordInput := NewRecordModel(svc)
 
 	m := Model{
-		database:    database,
-		service:     svc,
-		history:     history,
-		textInput:   textInput,
-		RecordInput: recordInput,
-		QueryInput:  NewQueryModel(svc),
+		database:     database,
+		service:      svc,
+		history:      history,
+		textInput:    textInput,
+		RecordInput:  recordInput,
+		QueryInput:   NewQueryModel(svc),
+		TargetsInput: NewTargetsModel(svc),
 	}
 
 	m, _ = m.EnterListInput()
@@ -91,6 +94,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.UpdateRecordInput(msg)
 	case InputTypeQuery:
 		return m.UpdateQueryInput(msg)
+	case InputTypeTargets:
+		var cmd tea.Cmd
+		m.TargetsInput, cmd = m.TargetsInput.Update(msg)
+		return m, cmd
 	}
 
 	return m, nil
@@ -119,6 +126,8 @@ func (m Model) View() tea.View {
 		} else {
 			sb.WriteString(m.QueryInput.View())
 		}
+	case InputTypeTargets:
+		sb.WriteString(m.TargetsInput.View())
 	}
 
 	return tea.NewView(sb.String())
@@ -129,6 +138,7 @@ func (m Model) EnterListInput() (Model, tea.Cmd) {
 	m.menuInput = NewMenuModel("commands:", []MenuItem{
 		{Title: "create", Desc: "create a new record"},
 		{Title: "query", Desc: "query existing records"},
+		{Title: "targets", Desc: "view targets vs actuals"},
 	})
 	return m, nil
 }
@@ -172,6 +182,8 @@ func (m Model) routeListSelection(title string) (Model, tea.Cmd) {
 		return m.EnterRecordInput()
 	case "query":
 		return m.EnterQueryInput()
+	case "targets":
+		return m.EnterTargetsInput()
 	}
 	return m.EnterListInput()
 }
@@ -201,6 +213,12 @@ func (m Model) EnterQueryInput() (Model, tea.Cmd) {
 
 	m.QueryInput.State = QueryStateMenu
 	return m, nil
+}
+
+func (m Model) EnterTargetsInput() (Model, tea.Cmd) {
+	m.InputType = InputTypeTargets
+	m.TargetsInput = NewTargetsModel(m.service)
+	return m, m.TargetsInput.loadTargets()
 }
 
 func (m Model) UpdateQueryInput(msg tea.Msg) (Model, tea.Cmd) {
