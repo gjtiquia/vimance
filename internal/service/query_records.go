@@ -12,7 +12,6 @@ type QueryResult struct {
 	ID           int64
 	Date         string
 	AmountCents  int64
-	AmountStr    string
 	CurrencyID   int64
 	CurrencyCode string
 	Notes        string
@@ -144,7 +143,6 @@ func (s *Service) QueryRecords(ctx context.Context, dateFrom, dateTo string, cur
 			ID:           r.ID,
 			Date:         r.Date,
 			AmountCents:  r.AmountCents,
-			AmountStr:    FormatCents(r.AmountCents),
 			CurrencyID:   r.CurrencyID,
 			CurrencyCode: code,
 			Notes:        r.Notes,

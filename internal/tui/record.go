@@ -132,7 +132,7 @@ func NewRecordModel(svc *service.Service) RecordModel {
 	amountInput.Prompt = "Amount: "
 	amountInput.Placeholder = "0.00"
 
-	linksInput := NewLinksModel(svc)
+	linksInput := NewLinksModel()
 
 	notesInput := textinput.New()
 	notesInput.Prompt = "Notes: "
@@ -485,13 +485,13 @@ func (m RecordModel) updateConfirm(msg tea.Msg) (RecordModel, tea.Cmd) {
 			return m, nil
 		case "enter":
 			if !m.ConfirmModel.Errors.HasErrors() {
-			err := m.SaveRecord(context.Background(), 1)
-			if err != nil {
-				m.FatalErr = err
-				fmt.Fprintf(os.Stderr, "fatal: %v\n", err)
-				m.State = RecordStateFatal
-				return m, nil
-			}
+				err := m.SaveRecord(context.Background(), 1)
+				if err != nil {
+					m.FatalErr = err
+					fmt.Fprintf(os.Stderr, "fatal: %v\n", err)
+					m.State = RecordStateFatal
+					return m, nil
+				}
 				m.State = RecordStateSuccess
 				return m, nil
 			}

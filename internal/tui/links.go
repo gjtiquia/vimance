@@ -3,8 +3,6 @@ package tui
 import (
 	"fmt"
 	"strings"
-
-	"github.com/gjtiquia/vimance/internal/service"
 )
 
 type LinkedRecord struct {
@@ -18,13 +16,11 @@ type LinkedRecord struct {
 
 type LinksModel struct {
 	SelectedParents []LinkedRecord
-	service         *service.Service
 }
 
-func NewLinksModel(svc *service.Service) LinksModel {
+func NewLinksModel() LinksModel {
 	return LinksModel{
 		SelectedParents: make([]LinkedRecord, 0),
-		service:         svc,
 	}
 }
 

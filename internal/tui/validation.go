@@ -84,7 +84,13 @@ func Truncate(s string, maxLen int) string {
 }
 
 func FormatDate(year, month, day string) string {
-	return fmt.Sprintf("%s-%s-%s", year, month, day)
+	y, errY := strconv.Atoi(year)
+	m, errM := strconv.Atoi(month)
+	d, errD := strconv.Atoi(day)
+	if errY != nil || errM != nil || errD != nil {
+		return fmt.Sprintf("%s-%s-%s", year, month, day)
+	}
+	return fmt.Sprintf("%04d-%02d-%02d", y, m, d)
 }
 
 type ValidationError struct {
