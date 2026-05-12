@@ -15,6 +15,60 @@ Aggregation and targets are the missing read-layer. Records + tags can represent
 | Aggregation | ❌ NEXT | Computed view of a query (SUM, GROUP BY) |
 | Target    | ❌ After aggregation | "This query's aggregate should be X" |
 
+## User Journey Flows (acceptance criteria)
+
+These are the end-to-end scenarios we identified during gap analysis. Each represents a real user question our app should answer.
+
+### First-time / Onboarding
+
+1. **"I just installed, now what?"** — 0 records, query returns HasData=false, empty target list. App must handle 0→1 gracefully.
+2. **"I only know my bank balance"** — create 1 record (+5000 #checking #snapshot), aggregation valid with count=1.
+
+### Basic Aggregation
+
+3. **"How much did I spend this month?"** — mixed income/expense records, query May, assert TotalAmount, IncomeSum, ExpenseSum, RecordCount, ByTag.
+4. **"Where did my money go?"** — aggregation breakdown by tag, each tag shows correct sum and count.
+5. **"Is my spending growing?"** — records across months, AggregateByPeriod monthly, period sums show trend.
+6. **"Show me weekly spending"** — AggregateByPeriod weekly, ISO week grouping.
+7. **"Compare this month vs last month"** — wide date range, group by month, see two periods side by side.
+
+### Aggregation Edge Cases
+
+8. **"Single record aggregation"** — 1 record, aggregation valid (count=1, sum=amount).
+9. **"All records same tag"** — 10 records all #food, ByTag has one entry with correct sum/count.
+10. **"Record with multiple tags"** — 1 record -$50 tagged #food #dining, both tags show -$50, total is -$50 (no double-counting).
+11. **"No tags on records"** — records with no tags appear under "(untagged)" in ByTag.
+12. **"Same tag, mixed signs"** — #food has +$50 (refund) and -$200 (groceries), tag sum = -$150.
+13. **"Empty query result"** — no records match, HasData=false, TotalAmount=0, empty ByTag.
+
+### Targets — Core
+
+14. **"I want to budget $500/month for food"** — create query (tag: food, date: May), save it, create target (amount: -$500), ListTargetsWithActuals shows food budget actual vs planned.
+15. **"Track a category I haven't started"** — target for #investment but no investment records → HasData=false, ActualAmount=nil, shows "???".
+16. **"Multiple targets at once"** — food, transport, rent, savings targets. Some with data, some without. ListTargetsWithActuals returns all with correct actuals.
+17. **"I want to save $10,000 total"** — target with all-time date range, cumulative sum, not monthly. The query scope defines the period, not the target.
+18. **"Target amount changed mid-month"** — update target amount, previous records unchanged, new actual vs planned shown.
+
+### Targets — Progressive Disclosure
+
+19. **"Target reveals missing data"** — target for #rent shows HasData=false, prompts "you haven't logged rent yet".
+20. **"Add first record to tracked category"** — target was HasData=false, add matching record, now HasData=true, ActualAmount populated.
+
+### Target ↔ Query Drill-Down
+
+21. **"From target to query results"** — target → load its saved query → navigate to query results with those filters → see detailed records.
+22. **"From query results create target"** — execute query → see aggregation → press T → create target from that query.
+
+### Snapshots (Convention-Based)
+
+23. **"Snapshot + transactions"** — record tagged #checking #snapshot +$5000 (May 1), plus May transactions tagged #checking. Query #checking for May. Aggregation includes both. (V1: no special snapshot handling, just summed. Future: detect #snapshot and show differently.)
+
+### Multi-Currency
+
+24. **"Mixed currencies in aggregation"** — $50 USD + 2000 PHP in same query. V1: just sums cents. Future: warn or group by currency.
+
+---
+
 ## Implementation Phases
 
 ### Phase 1: Aggregation Service (TDD)
@@ -89,39 +143,29 @@ func (s *Service) AggregateByPeriod(
 
 Both call `s.QueryRecords()` internally, then aggregate in Go. No new SQL queries. Personal finance datasets are small. Optimize later if needed.
 
-#### Nil vs Zero
+#### Design decisions
 
-- `HasData = false` → no records matched. Target shows `???`.
-- `HasData = true` and `TotalAmount = 0` → records matched but sum to $0.
+- **Nil vs Zero**: `HasData = false` → no records matched. Target shows `???`. `HasData = true` and `TotalAmount = 0` → records matched but sum to $0.
+- **Multi-tag**: record tagged #food + #dining contributes to BOTH tag sums. Tag sums can exceed total. `(untagged)` for records with no tags.
+- **Period grouping**: day = full date, week = ISO week "2026-W02", month = "2026-01", year = "2026". Sorted chronologically.
+- **Mixed currencies**: V1 just sums cents. Future: warn or group by currency.
 
-#### Multi-tag semantics
+#### Service unit tests (TDD order)
 
-Record tagged `#food` + `#dining` contributes to BOTH tag sums. Tag sums can exceed total. Untagged records appear under `(untagged)`.
-
-#### Period grouping
-
-- day: "2026-01-15" (full date)
-- week: "2026-W02" (ISO week, computed)
-- month: "2026-01" (first 7 chars)
-- year: "2026" (first 4 chars)
-
-Sorted chronologically.
-
-#### Integration tests (in order)
-
-1. **TestAggregateTotals** — 5 records (mix income/expense), assert TotalAmount, IncomeSum, ExpenseSum, RecordCount
-2. **TestAggregateByTag** — records with tags, assert ByTag breakdown
-3. **TestAggregateByTag_Untagged** — records without tags appear under "(untagged)"
-4. **TestAggregateByTag_MultiTag** — record with 2 tags contributes to both
-5. **TestAggregateByTag_SameAmountDifferentSigns** — positive and negative in same tag
-6. **TestAggregateEmptyResult** — no match → HasData=false, zero values, empty ByTag
-7. **TestAggregateWithFilters** — date range, currency, tags, fuzzy work with aggregation
-8. **TestAggregateSingleRecord** — one record gives valid aggregation
-9. **TestAggregateByPeriod_Monthly** — 3 months, group by month
-10. **TestAggregateByPeriod_Weekly** — group by ISO week
-11. **TestAggregateByPeriod_Yearly** — group by year
-12. **TestAggregateByPeriod_Daily** — group by day
-13. **TestAggregateByPeriod_Empty** — no records → HasData=false
+1. **TestAggregate_EmptyResult** — no records match, HasData=false, zero values, empty ByTag (flows 1, 13)
+2. **TestAggregate_SingleRecord** — one record, valid aggregation with count=1 (flow 8)
+3. **TestAggregate_Totals_IncomeExpense** — 5 records mix income/expense, assert TotalAmount, IncomeSum, ExpenseSum, RecordCount (flows 1→3)
+4. **TestAggregate_ByTag_Basic** — records with tags, correct breakdown (flow 4)
+5. **TestAggregate_ByTag_SameTag** — all records same tag, one entry (flow 9)
+6. **TestAggregate_ByTag_MultiTag** — record with 2 tags, both get amount, total not double-counted (flow 10)
+7. **TestAggregate_Untagged** — records without tags appear under "(untagged)" (flow 11)
+8. **TestAggregate_ByTag_MixedSigns** — positive and negative in same tag (flow 12)
+9. **TestAggregate_WithFilters** — date range, currency, tags, fuzzy all work (flow variant)
+10. **TestAggregateByPeriod_Monthly** — 3 months, group by month (flows 5, 7)
+11. **TestAggregateByPeriod_Weekly** — ISO week grouping (flow 6)
+12. **TestAggregateByPeriod_Yearly** — group by year
+13. **TestAggregateByPeriod_Daily** — group by day
+14. **TestAggregateByPeriod_Empty** — no records → HasData=false (flow 1 variant)
 
 ---
 
@@ -140,7 +184,7 @@ food -645.00 (2) | rent -2,100.00 (1) | salary +3,500.00 (1) | transport -200.00
 ...
 ```
 
-Key `v` toggles to trend view (period grouping). First press → monthly, cycles: daily → weekly → monthly → yearly → back to list.
+Key `v` toggles to trend view (period grouping). Cycles: daily → weekly → monthly → yearly → back to list.
 
 #### Trend view
 
@@ -154,9 +198,10 @@ Monthly Trend
 v: cycle grouping | esc: back to list
 ```
 
-#### Key `T` (shift+t) creates target from current query
+#### Additional keys in results view
 
-If query is already saved, prompt for name + amount. If not saved, save first then create target.
+- `v` — toggle between list view and trend view (cycles grouping period)
+- `T` (shift+t) — create target from current query (save query if not saved, then prompt name + amount)
 
 #### Implementation
 
@@ -167,19 +212,18 @@ If query is already saved, prompt for name + amount. If not saved, save first th
 
 #### TUI tests
 
-14. **TestQueryResultsShowAggregation** — query returns results, view contains total/income/expense
-15. **TestQueryResultsTrendView** — press `v`, view contains period breakdown
+15. **TestQueryResultsShowAggregation** — query returns results, view contains total/income/expense
+16. **TestQueryResultsTrendView** — press `v`, view contains period breakdown
 
 ---
 
 ### Phase 3: Targets Schema + Service (TDD)
 
-#### New migration: `db/migrations/20260513000000_targets.sql`
+#### Append to existing migration: `db/migrations/20260423000000_initial_schema.sql`
+
+Add targets table to the existing migration file (no prod DB, can modify in place):
 
 ```sql
--- +goose Up
--- +goose StatementBegin
-
 CREATE TABLE targets (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
@@ -190,16 +234,11 @@ CREATE TABLE targets (
     updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
     updated_by INTEGER NOT NULL REFERENCES users(id)
 );
-
--- +goose StatementEnd
-
--- +goose Down
--- +goose StatementBegin
-
-DROP TABLE IF EXISTS targets;
-
--- +goose StatementEnd
 ```
+
+Also add to the Down section: `DROP TABLE IF EXISTS targets;`
+
+Add index: `CREATE INDEX idx_targets_saved_query_id ON targets(saved_query_id);`
 
 #### New sqlc queries: `db/queries/targets.sql`
 
@@ -246,22 +285,44 @@ func (s *Service) GetTargetWithActual(ctx, id) (*TargetWithActual, error)
 func (s *Service) ListTargetsWithActuals(ctx) ([]TargetWithActual, error)
 ```
 
-`GetTargetWithActual`: load target → load saved query → build filters → call Aggregate() → return target + actual.
+`GetTargetWithActual`: load target → load saved query → build filters from saved query → call Aggregate() → return target + actual.
 
-`ListTargetsWithActuals`: same but for all targets.
+`ListTargetsWithActuals`: same for all targets.
 
-#### Target tests: `internal/service/targets_test.go`
+Note: saved queries store tag IDs via `saved_query_tags`. When resolving a target's query for aggregation, need to load the saved query's tags and pass them as `tagIDs` to `Aggregate()`.
 
-16. **TestTargetCRUD** — create, get, list, update, delete
-17. **TestTargetWithActual_HasData** — target + matching records → actual amount populated
-18. **TestTargetWithActual_NoData** — target + no matching records → actual is nil, HasData=false
-19. **TestTargetWithActual_TotalZero** — records match but sum to 0 → HasData=true, ActualAmount points to 0
-20. **TestTargetCascadeDelete** — delete saved query → target cascade-deleted
-21. **TestListTargetsWithActuals** — multiple targets with different actuals
+#### Target service tests: `internal/service/targets_test.go`
+
+17. **TestTarget_CRUD** — create, get, list, update, delete
+18. **TestTarget_WithActual_HasData** — target + matching records → actual amount populated (flow 14)
+19. **TestTarget_WithActual_NoData** — target + no matching records → ActualAmount=nil, HasData=false (flow 15)
+20. **TestTarget_WithActual_TotalZero** — records match but sum to 0 → HasData=true, ActualAmount points to 0
+21. **TestTarget_CascadeDelete** — delete saved query → target cascade-deleted (flow variant)
+22. **TestTarget_ListWithActuals** — multiple targets with different actuals, some with data, some without (flow 16)
+23. **TestTarget_CumulativeScope** — target with all-time date range sums all matching records (flow 17)
+24. **TestTarget_UpdateAmount** — update target amount, verify new amount (flow 18)
 
 ---
 
-### Phase 4: TUI Targets + Home Menu
+### Phase 4: Journey / Integration Tests
+
+These test end-to-end user workflows at the service level, combining aggregation + targets + queries. They're the ultimate acceptance criteria.
+
+New file: `internal/service/journey_test.go`
+
+25. **TestJourney_FirstRecord** — empty DB → query returns HasData=false → create record → query returns HasData=true with valid aggregation (flow 1→2)
+26. **TestJourney_MonthlySpending** — create May records → query May → assert aggregation matches expected totals by tag (flow 3)
+27. **TestJourney_BudgetTracking** — create food records → save query → create target → ListTargetsWithActuals shows actual vs planned → add more food → actual updates (flow 14 full)
+28. **TestJourney_MonthlyTrend** — records across 3 months → AggregateByPeriod(monthly) → assert each month's sum (flow 5)
+29. **TestJourney_ProgressiveDisclosure** — create target for empty category → HasData=false → add record → HasData=true (flows 15, 19, 20)
+30. **TestJourney_MultiTag** — record with 2 tags → aggregation shows amount in both tags, total not double-counted (flow 10)
+31. **TestJourney_MixedCurrencies** — records in USD + PHP → aggregation sums cents regardless of currency (flow 24, V1 behavior)
+32. **TestJourney_TargetFromQuery** — execute query → save query → create target → GetTargetWithActual matches aggregation results (flow 22)
+33. **TestJourney_SnapshotConvention** — record tagged #snapshot + other records → aggregation includes both (flow 23, V1: no special handling)
+
+---
+
+### Phase 5: TUI Targets + Home Menu
 
 #### Modify `internal/tui/app.go`
 
@@ -304,27 +365,34 @@ Targets
 3. Enter target amount (uses ParseAmountToCents)
 4. Save → back to list
 
+#### TUI tests
+
+34. **TestTUI_TargetList** — targets shown with actual vs planned
+35. **TestTUI_TargetCreation** — create target from saved query
+36. **TestTUI_TargetDrillDown** — enter on target navigates to query results (flow 21)
+
 ---
 
-### Phase 5: Links Cleanup (verification)
+### Phase 6: Links Cleanup (verification)
 
-Links are already dormant (not in `fieldOrder`, never used in TUI). Verify no active references. Keep `links.go` file, keep service methods, keep DB schema. No migration needed.
+Links are already dormant (not in `fieldOrder`, never used in TUI). Verify no active references. Keep `links.go` file, keep service methods, keep DB schema. No migration needed. Likely a no-op.
 
 ---
 
 ## File changes summary
 
 ### New files
-- `internal/service/aggregation.go`
-- `internal/service/aggregation_test.go`
-- `internal/service/targets.go`
-- `internal/service/targets_test.go`
-- `db/migrations/20260513000000_targets.sql`
-- `db/queries/targets.sql`
-- `internal/tui/targets.go`
+- `internal/service/aggregation.go` — AggregationResult, TagSum, PeriodSum types + Aggregate(), AggregateByPeriod()
+- `internal/service/aggregation_test.go` — tests 1-14
+- `internal/service/targets.go` — TargetWithActual, CRUD + GetTargetWithActual, ListTargetsWithActuals
+- `internal/service/targets_test.go` — tests 17-24
+- `internal/service/journey_test.go` — tests 25-33
+- `db/queries/targets.sql` — sqlc queries for targets
+- `internal/tui/targets.go` — TargetsModel
 
 ### Modified files
-- `internal/tui/query.go` — ViewMode, aggregation display, trend toggle, target creation
+- `db/migrations/20260423000000_initial_schema.sql` — append targets table
+- `internal/tui/query.go` — ViewMode, aggregation display, trend toggle, target creation shortcut
 - `internal/tui/app.go` — InputTypeTargets, menu item, routing
 - `internal/db/*.go` — regenerated by sqlc
 - `README.md` — update todos
@@ -337,19 +405,21 @@ Links are already dormant (not in `fieldOrder`, never used in TUI). Verify no ac
 
 ## Test execution order
 
-Within each phase: write test → run (fail) → implement → run (pass) → refactor → next test.
+TDD strictly. Write test → run (fail) → implement → run (pass) → refactor → next test.
 
-1. Phase 1: tests 1-13 (aggregation service)
-2. Phase 2: tests 14-15 (TUI aggregation display)
-3. Phase 3: tests 16-21 (targets service)
-4. Phase 4: TUI targets (integration tests)
-5. Phase 5: verify links dormant
+1. Phase 1: tests 1-14 (aggregation service)
+2. Phase 2: tests 15-16 (TUI aggregation display)
+3. Phase 3: tests 17-24 (targets service)
+4. Phase 4: tests 25-33 (journey tests — acceptance criteria)
+5. Phase 5: tests 34-36 (TUI targets)
+6. Phase 6: verify links dormant (no tests needed)
 
 ---
 
 ## Open questions (decide during implementation)
 
-- **Multi-currency aggregation**: V1 just sums cents regardless of currency. Add warning in UI if mixed currencies. Future: per-currency aggregation.
+- **Multi-currency aggregation**: V1 just sums cents regardless of currency. Future: per-currency aggregation or conversion.
 - **Dashboard as home screen**: V1 keeps menu as home. V2 can make targets view the landing screen.
 - **Record soft-delete in TUI**: Not in scope. Service layer supports it.
 - **`amount_cents` naming**: Not renaming in this phase. Could become `amount` in a future refactor.
+- **Snapshot handling**: V1 treats snapshots same as regular records in aggregation. Future: detect #snapshot tag and display differently.
