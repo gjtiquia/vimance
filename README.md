@@ -1,3 +1,7 @@
+> another rewrite! go to https://github.com/gjtiquia/stuf
+
+---
+
 > rewrite in progress...
 >
 > current direction would be hyper-focusing on the workflow first, making things work, then further optimizing later
